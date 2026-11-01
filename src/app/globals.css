@@ -1,0 +1,337 @@
+
+/* ========================================
+   FONT & TAILWIND
+======================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+/* ========================================
+   THEME CONFIGURATION
+======================================== */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Base */
+  --background: #ffffff;
+  --foreground: #17233b;
+
+  /* Brand */
+  --brand: #2457a6;
+  --brand-dark: #183d78;
+  --brand-soft: #eaf1fc;
+
+  /* Accent */
+  --accent: #26a269;
+  --accent-soft: #e9f7ef;
+
+  /* Status */
+  --danger: #dc5555;
+  --warning: #e9a23b;
+
+  /* Neutral */
+  --muted: #667085;
+  --surface: #f7f9fc;
+  --border: #e6eaf0;
+
+  /* Radius */
+  --radius-card: 20px;
+  --radius-button: 12px;
+  --radius: 0.75rem;
+
+  /* Shadcn compatibility */
+  --card: #ffffff;
+  --card-foreground: #17233b;
+  --popover: #ffffff;
+  --popover-foreground: #17233b;
+
+  --primary: #2457a6;
+  --primary-foreground: #ffffff;
+
+  --secondary: #eaf1fc;
+  --secondary-foreground: #183d78;
+
+  --muted-foreground: #667085;
+
+  --accent-foreground: #183d78;
+  --destructive: #dc5555;
+
+  --input: #e6eaf0;
+  --ring: #2457a6;
+}
+
+/* Dark theme */
+.dark {
+  --background: #101827;
+  --foreground: #f4f7fb;
+
+  --card: #172338;
+  --card-foreground: #f4f7fb;
+
+  --popover: #172338;
+  --popover-foreground: #f4f7fb;
+
+  --primary: #78a8f0;
+  --primary-foreground: #101827;
+
+  --secondary: #263752;
+  --secondary-foreground: #eaf1fc;
+
+  --muted: #263752;
+  --muted-foreground: #aab8cc;
+
+  --accent: #263752;
+  --accent-foreground: #eaf1fc;
+
+  --destructive: #ef7777;
+
+  --border: #34445c;
+  --input: #34445c;
+  --ring: #78a8f0;
+}
+
+/* Tailwind v4 + Shadcn theme mapping */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: "Inter", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ========================================
+   GLOBAL RESET & BASE
+======================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+
+  background: var(--background);
+  color: var(--foreground);
+
+  font-family: "Inter", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+}
+
+/* ========================================
+   SHARED UTILITIES
+   Digunakan oleh halaman yang masih
+   menggunakan CSS custom.
+======================================== */
+
+.container {
+  width: min(1160px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.narrow {
+  width: min(100%, 820px);
+  margin-inline: auto;
+}
+
+.full {
+  width: 100%;
+}
+
+/* Typography */
+.heading {
+  color: var(--foreground);
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.heading-1 {
+  font-size: clamp(38px, 5vw, 58px);
+  line-height: 1.13;
+  letter-spacing: -2.5px;
+}
+
+.heading-2 {
+  font-size: clamp(27px, 3vw, 36px);
+  line-height: 1.25;
+  letter-spacing: -1px;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 9px 13px;
+
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.badge-soft {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+/* Shared buttons */
+.button {
+  min-height: 46px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  padding: 0 19px;
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-button);
+
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+}
+
+.button-primary {
+  color: #ffffff;
+  background: var(--brand);
+}
+
+.button-primary:hover {
+  color: #ffffff;
+  background: var(--brand-dark);
+  box-shadow: 0 8px 20px rgb(36 87 166 / 16%);
+}
+
+.button-secondary {
+  color: var(--brand);
+  background: #ffffff;
+  border-color: #cdd9eb;
+}
+
+.button-secondary:hover {
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  border-color: #b9cbe5;
+}
+
+/* Accessibility */
+:focus-visible {
+  outline: 3px solid rgb(36 87 166 / 35%);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes cekin-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+.cekin-float {
+  animation: cekin-float 4s ease-in-out infinite;
+  will-change: transform;
+  }
+
+.cekin-float-delay {
+  animation: cekin-float 4.5s ease-in-out infinite;
+  animation-delay: 1.2s;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cekin-float,
+  .cekin-float-delay {
+    animation: none;
+  }
+}
