@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,15 +10,17 @@ import {
   Phone,
   RefreshCw,
   Search,
-  UserRound,
   Wallet,
   ShieldCheck,
   ArrowLeft,
   Info,
+  Mail,
+  Upload,
+  X,
 } from "lucide-react";
 
 import {
-  analyzeInput,
+  analyzeAnything,
   checkLabels,
   type AnalysisCategory,
   type AnalysisResult,
@@ -29,7 +30,7 @@ const categories = [
   { id: "Pesan / Chat", icon: MessageSquare },
   { id: "URL / Link", icon: Link2 },
   { id: "Nomor Telepon", icon: Phone },
-  { id: "Tawaran Kerja", icon: UserRound },
+  { id: "Cek Kebocoran Email", icon: Mail },
   { id: "Investasi", icon: Wallet },
   { id: "Informasi Lainnya", icon: AlertTriangle },
 ] as const;
@@ -39,24 +40,58 @@ const samples: Record<AnalysisCategory, string> = {
     "Tim keamanan: akun kamu akan diblokir. Kirim OTP sekarang juga untuk verifikasi.",
   "URL / Link": "https://hadiah-bank-verify.xyz/login",
   "Nomor Telepon": "+62 812-0000-991",
-  "Tawaran Kerja":
-    "Kerja part-time dijamin Rp500.000 per hari. Transfer deposit biaya aktivasi sekarang.",
-  Investasi:
+  "Cek Kebocoran Email": "test@test.com",
+  "Investasi":
     "Profit dijamin 30% setiap minggu tanpa risiko. Deposit hanya hari ini.",
-  "Informasi Lainnya":
-    "Sudah banyak yang berhasil. Hubungi Telegram dan bayar langsung sekarang juga.",
+  "Informasi Lainnya": "",
 };
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 type Stage = "form" | "checking" | "result";
 
+function isFileInput(value: string | File): value is File {
+  return typeof value === "object" && value !== null;
+}
+
 export function ThreatCheck() {
-  const [category, setCategory] =
-    useState<AnalysisCategory>("Pesan / Chat");
-  const [input, setInput] = useState("");
+  const [category, setCategory] = useState<AnalysisCategory>("Pesan / Chat");
+  const [input, setInput] = useState<string | File>("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("form");
   const [check, setCheck] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
+  const [activeTip, setActiveTip] = useState(0);
+
+  const tipsAndFacts = [
+    {
+      title: "Permintaan data rahasia",
+      desc: "Lembaga resmi tidak akan pernah meminta OTP, PIN, atau password melalui chat atau telepon.",
+    },
+    {
+      title: "Tekanan dan urgensi",
+      desc: "Penipu sering menciptakan rasa panik agar Anda bertindak cepat tanpa berpikir panjang.",
+    },
+    {
+      title: "Tautan mencurigakan",
+      desc: "Selalu periksa URL. Tautan pendek (bit.ly) atau domain aneh (.xyz) patut dicurigai.",
+    },
+    {
+      title: "Imbal hasil tidak realistis",
+      desc: "Jika tawaran investasi menjamin keuntungan besar tanpa risiko, itu adalah red flag.",
+    },
+    {
+      title: "Klaim identitas palsu",
+      desc: "Verifikasi selalu dari kanal resmi. Jangan percaya jika hanya via chat.",
+    },
+  ];
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   useEffect(() => {
     if (stage !== "checking") return;
@@ -64,33 +99,107 @@ export function ThreatCheck() {
     setCheck(0);
 
     let current = 0;
-
-    const timer = window.setInterval(() => {
+    const animationTimer = window.setInterval(() => {
       current += 1;
       setCheck(current);
-
       if (current >= checkLabels.length) {
-        window.clearInterval(timer);
-        setResult(analyzeInput(input, category));
-        setStage("result");
+        window.clearInterval(animationTimer);
       }
     }, 310);
 
-    return () => window.clearInterval(timer);
+    const fetchAnalysis = async () => {
+      try {
+        let apiUrl = "/api/analyze/chat";
+        let bodyData = { text: input };
+
+        if (category === "Cek Kebocoran Email") {
+          apiUrl = "/api/analyze/email";
+          bodyData = { text: input };
+        } else if (category !== "Pesan / Chat") {
+          setTimeout(() => {
+            setResult(analyzeAnything(input, category));
+            setStage("result");
+          }, 2500);
+          return;
+        }
+
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyData),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Gagal mengambil data dari server");
+        }
+
+        const data = await res.json();
+        
+        setTimeout(() => {
+          setResult(data);
+          setStage("result");
+        }, 500);
+
+      } catch (err: any) {
+        setError(err.message || "Terjadi kesalahan. Silakan coba lagi.");
+        setStage("form");
+      }
+    };
+
+    fetchAnalysis();
+
+    return () => window.clearInterval(animationTimer);
   }, [stage, input, category]);
 
+  useEffect(() => {
+    if (stage !== "checking") return;
+    
+    const interval = setInterval(() => {
+      setActiveTip((prev) => (prev + 1) % tipsAndFacts.length);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [stage, tipsAndFacts.length]);
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [stage]);
+
   function submit() {
-    const value = input.trim();
+    if (category === "Informasi Lainnya") {
+      if (!isFileInput(input)) {
+        setError("Silakan pilih file gambar terlebih dahulu.");
+        return;
+      }
+
+      if (!input.type.startsWith("image/")) {
+        setError("Hanya file gambar (JPG, PNG, WEBP) yang didukung.");
+        return;
+      }
+
+      if (input.size > MAX_FILE_SIZE) {
+        setError("Ukuran file maksimal 5 MB.");
+        return;
+      }
+
+      setError("");
+      setResult(null);
+      setStage("checking");
+      return;
+    }
+
+    const value = typeof input === "string" ? input.trim() : "";
 
     if (value.length < 5) {
       setError("Masukkan informasi yang cukup untuk dianalisis.");
       return;
     }
 
-    if (
-      category === "URL / Link" &&
-      !/^(https?:\/\/|www\.)/i.test(value)
-    ) {
+    if (category === "URL / Link" && !/^(https?:\/\/|www\.)/i.test(value)) {
       setError("Masukkan URL lengkap, misalnya https://contoh.test");
       return;
     }
@@ -109,6 +218,8 @@ export function ThreatCheck() {
   }
 
   function reset() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
     setInput("");
     setResult(null);
     setError("");
@@ -116,113 +227,178 @@ export function ThreatCheck() {
     setStage("form");
   }
 
+  function handleCategoryChange(id: AnalysisCategory) {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setCategory(id);
+    setInput("");
+    setError("");
+  }
+
+  function handleFileChange(file: File | undefined) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Hanya file gambar (JPG, PNG, WEBP) yang didukung.");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Ukuran file maksimal 5 MB.");
+      return;
+    }
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+    setInput(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setError("");
+  }
+
+  function clearFile() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setInput("");
+    setError("");
+  }
+
+  function placeholderForCategory(category: AnalysisCategory) {
+    switch (category) {
+      case "Pesan / Chat":
+        return "Tempel pesan mencurigakan di sini...";
+      case "URL / Link":
+        return "https://alamat-link.test";
+      case "Nomor Telepon":
+        return "+62 812 3456 7890";
+      case "Cek Kebocoran Email":
+        return "johndoe@example.com";
+      case "Investasi":
+        return "Masukkan nama platform, nama aplikasi, atau deskripsi tawaran investasi (contoh: Janji profit 10% seminggu, bot trading X, dsb.";
+      case "Informasi Lainnya":
+        return undefined;
+    }
+  }
+
   if (stage === "checking") {
     return (
-      <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] px-4 py-12 sm:px-6 sm:py-16">
-        <div className="mx-auto max-w-2xl">
-          <div className="flex flex-col items-center py-8 text-center">
-            {/* Scanner Icon */}
-            <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-[28px] border border-[#d7e5fa] bg-[#eaf1fc] text-[#2457a6] shadow-lg shadow-blue-900/5">
-              <Search size={42} />
-              <span className="absolute -inset-2 animate-pulse rounded-[34px] border border-[#2457a6]/20" />
-            </div>
+      <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] px-4 py-12 sm:px-6 sm:py-16 lg:px-8 overflow-hidden flex flex-col justify-center">
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center py-4 text-center sm:py-8">
+          <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-[28px] border border-[#d7e5fa] bg-[#eaf1fc] text-[#2457a6] shadow-lg shadow-blue-900/5">
+            <Search size={42} className="animate-pulse" />
+            <span className="absolute -inset-2 animate-ping rounded-[34px] border border-[#2457a6]/20" />
+            <span className="absolute -inset-4 animate-pulse rounded-[44px] border border-[#2457a6]/10" />
+          </div>
 
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#e9f7ef] px-4 py-2 text-[10px] font-extrabold tracking-wider text-[#18794e]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#26a269]" />
-              SEDANG MENGANALISIS
-            </span>
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#eaf1fc] px-4 py-2 text-[10px] font-extrabold tracking-wider text-[#2457a6]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2457a6]" />
+            MEMPROSES
+          </span>
 
-            <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-[#17233b] sm:text-4xl">
-              Mencari tanda-tanda risiko...
-            </h1>
+          <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-[#17233b] sm:text-4xl">
+            Menganalisis informasi...
+          </h1>
 
-            <p className="mt-3 max-w-md text-sm leading-7 text-[#667085]">
-              Sistem sedang memeriksa informasi berdasarkan sejumlah
-              indikator yang umum ditemukan pada modus penipuan.
-            </p>
+          <p className="mt-3 max-w-md text-sm leading-7 text-[#667085]">
+            Sistem sedang memproses data berdasarkan indikator risiko yang
+            tersedia. Mohon tunggu sebentar.
+          </p>
 
-            {/* Checking Steps */}
-            <div className="mt-9 w-full rounded-2xl border border-[#e6eaf0] bg-white p-4 text-left shadow-sm sm:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-[#17233b]">
-                  Tahapan pemeriksaan
-                </h2>
-                <span className="text-xs font-semibold tabular-nums text-[#667085]">
-                  {Math.min(check, checkLabels.length)} / {checkLabels.length}
-                </span>
-              </div>
-
-              <div className="mb-5 h-2 overflow-hidden rounded-full bg-[#edf1f6]">
-                <div
-                  className="h-full rounded-full bg-[#2457a6] transition-all duration-300"
-                  style={{
-                    width: `${
-                      (Math.min(check, checkLabels.length) /
-                        checkLabels.length) *
-                      100
-                    }%`,
-                  }}
-                />
-              </div>
-
-              <div className="divide-y divide-[#edf0f5]">
-                {checkLabels.map((label, index) => {
-                  const isDone = index < check;
-                  const isActive = index === check;
-
-                  return (
-                    <div
-                      className="flex min-h-[58px] items-center gap-3 py-3"
-                      key={label}
-                    >
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                          isDone
-                            ? "bg-[#e9f7ef] text-[#18794e]"
-                            : isActive
-                              ? "bg-[#eaf1fc] text-[#2457a6]"
-                              : "bg-[#f2f4f7] text-[#98a2b3]"
-                        }`}
-                      >
-                        {isDone ? (
-                          <Check size={17} />
-                        ) : isActive ? (
-                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#2457a6] border-t-transparent" />
-                        ) : (
-                          <span className="h-2 w-2 rounded-full bg-current" />
-                        )}
-                      </span>
-
-                      <strong className="min-w-0 flex-1 text-xs font-semibold text-[#344054]">
-                        {label}
-                      </strong>
-
-                      <span className="text-[10px] font-medium text-[#667085]">
-                        {isDone
-                          ? "Selesai"
-                          : isActive
-                            ? "Memeriksa"
-                            : "Menunggu"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-start gap-2 rounded-xl border border-[#e6eaf0] bg-white p-4 text-left">
-              <LockKeyhole
-                size={17}
-                className="mt-0.5 shrink-0 text-[#2457a6]"
+          <div className="mt-8 w-full max-w-md">
+            <div className="h-2 overflow-hidden rounded-full bg-[#edf1f6]">
+              <div
+                className="h-full rounded-full bg-linear-to-r from-[#2457a6] via-[#3b73c9] to-[#2457a6] bg-size-[200%_100%] transition-all duration-300 animate-shimmer"
+                style={{
+                  width: `${
+                    (Math.min(check, checkLabels.length) / checkLabels.length) *
+                    100
+                  }%`,
+                }}
               />
-              <p className="text-[11px] leading-6 text-[#667085]">
-                Pemeriksaan dilakukan di browser berdasarkan aturan
-                analisis prototype. Isi yang kamu masukkan tidak
-                disimpan oleh komponen ini.
-              </p>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-[#667085]">
+              <span>Memproses</span>
+              <span className="tabular-nums">
+                {Math.round(
+                  (Math.min(check, checkLabels.length) / checkLabels.length) *
+                    100
+                )}
+                %
+              </span>
             </div>
           </div>
         </div>
+
+        {/* CAROUSEL SECTION */}
+        <div className="relative w-full max-w-4xl mx-auto mt-8 pb-10">
+          <div className="mb-6 text-center">
+            <span className="text-[10px] font-extrabold tracking-wider text-[#2457a6]">
+              TIPS & FAKTA PENIPUAN
+            </span>
+          </div>
+
+          {/* Container Carousel dengan Efek Vignette Kiri Kanan */}
+          <div 
+            className="relative w-full h-50 flex items-center justify-center perspective-[1000px]"
+            style={{
+              maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)',
+              WebkitMaskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)'
+            }}
+          >
+            {tipsAndFacts.map((tip, i) => {
+              // Menghitung posisi relatif terhadap activeTip
+              let offset = i - activeTip;
+              const len = tipsAndFacts.length;
+              // Logika agar carousel berputar (looping)
+              if (offset < -Math.floor(len / 2)) offset += len;
+              if (offset > Math.floor(len / 2)) offset -= len;
+
+              const isCenter = offset === 0;
+              const isLeft = offset === -1;
+              const isRight = offset === 1;
+
+              // Sembunyikan card yang posisinya jauh (di luar 3 card yang terlihat)
+              if (Math.abs(offset) > 1) return null;
+
+              return (
+                <div
+                  key={tip.title}
+                  className="absolute w-70 sm:w-[320px] transition-all duration-500 ease-out"
+                  style={{
+                    transform: `
+                      translateX(${offset * 55}%) 
+                      translateZ(${isCenter ? 0 : -120}px) 
+                      rotateY(${offset * 25}deg)
+                    `,
+                    zIndex: isCenter ? 30 : 20,
+                    opacity: isCenter ? 1 : 0.6,
+                  }}
+                >
+                  <div className={`rounded-2xl border p-5 text-left shadow-xl transition-colors duration-300 ${
+                    isCenter 
+                      ? "bg-white border-[#2457a6]" 
+                      : "bg-[#f7f9fc] border-[#e6eaf0]"
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                        isCenter ? "bg-[#eaf1fc] text-[#2457a6]" : "bg-[#e6eaf0] text-[#98a2b3]"
+                      }`}>
+                        <AlertTriangle size={16} />
+                      </span>
+                      <div>
+                        <h3 className={`text-sm font-bold ${isCenter ? "text-[#17233b]" : "text-[#667085]"}`}>
+                          {tip.title}
+                        </h3>
+                        <p className={`mt-2 text-[11px] leading-5 ${isCenter ? "text-[#667085]" : "text-[#98a2b3]"}`}>
+                          {tip.desc}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>  
       </section>
     );
   }
@@ -234,7 +410,6 @@ export function ThreatCheck() {
   return (
     <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="mx-auto max-w-3xl">
-        {/* Page Introduction */}
         <div className="mb-9 text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#e9f7ef] px-4 py-2 text-[10px] font-extrabold tracking-wider text-[#18794e]">
             <ShieldCheck size={14} />
@@ -246,14 +421,12 @@ export function ThreatCheck() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#667085] sm:text-base">
-            Masukkan informasi yang mencurigakan. Kami bantu periksa
-            tanda-tanda risiko yang mungkin perlu kamu waspadai.
+            Masukkan informasi yang mencurigakan. Kami bantu periksa tanda-tanda
+            risiko yang mungkin perlu kamu waspadai.
           </p>
         </div>
 
-        {/* Main Form */}
         <div className="rounded-2xl border border-[#e6eaf0] bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-8">
-          {/* Step 1 */}
           <div className="mb-5 flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2457a6] text-sm font-extrabold text-white">
               1
@@ -269,7 +442,6 @@ export function ThreatCheck() {
             </div>
           </div>
 
-          {/* Categories */}
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
             {categories.map(({ id, icon: Icon }) => {
               const isActive = category === id;
@@ -278,13 +450,9 @@ export function ThreatCheck() {
                 <button
                   type="button"
                   key={id}
-                  onClick={() => {
-                    setCategory(id);
-                    setInput("");
-                    setError("");
-                  }}
+                  onClick={() => handleCategoryChange(id)}
                   aria-pressed={isActive}
-                  className={`relative flex min-h-[88px] flex-col items-start justify-center gap-2 rounded-xl border p-3.5 text-left transition-all duration-200 sm:min-h-[96px] sm:p-4 ${
+                  className={`relative flex min-h-22 flex-col items-start justify-center gap-2 rounded-xl border p-3.5 text-left transition-all duration-200 sm:min-h-24 sm:p-4 ${
                     isActive
                       ? "border-[#2457a6] bg-[#eaf1fc] text-[#2457a6] shadow-sm"
                       : "border-[#e6eaf0] bg-white text-[#667085] hover:border-[#b9cbe5] hover:bg-[#f7f9fc]"
@@ -308,7 +476,6 @@ export function ThreatCheck() {
 
           <div className="my-8 h-px bg-[#e6eaf0]" />
 
-          {/* Step 2 */}
           <div className="mb-5 flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2457a6] text-sm font-extrabold text-white">
               2
@@ -316,64 +483,113 @@ export function ThreatCheck() {
 
             <div>
               <h2 className="text-base font-bold text-[#17233b]">
-                Masukkan informasi
+                {category === "Informasi Lainnya"
+                  ? "Upload gambar"
+                  : "Masukkan informasi"}
               </h2>
               <p className="mt-1 text-xs leading-5 text-[#667085]">
-                Tempel atau tuliskan informasi yang ingin diperiksa.
+                {category === "Informasi Lainnya"
+                  ? "Unggah tangkapan layar atau gambar yang ingin diperiksa."
+                  : "Tempel atau tuliskan informasi yang ingin diperiksa."}
               </p>
             </div>
           </div>
 
-          {/* Input */}
-          {category === "URL / Link" ||
-          category === "Nomor Telepon" ? (
-            <input
-              type="text"
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                setError("");
-              }}
-              placeholder={
-                category === "URL / Link"
-                  ? "https://alamat-link.test"
-                  : "+62 812 3456 7890"
-              }
-              aria-label={`Masukkan ${category}`}
-              className="min-h-14 w-full rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
-            />
+          {category === "Informasi Lainnya" ? (
+            <div>
+              <label
+                htmlFor="file-upload"
+                className="flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#c7d4e5] bg-[#f7f9fc] px-4 py-3 text-sm text-[#667085] transition hover:border-[#2457a6] hover:bg-[#eaf1fc] focus-within:border-[#2457a6] focus-within:ring-4 focus-within:ring-[#2457a6]/10"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2457a6] text-white">
+                  <Upload size={17} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#17233b]">
+                  {isFileInput(input) ? input.name : "Pilih file gambar..."}
+                </span>
+                <span className="rounded-lg bg-[#2457a6] px-3 py-1.5 text-[11px] font-bold text-white">
+                  Browse
+                </span>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => handleFileChange(event.target.files?.[0])}
+                />
+              </label>
+
+              {previewUrl && (
+                <div className="relative mt-3 overflow-hidden rounded-xl border border-[#e6eaf0] bg-white">
+                  <img
+                    src={previewUrl}
+                    alt="Preview gambar"
+                    className="max-h-72 w-full object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearFile}
+                    aria-label="Hapus gambar"
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white transition hover:bg-black/80"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
+
+              <p className="mt-2 text-[10px] leading-5 text-[#98a2b3]">
+                Format: JPG, PNG, WEBP. Maksimal 5 MB.
+              </p>
+            </div>
           ) : (
-            <textarea
-              value={input}
-              onChange={(event) => {
-                setInput(event.target.value);
-                setError("");
-              }}
-              placeholder={
-                category === "Pesan / Chat"
-                  ? "Tempel pesan mencurigakan di sini..."
-                  : "Jelaskan tawaran atau informasi yang ingin diperiksa..."
-              }
-              aria-label={`Masukkan ${category}`}
-              rows={6}
-              className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
-            />
+            <>
+              {category === "URL / Link" ||
+              category === "Nomor Telepon" ||
+              category === "Cek Kebocoran Email" ? (
+                <input
+                  type="text"
+                  value={typeof input === "string" ? input : ""}
+                  onChange={(event) => {
+                    setInput(event.target.value);
+                    setError("");
+                  }}
+                  placeholder={
+                    placeholderForCategory(category) ||
+                    "Masukkan informasi di sini..."
+                  }
+                  aria-label={`Masukkan ${category}`}
+                  className="min-h-14 w-full rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+                />
+              ) : (
+                <textarea
+                  value={typeof input === "string" ? input : ""}
+                  onChange={(event) => {
+                    setInput(event.target.value);
+                    setError("");
+                  }}
+                  placeholder={
+                    placeholderForCategory(category)
+                  }
+                  aria-label={`Masukkan ${category}`}
+                  rows={6}
+                  className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInput(samples[category]);
+                  setError("");
+                }}
+                className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#eaf1fc] px-3 py-2 text-[11px] font-bold text-[#2457a6] transition hover:bg-[#dce9fb]"
+              >
+                <RefreshCw size={14} />
+                Gunakan contoh
+              </button>
+            </>
           )}
 
-          {/* Sample Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setInput(samples[category]);
-              setError("");
-            }}
-            className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#eaf1fc] px-3 py-2 text-[11px] font-bold text-[#2457a6] transition hover:bg-[#dce9fb]"
-          >
-            <RefreshCw size={14} />
-            Gunakan contoh
-          </button>
-
-          {/* Error */}
           {error && (
             <div
               role="alert"
@@ -384,19 +600,14 @@ export function ThreatCheck() {
             </div>
           )}
 
-          {/* Privacy Note */}
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-[#e6edf6] bg-[#f5f8fc] p-4">
-            <LockKeyhole
-              size={18}
-              className="mt-0.5 shrink-0 text-[#2457a6]"
-            />
+            <LockKeyhole size={18} className="mt-0.5 shrink-0 text-[#2457a6]" />
             <p className="text-[11px] leading-6 text-[#64748b]">
-              Jangan masukkan password, PIN, OTP, nomor identitas,
-              atau informasi pribadi yang sangat sensitif.
+              Jangan masukkan password, PIN, OTP, nomor identitas, atau
+              informasi pribadi yang sangat sensitif.
             </p>
           </div>
 
-          {/* Submit */}
           <button
             type="button"
             onClick={submit}
@@ -407,8 +618,8 @@ export function ThreatCheck() {
           </button>
 
           <p className="mt-3 text-center text-[10px] leading-5 text-[#98a2b3]">
-            Analisis ini merupakan pemeriksaan awal berbasis aturan,
-            bukan verifikasi resmi.
+            Analisis ini merupakan pemeriksaan awal berbasis aturan, bukan
+            verifikasi resmi.
           </p>
         </div>
       </div>
@@ -464,7 +675,6 @@ function RiskResult({
   return (
     <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-5 sm:gap-6">
-        {/* Back Button */}
         <button
           type="button"
           onClick={reset}
@@ -474,7 +684,6 @@ function RiskResult({
           Kembali ke pemeriksaan
         </button>
 
-        {/* Risk Summary */}
         <div
           className={`flex flex-col gap-7 rounded-2xl border p-5 sm:flex-row sm:items-center sm:justify-between sm:p-8 ${style.wrapper}`}
         >
@@ -493,13 +702,12 @@ function RiskResult({
             </h1>
 
             <p className="mt-3 max-w-lg text-xs leading-7 text-[#667085]">
-              Skor ini adalah indikator heuristik, bukan probabilitas
-              atau bukti bahwa informasi pasti penipuan. Gunakan hasil
-              ini sebagai pemeriksaan awal.
+              Skor ini adalah indikator heuristik, bukan probabilitas atau bukti
+              bahwa informasi pasti penipuan. Gunakan hasil ini sebagai
+              pemeriksaan awal.
             </p>
           </div>
 
-          {/* Score */}
           <div
             className="relative mx-auto flex h-32 w-32 shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-36 sm:w-36"
             style={{
@@ -513,7 +721,7 @@ function RiskResult({
             }}
             aria-label={`Skor risiko ${result.score} dari 100`}
           >
-            <div className="absolute inset-[9px] flex flex-col items-center justify-center rounded-full bg-white">
+            <div className="absolute inset-2.25 flex flex-col items-center justify-center rounded-full bg-white">
               <span className="text-3xl font-extrabold tracking-tight text-[#17233b]">
                 {result.score}
               </span>
@@ -524,7 +732,6 @@ function RiskResult({
           </div>
         </div>
 
-        {/* Result Facts */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-[#e6eaf0] bg-white p-4">
             <span className="text-[10px] font-medium text-[#667085]">
@@ -554,7 +761,6 @@ function RiskResult({
           </div>
         </div>
 
-        {/* Findings */}
         {result.findings.length > 0 ? (
           <div>
             <div className="mb-5">
@@ -568,8 +774,8 @@ function RiskResult({
               </h2>
 
               <p className="mt-2 text-xs leading-6 text-[#667085]">
-                Berikut beberapa indikator yang terdeteksi dari
-                informasi yang kamu masukkan.
+                Berikut beberapa indikator yang terdeteksi dari informasi yang
+                kamu masukkan.
               </p>
             </div>
 
@@ -635,28 +841,23 @@ function RiskResult({
                 Tidak ada indikator kuat dari aturan prototype
               </h3>
               <p className="mt-2 text-xs leading-7 text-[#667085]">
-                Tetap periksa identitas, konteks, dan kanal pengirim
-                sebelum bertindak. Tidak ditemukannya indikator bukan
-                berarti informasi pasti aman.
+                Tetap periksa identitas, konteks, dan kanal pengirim sebelum
+                bertindak. Tidak ditemukannya indikator bukan berarti informasi
+                pasti aman.
               </p>
             </div>
           </div>
         )}
 
-        {/* Result Disclaimer */}
         <div className="flex items-start gap-3 rounded-xl border border-[#e6eaf0] bg-white p-4">
-          <AlertTriangle
-            size={17}
-            className="mt-0.5 shrink-0 text-[#c58a2b]"
-          />
+          <AlertTriangle size={17} className="mt-0.5 shrink-0 text-[#c58a2b]" />
           <p className="text-[11px] leading-6 text-[#667085]">
-            Hasil pemeriksaan ini merupakan alat bantu edukasi dan
-            tidak menggantikan verifikasi dari pihak berwenang atau
-            penyedia layanan terkait.
+            Hasil pemeriksaan ini merupakan alat bantu edukasi dan tidak
+            menggantikan verifikasi dari pihak berwenang atau penyedia layanan
+            terkait.
           </p>
         </div>
 
-        {/* Reset */}
         <button
           type="button"
           onClick={reset}
