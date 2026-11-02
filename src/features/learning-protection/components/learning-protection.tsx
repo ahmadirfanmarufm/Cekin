@@ -16,7 +16,21 @@ import {
   Shield,
   Clock3,
   Sparkles,
+  LogOut,
+  Trophy,
+  Zap,
+  UserRound,
 } from "lucide-react";
+
+import { getLevelInfo } from "@/features/auth/utils/level";
+
+interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  totalXp: number;
+  completedSimulations: string[];
+}
 
 const experiences = [
   {
@@ -122,6 +136,53 @@ const colorStyles = {
 
 export function LearningProtection() {
   const [completed, setCompleted] = useState<string[]>([]);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (!active) return;
+
+        setUser(data.user);
+
+        if (data.user?.completedSimulations) {
+          setCompleted(data.user.completedSimulations);
+        }
+      } catch {
+        if (active) setUser(null);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    };
+
+    const handleAuthChange = () => {
+      void fetchUser();
+    };
+
+    void fetchUser();
+
+    window.addEventListener("cekin-auth-change", handleAuthChange);
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        "cekin-auth-change",
+        handleAuthChange
+      );
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -142,6 +203,26 @@ export function LearningProtection() {
     }
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+
+      if (!response.ok) {
+        throw new Error("Logout gagal.");
+      }
+
+      setUser(null);
+      setCompleted([]);
+
+      window.dispatchEvent(new Event("cekin-auth-change"));
+    } catch {
+      alert("Gagal logout. Silakan coba kembali.");
+    }
+  };
+
   return (
     <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="mx-auto max-w-6xl">
@@ -161,6 +242,86 @@ export function LearningProtection() {
             penipuan dalam simulasi yang aman dan interaktif.
           </p>
         </div>
+
+        {/* User Level Card */}
+        {!authLoading && user && (() => {
+          const level = getLevelInfo(user.totalXp);
+
+          return (
+            <div className="mb-8 overflow-hidden rounded-2xl border border-[#dcebe3] bg-white shadow-sm">
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e9f7ef] text-[#21875d]">
+                    <UserRound size={24} />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-[#667085]">
+                      Selamat belajar,
+                    </p>
+
+                    <h2 className="text-lg font-extrabold text-[#17233b]">
+                      {user.username}
+                    </h2>
+
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#e9f7ef] px-2.5 py-1 text-[10px] font-bold text-[#18794e]">
+                      <Trophy size={12} />
+                      Level {level.level} · {level.name}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-[#f4f8ff] px-4 py-3">
+                    <p className="text-[10px] font-bold text-[#667085]">
+                      TOTAL XP
+                    </p>
+
+                    <p className="mt-1 flex items-center gap-1 text-xl font-extrabold text-[#2457a6]">
+                      <Zap size={17} />
+                      {user.totalXp}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#e6eaf0] text-[#667085] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    aria-label="Logout"
+                    title="Logout"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-[#edf0f5] px-5 py-4 sm:px-6">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-[#52627a]">
+                    Progress Level
+                  </span>
+
+                  <span className="text-xs font-bold text-[#2457a6]">
+                    {level.progress.toFixed(0)}%
+                  </span>
+                </div>
+
+                <div className="h-2 overflow-hidden rounded-full bg-[#edf1f6]">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#2457a6] to-[#26a269] transition-all duration-500"
+                    style={{ width: `${level.progress}%` }}
+                  />
+                </div>
+
+                <p className="mt-2 text-[11px] text-[#667085]">
+                  {level.nextLevel
+                    ? `${level.xpToNextLevel} XP lagi menuju Level ${level.nextLevel.level} - ${level.nextLevel.name}.`
+                    : "Selamat! Kamu telah mencapai level tertinggi."}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Experience Summary */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

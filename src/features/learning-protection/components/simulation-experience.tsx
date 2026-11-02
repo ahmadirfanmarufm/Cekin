@@ -21,11 +21,23 @@ type Props = {
   simulation: SimulationConfig;
 };
 
+
+const simulationRouteIds = {
+  trust: "trust-lab",
+  apps: "game-apps-scam",
+  phishing: "phishing-attack",
+  calls: "spam-call",
+  gambling: "online-gambling",
+  mind: "mind-trap",
+} as const;
+
 export function SimulationExperience({ simulation }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [rewardMessage, setRewardMessage] = useState("");
+  const [isSavingReward, setIsSavingReward] = useState(false);
 
   const currentScenario = simulation.scenarios[currentIndex];
 
@@ -35,11 +47,53 @@ export function SimulationExperience({ simulation }: Props) {
 
   const totalScenarios = simulation.scenarios.length;
 
-  const progress = finished
-    ? 100
-    : ((currentIndex + (selectedChoice ? 1 : 0)) / totalScenarios) * 100;
+  const progress = finished ? 100 : ((currentIndex + (selectedChoice ? 1 : 0)) / totalScenarios) * 100;
 
-  function handleChoice(choiceId: string) {
+  const saveSimulationCompletion = async () => {
+    try {
+      const response = await fetch(
+        "/api/learning-protection/complete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            simulationId: simulationRouteIds[simulation.id],
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.status === 401) {
+        setRewardMessage(
+          "Login untuk menyimpan progres dan mendapatkan XP."
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        setRewardMessage(
+          result.message ?? "Gagal menyimpan progres."
+        );
+        return;
+      }
+
+      if (result.alreadyCompleted) {
+        setRewardMessage("Simulasi ini sudah pernah diselesaikan.");
+        return;
+      }
+
+      setRewardMessage(`Selamat! Kamu mendapatkan +${result.xpEarned} XP.`);
+      window.dispatchEvent(new Event("cekin-auth-change"));
+    } catch {
+      setRewardMessage("Tidak dapat menyimpan progres. Coba lagi.");
+    }
+  };
+
+  const handleChoice = (choiceId: string) => {
     if (selectedChoice) return;
 
     const choice = currentScenario.choices.find(
@@ -55,11 +109,17 @@ export function SimulationExperience({ simulation }: Props) {
     }
   }
 
-  function handleNext() {
-    if (!selectedChoice) return;
+  async function handleNext() {
+    if (!selectedChoice || isSavingReward) return;
 
     if (currentIndex === totalScenarios - 1) {
+      setIsSavingReward(true);
+
+      await saveSimulationCompletion();
+
       setFinished(true);
+      setIsSavingReward(false);
+
       return;
     }
 
@@ -72,6 +132,8 @@ export function SimulationExperience({ simulation }: Props) {
     setSelectedChoice(null);
     setCorrectAnswers(0);
     setFinished(false);
+    setRewardMessage("");
+    setIsSavingReward(false);
   }
 
   const percentage = Math.round(
@@ -114,6 +176,18 @@ export function SimulationExperience({ simulation }: Props) {
                 dijawab dengan pilihan yang lebih aman.
               </p>
             </div>
+
+            {rewardMessage && (
+              <div
+                role="status"
+                className="mb-6 rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-700"
+              >
+                <div className="flex items-start gap-2">
+                  <Trophy size={19} className="mt-0.5 shrink-0" />
+                  <p>{rewardMessage}</p>
+                </div>
+              </div>
+            )}
 
             <div className="mb-8 grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
@@ -385,13 +459,16 @@ export function SimulationExperience({ simulation }: Props) {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-4 font-semibold text-white transition hover:bg-emerald-800"
+                  disabled={isSavingReward}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-4 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {currentIndex === totalScenarios - 1
-                    ? "Lihat Hasil Simulasi"
-                    : "Lanjutkan Skenario"}
+                  {isSavingReward
+                    ? "Menyimpan Progres..."
+                    : currentIndex === totalScenarios - 1
+                      ? "Lihat Hasil Simulasi"
+                      : "Lanjutkan Skenario"}
 
-                  <ArrowRight size={18} />
+                  {!isSavingReward && <ArrowRight size={18} />}
                 </button>
               </div>
             )}
