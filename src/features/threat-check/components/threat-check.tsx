@@ -119,6 +119,8 @@ export function ThreatCheck() {
           apiUrl = "/api/analyze/chat";
         } else if (category === "Investasi") {
           apiUrl = "/api/analyze/investment";
+        } else if (category === "URL / Link") {
+          apiUrl = "/api/analyze/url";
         } else {
           setTimeout(() => {
             setResult(analyzeAnything(input, category));
