@@ -20,10 +20,16 @@ interface GeminiSchema {
   [key: string]: unknown;
 }
 
+interface GeminiInlineImage {
+  mimeType: string;
+  data: string;
+}
+
 export async function generateStructuredContent<T>(params: {
   prompt: string;
   schema: GeminiSchema;
   temperature?: number;
+  image?: GeminiInlineImage;
 }): Promise<T> {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -36,6 +42,16 @@ export async function generateStructuredContent<T>(params: {
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
+  const parts: Array<Record<string, unknown>> = [{ text: params.prompt }];
+  if (params.image) {
+    parts.push({
+      inlineData: {
+        mimeType: params.image.mimeType,
+        data: params.image.data,
+      },
+    });
+  }
+
   const response = await fetch(`${endpoint}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -43,7 +59,7 @@ export async function generateStructuredContent<T>(params: {
       contents: [
         {
           role: "user",
-          parts: [{ text: params.prompt }],
+          parts,
         },
       ],
       generationConfig: {

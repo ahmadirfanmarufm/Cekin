@@ -110,38 +110,56 @@ export function ThreatCheck() {
     const fetchAnalysis = async () => {
       try {
         let apiUrl = "/api/analyze/chat";
-        let bodyData = { text: input };
+        let requestOptions: RequestInit = {};
 
-        if (category === "Cek Kebocoran Email") {
-          apiUrl = "/api/analyze/email";
-          bodyData = { text: input };
-        } else if (category === "Pesan / Chat") {
-          apiUrl = "/api/analyze/chat";
-        } else if (category === "Investasi") {
-          apiUrl = "/api/analyze/investment";
-        } else if (category === "URL / Link") {
-          apiUrl = "/api/analyze/url";
+        if (category === "Informasi Lainnya") {
+          if (!isFileInput(input)) {
+            throw new Error("File gambar belum dipilih.");
+          }
+
+          apiUrl = "/api/analyze/image";
+          const formData = new FormData();
+          formData.append("file", input);
+
+          requestOptions = {
+            method: "POST",
+            body: formData,
+          };
         } else {
-          setTimeout(() => {
-            setResult(analyzeAnything(input, category));
-            setStage("result");
-          }, 2500);
-          return;
+          let bodyData = { text: input };
+
+          if (category === "Cek Kebocoran Email") {
+            apiUrl = "/api/analyze/email";
+          } else if (category === "Pesan / Chat") {
+            apiUrl = "/api/analyze/chat";
+          } else if (category === "Investasi") {
+            apiUrl = "/api/analyze/investment";
+          } else if (category === "URL / Link") {
+            apiUrl = "/api/analyze/url";
+          } else {
+            setTimeout(() => {
+              setResult(analyzeAnything(input, category));
+              setStage("result");
+            }, 2000);
+            return;
+          }
+
+          requestOptions = {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(bodyData),
+          };
         }
 
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bodyData),
-        });
+        const res = await fetch(apiUrl, requestOptions);
 
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Gagal mengambil data dari server");
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Gagal memproses data dari server");
         }
 
         const data = await res.json();
-        
+
         setTimeout(() => {
           setResult(data);
           setStage("result");
