@@ -42,7 +42,7 @@ const samples: Record<AnalysisCategory, string> = {
   "Nomor Telepon": "+62 812-0000-991",
   "Cek Kebocoran Email": "test@test.com",
   "Investasi":
-    "Profit dijamin 30% setiap minggu tanpa risiko. Deposit hanya hari ini.",
+    "Platform X menjamin profit 10% seminggu tanpa risiko, deposit hari ini minimal 1 juta.",
   "Informasi Lainnya": "",
 };
 
@@ -115,7 +115,11 @@ export function ThreatCheck() {
         if (category === "Cek Kebocoran Email") {
           apiUrl = "/api/analyze/email";
           bodyData = { text: input };
-        } else if (category !== "Pesan / Chat") {
+        } else if (category === "Pesan / Chat") {
+          apiUrl = "/api/analyze/chat";
+        } else if (category === "Investasi") {
+          apiUrl = "/api/analyze/investment";
+        } else {
           setTimeout(() => {
             setResult(analyzeAnything(input, category));
             setStage("result");
