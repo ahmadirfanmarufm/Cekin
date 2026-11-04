@@ -2,7 +2,7 @@ import Link from "next/link";
 import {
   Brain,
   Dice5,
-  Gamepad2,
+  BugPlay,
   Mail,
   MessageCircle,
   Phone,
@@ -15,7 +15,7 @@ import type { SimulationConfig } from "@/types/learning-protection/index";
 
 const icons = {
   trust: MessageCircle,
-  apps: Gamepad2,
+  apps: BugPlay,
   phishing: Mail,
   calls: Phone,
   gambling: Dice5,
@@ -67,7 +67,7 @@ export function SimulationCard({ simulation }: Props) {
     simulation.id === "trust"
       ? "trust-lab"
       : simulation.id === "apps"
-        ? "game-apps-scam"
+        ? "apps-scam"
         : simulation.id === "phishing"
           ? "phishing-attack"
           : simulation.id === "calls"

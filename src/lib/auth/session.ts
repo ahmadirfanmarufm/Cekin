@@ -49,13 +49,14 @@ export async function getSessionUser() {
   const tokenHash = hashToken(token);
 
   const result = await db.select({
-      id: users.id,
-      username: users.username,
-      email: users.email,
-      totalXp: users.totalXp,
-      sessionId: sessions.id,
-      expiresAt: sessions.expiresAt,
-    })
+    id: users.id,
+    username: users.username,
+    email: users.email,
+    role: users.role,
+    totalXp: users.totalXp,
+    sessionId: sessions.id,
+    expiresAt: sessions.expiresAt,
+  })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(eq(sessions.tokenHash, tokenHash))
@@ -75,6 +76,7 @@ export async function getSessionUser() {
     id: session.id,
     username: session.username,
     email: session.email,
+    role: session.role,
     totalXp: session.totalXp,
   };
 }

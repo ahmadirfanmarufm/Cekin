@@ -335,3 +335,32 @@ svg {
     animation: none;
   }
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes community-modal-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+
+  20%, 60% {
+    transform: translateX(-8px);
+  }
+
+  40%, 80% {
+    transform: translateX(8px);
+  }
+}
+
+.community-delete-dialog {
+  animation: community-modal-shake 350ms ease-in-out;
+}

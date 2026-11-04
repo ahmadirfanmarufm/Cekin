@@ -8,7 +8,7 @@ import { isSameOrigin } from "@/lib/auth/request-security";
 
 const validSimulations = [
   "trust-lab",
-  "game-apps-scam",
+  "apps-scam",
   "phishing-attack",
   "spam-call",
   "online-gambling",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -24,7 +24,7 @@ type Props = {
 
 const simulationRouteIds = {
   trust: "trust-lab",
-  apps: "game-apps-scam",
+  apps: "apps-scam",
   phishing: "phishing-attack",
   calls: "spam-call",
   gambling: "online-gambling",
@@ -38,6 +38,7 @@ export function SimulationExperience({ simulation }: Props) {
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
   const [isSavingReward, setIsSavingReward] = useState(false);
+  const feedbackRef = useRef<HTMLDivElement>(null);
 
   const currentScenario = simulation.scenarios[currentIndex];
 
@@ -107,7 +108,14 @@ export function SimulationExperience({ simulation }: Props) {
     if (choice.isSafe) {
       setCorrectAnswers((previous) => previous + 1);
     }
-  }
+
+    requestAnimationFrame(() => {
+      feedbackRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  };
 
   async function handleNext() {
     if (!selectedChoice || isSavingReward) return;
@@ -393,7 +401,10 @@ export function SimulationExperience({ simulation }: Props) {
 
             {/* Feedback */}
             {selectedAnswer && (
-              <div className="mt-7 space-y-4">
+              <div
+                ref={feedbackRef}
+                className="mt-7 scroll-mt-24 space-y-4"
+              >
                 <div
                   className={`rounded-xl border p-5 ${
                     selectedAnswer.isSafe

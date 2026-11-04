@@ -1,4 +1,4 @@
-import { SimulationExperience } from "@/features/learning-protection/components//simulation-experience";
+import { SpamCallSimulation } from "@/features/learning-protection/components/spam-call-simulation";
 import { getSimulation } from "@/features/learning-protection/data/simulations";
 
 export function CallSimulation() {
@@ -6,5 +6,5 @@ export function CallSimulation() {
 
   if (!simulation) return null;
 
-  return <SimulationExperience simulation={simulation} />;
+  return <SpamCallSimulation simulation={simulation} />;
 }

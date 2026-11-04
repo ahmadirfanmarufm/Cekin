@@ -1,4 +1,3 @@
-
 import {
   pgTable,
   uuid,
@@ -6,8 +5,10 @@ import {
   text,
   timestamp,
   integer,
+  boolean,
   uniqueIndex,
   index,
+  AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable(
@@ -16,6 +17,8 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
 
     username: varchar("username", { length: 30 }).notNull(),
+
+    role: varchar("role", { length: 20 }).notNull().default("user"),
 
     email: varchar("email", { length: 255 }).notNull(),
 
@@ -87,4 +90,290 @@ export const simulationProgress = pgTable(
     ),
     index("cekin_simulation_progress_user_id_idx").on(table.userId),
   ]
+);
+
+export const communityPosts = pgTable(
+  "cekin_community_posts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    category: varchar("category", { length: 40 }).notNull(),
+
+    title: varchar("title", { length: 150 }).notNull(),
+
+    content: text("content").notNull(),
+
+    status: varchar("status", { length: 20 }).notNull().default("published"),
+
+    verificationStatus: varchar("verification_status", {
+      length: 20,
+    }).notNull().default("unverified"),
+
+    reviewedBy: uuid("reviewed_by").references(() => users.id,
+      { onDelete: "set null" }
+    ),
+
+    reviewedAt: timestamp("reviewed_at", {
+      withTimezone: true,
+    }),
+
+    reviewNote: text("review_note"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("cekin_community_posts_author_idx").on(table.authorId),
+    index("cekin_community_posts_category_idx").on(table.category),
+    index("cekin_community_posts_status_idx").on(table.status),
+    index("cekin_community_posts_created_idx").on(table.createdAt),
+    index("cekin_community_posts_verification_idx").on(table.verificationStatus),
+    index("cekin_community_posts_reviewed_by_idx").on(table.reviewedBy),
+  ],
+);
+
+export const communityMedia = pgTable("cekin_community_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => communityPosts.id, { onDelete: "cascade" }),
+
+    storagePath: text("storage_path").notNull(),
+
+    mediaType: varchar("media_type", {
+      length: 20,
+    }).notNull(),
+
+    mimeType: varchar("mime_type", {
+      length: 100,
+    }).notNull(),
+
+    fileSize: integer("file_size").notNull(),
+
+    duration: integer("duration"),
+
+    position: integer("position").notNull().default(0),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("cekin_community_media_post_idx").on(table.postId),
+  ],
+);
+
+export const communityComments = pgTable(
+  "cekin_community_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => communityPosts.id, { onDelete: "cascade" }),
+
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    parentId: uuid("parent_id").references(
+      (): AnyPgColumn => communityComments.id,
+      { onDelete: "cascade" },
+    ),
+
+    content: text("content").notNull(),
+
+    isHelpful: boolean("is_helpful").notNull().default(false),
+
+    status: varchar("status", { length: 20 })
+      .notNull()
+      .default("published"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("cekin_community_comments_post_idx").on(table.postId),
+    index("cekin_community_comments_author_idx").on(table.authorId),
+    index("cekin_community_comments_parent_idx").on(table.parentId),
+  ],
+);
+
+
+export const communityReactions = pgTable(
+  "cekin_community_reactions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => communityPosts.id, { onDelete: "cascade" }),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    type: varchar("type", { length: 20 })
+      .notNull()
+      .default("helpful"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("cekin_community_reactions_unique").on(
+      table.postId,
+      table.userId,
+    ),
+    index("cekin_community_reactions_post_idx").on(table.postId),
+  ],
+);
+
+export const communityReports = pgTable("cekin_community_reports",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => communityPosts.id, { onDelete: "cascade" }),
+
+    reporterId: uuid("reporter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    reason: varchar("reason", {
+      length: 50,
+    }).notNull(),
+
+    description: text("description"),
+
+    status: varchar("status", {
+      length: 20,
+    }).notNull().default("pending"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("cekin_community_reports_post_idx").on(table.postId),
+    index("cekin_community_reports_reporter_idx").on(table.reporterId),
+    index("cekin_community_reports_status_idx").on(table.status),
+  ],
+);
+
+export const communityModerationLogs = pgTable("cekin_community_moderation_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => communityPosts.id, {
+        onDelete: "cascade",
+      }),
+
+    moderatorId: uuid("moderator_id").references(
+      () => users.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+
+    previousVerificationStatus: varchar(
+      "previous_verification_status",
+      { length: 20 },
+    ),
+
+    newVerificationStatus: varchar(
+      "new_verification_status",
+      { length: 20 },
+    ).notNull(),
+
+    note: text("note"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("cekin_community_moderation_logs_post_idx").on(
+      table.postId,
+    ),
+    index("cekin_community_moderation_logs_moderator_idx").on(
+      table.moderatorId,
+    ),
+    index("cekin_community_moderation_logs_created_idx").on(
+      table.createdAt,
+    ),
+  ],
+);
+
+export const communityCommentMedia = pgTable(
+  "cekin_community_comment_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => communityComments.id, { onDelete: "cascade" }),
+
+    // "upload" = file di Supabase Storage, "gif" = tautan dari penyedia GIF (tidak memakan storage)
+    source: varchar("source", { length: 20 }).notNull().default("upload"),
+
+    // image | video | gif
+    mediaType: varchar("media_type", { length: 20 }).notNull(),
+
+    storagePath: text("storage_path"),
+    externalUrl: text("external_url"),
+
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    fileSize: integer("file_size").notNull().default(0),
+    duration: integer("duration"),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("cekin_community_comment_media_comment_unique").on(table.commentId),
+  ],
+);
+
+/** Like pada komentar (satu pengguna satu like per komentar). */
+export const communityCommentLikes = pgTable(
+  "cekin_community_comment_likes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => communityComments.id, { onDelete: "cascade" }),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("cekin_community_comment_likes_unique").on(table.commentId, table.userId),
+    index("cekin_community_comment_likes_comment_idx").on(table.commentId),
+  ],
 );

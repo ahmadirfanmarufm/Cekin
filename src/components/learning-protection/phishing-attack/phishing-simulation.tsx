@@ -1,4 +1,4 @@
-import { SimulationExperience } from "@/features/learning-protection/components//simulation-experience";
+import { PhishingEmail } from "@/features/learning-protection/components/phising-email";
 import { getSimulation } from "@/features/learning-protection/data/simulations";
 
 export function PhishingSimulation() {
@@ -6,5 +6,5 @@ export function PhishingSimulation() {
 
   if (!simulation) return null;
 
-  return <SimulationExperience simulation={simulation} />;
+  return <PhishingEmail simulation={simulation} />;
 }

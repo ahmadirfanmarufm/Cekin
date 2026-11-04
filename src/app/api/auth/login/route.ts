@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.role,
         totalXp: user.totalXp,
       },
     });

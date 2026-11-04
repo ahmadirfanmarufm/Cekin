@@ -120,7 +120,7 @@ export const simulations: SimulationConfig[] = [
 
   {
     id: "apps",
-    title: "Game & Apps Scam",
+    title: "Apps Scam",
     subtitle: "Is This App Safe?",
     description:
       "Periksa aplikasi, sumber unduhan, dan izin yang diminta.",
@@ -131,61 +131,178 @@ export const simulations: SimulationConfig[] = [
     scenarios: [
       {
         id: "apps-1",
-        title: "Aplikasi Penghasil Uang",
-        description: "Kamu menemukan aplikasi yang menjanjikan uang gratis.",
+        title: "Battle Arena MOD",
+        description:
+          "Game MOD yang menawarkan skin premium dan unlimited coins secara gratis.",
         context:
-          "Aplikasi MoneyFast mengklaim kamu bisa memperoleh Rp500.000 setiap hari hanya dengan menonton video. Aplikasi meminta izin membaca SMS, kontak, dan daftar panggilan.",
-        choices: [
-          {
-            id: "a",
-            label: "Menginstal karena tertarik dengan penghasilannya.",
-            isSafe: false,
-            feedback: "Berhati-hati terhadap aplikasi dengan klaim berlebihan.",
-            explanation:
-              "Klaim penghasilan tidak realistis dan izin yang tidak relevan dapat menjadi indikasi risiko privasi.",
-            saferAction:
-              "Periksa pengembang, ulasan, sumber unduhan, dan relevansi setiap izin aplikasi.",
-          },
-          {
-            id: "b",
-            label: "Memeriksa izin aplikasi dan reputasi pengembang.",
-            isSafe: true,
-            feedback: "Tepat! Kamu memeriksa risiko sebelum menginstal.",
-            explanation:
-              "Aplikasi seharusnya hanya meminta izin yang diperlukan untuk menjalankan fungsinya.",
-            saferAction:
-              "Unduh aplikasi dari sumber resmi dan hindari memberikan izin yang tidak diperlukan.",
-          },
-        ],
+          "Nikmati semua skin premium dan unlimited coins secara gratis. Download APK MOD sekarang!",
+        choices: [],
+        appDetails: {
+          name: "Battle Arena MOD",
+          description: "Game MOD yang menawarkan skin premium dan unlimited coins secara gratis.",
+          developer: "Unknown Studio",
+          category: "Game Action",
+          rating: "4.9",
+          downloads: "10.000+",
+          badge: "Unlimited Coins & Skin",
+          source: "Website pihak ketiga",
+          sourceType: "unofficial",
+          risk: "Kritis",
+          claim:
+            "Nikmati semua skin premium dan unlimited coins secara gratis. Download APK MOD sekarang!",
+          reviews:
+            "Beberapa ulasan menyebutkan aplikasi meminta izin yang tidak relevan dan menampilkan iklan secara berlebihan.",
+          permissions: [
+            {
+              name: "Akses SMS",
+              reason: "Dapat membaca pesan masuk pada perangkat.",
+              suspicious: true,
+            },
+            {
+              name: "Akses kontak",
+              reason: "Dapat membaca daftar kontak pengguna.",
+              suspicious: true,
+            },
+            {
+              name: "Akses notifikasi",
+              reason: "Dapat melihat konten notifikasi yang masuk.",
+              suspicious: true,
+            },
+            {
+              name: "Akses penyimpanan",
+              reason: "Dapat membaca atau mengelola file tertentu.",
+              suspicious: true,
+            },
+          ],
+          redFlags: [
+            "APK dibagikan melalui website pihak ketiga.",
+            "Menawarkan fitur premium yang tidak resmi.",
+            "Meminta izin SMS dan kontak yang tidak relevan dengan game.",
+            "Identitas developer tidak dapat diverifikasi.",
+          ],
+          explanation:
+            "Aplikasi MOD dari sumber tidak resmi dapat dimodifikasi dan disisipi kode berbahaya. Izin SMS, kontak, dan notifikasi juga berpotensi membuka akses ke informasi pribadi.",
+          saferAction:
+            "Jangan instal APK tersebut. Cari game melalui toko aplikasi resmi dan periksa nama developer serta identitas penerbitnya.",
+          postInstall: [
+            "Jangan buka aplikasi atau berikan izin tambahan.",
+            "Hapus instalasi aplikasi melalui pengaturan perangkat.",
+            "Jalankan pemindaian menggunakan Google Play Protect atau fitur keamanan bawaan perangkat.",
+            "Jika pernah memasukkan password atau data akun, ubah dari perangkat lain yang tepercaya.",
+          ],
+        },
       },
       {
         id: "apps-2",
-        title: "Mod APK Gratis",
-        description: "Temanmu membagikan tautan unduhan game premium.",
+        title: "Super Phone Cleaner",
+        description:
+          "Aplikasi utilitas yang mengklaim dapat mempercepat dan membersihkan perangkat.",
         context:
-          "Download game premium MOD APK unlimited money melalui link ini. Matikan Play Protect terlebih dahulu agar instalasi berhasil.",
-        choices: [
-          {
-            id: "a",
-            label: "Mengunduh APK dan menonaktifkan perlindungan perangkat.",
-            isSafe: false,
-            feedback: "Jangan menonaktifkan perlindungan hanya untuk memasang aplikasi.",
-            explanation:
-              "APK dari sumber tidak dikenal dapat dimodifikasi dan berpotensi membawa malware.",
-            saferAction:
-              "Gunakan toko aplikasi resmi dan hindari tautan unduhan yang tidak dapat diverifikasi.",
-          },
-          {
-            id: "b",
-            label: "Menghindari tautan dan mencari aplikasi di toko resmi.",
-            isSafe: true,
-            feedback: "Keputusan yang aman!",
-            explanation:
-              "Sumber distribusi aplikasi yang terpercaya membantu mengurangi risiko aplikasi berbahaya.",
-            saferAction:
-              "Pastikan nama pengembang dan aplikasi sesuai dengan produk aslinya.",
-          },
-        ],
+          "Bersihkan seluruh virus, percepat ponsel 10x lipat, dan optimalkan baterai hanya dengan satu sentuhan.",
+        choices: [],
+        appDetails: {
+          name: "Super Phone Cleaner",
+          description: "Aplikasi utilitas yang mengklaim dapat mempercepat dan membersihkan perangkat.",
+          developer: "Fast Utility Team",
+          category: "Tools & Utility",
+          rating: "4.7",
+          downloads: "50.000+",
+          badge: "Ponsel 10x Lebih Cepat",
+          source: "Toko aplikasi resmi (simulasi)",
+          sourceType: "official",
+          risk: "Tinggi",
+          claim:
+            "Bersihkan seluruh virus, percepat ponsel 10x lipat, dan optimalkan baterai hanya dengan satu sentuhan.",
+          reviews:
+            "Ulasan pengguna tidak konsisten. Beberapa mengeluhkan iklan yang terus muncul dan notifikasi yang mengganggu.",
+          permissions: [
+            {
+              name: "Akses notifikasi",
+              reason: "Dapat membaca konten notifikasi perangkat.",
+              suspicious: true,
+            },
+            {
+              name: "Tampil di atas aplikasi lain",
+              reason: "Dapat menampilkan jendela di atas aplikasi lain.",
+              suspicious: true,
+            },
+            {
+              name: "Akses penyimpanan",
+              reason: "Dapat mengelola file tertentu pada perangkat.",
+              suspicious: false,
+            },
+          ],
+          redFlags: [
+            "Mengklaim mampu membersihkan semua virus secara instan.",
+            "Menjanjikan peningkatan performa yang tidak realistis.",
+            "Meminta akses notifikasi dan tampil di atas aplikasi lain.",
+            "Ulasan pengguna menunjukkan perilaku aplikasi yang mengganggu.",
+          ],
+          explanation:
+            "Toko aplikasi resmi tidak otomatis menjamin setiap aplikasi aman. Klaim yang berlebihan dan permintaan izin yang tidak sesuai fungsi tetap perlu diperiksa.",
+          saferAction:
+            "Periksa identitas developer, kebijakan privasi, ulasan terbaru, dan alasan setiap izin diminta. Jangan instal jika informasinya tidak meyakinkan.",
+          postInstall: [
+            "Periksa dan cabut izin yang tidak diperlukan.",
+            "Hapus aplikasi jika menunjukkan iklan atau perilaku mencurigakan.",
+            "Jalankan pemindaian keamanan perangkat.",
+            "Pantau apakah muncul aplikasi lain atau aktivitas yang tidak kamu kenali.",
+          ],
+        },
+      },
+      {
+        id: "apps-3",
+        title: "Daily Notes",
+        description:
+          "Aplikasi pencatat sederhana untuk menulis dan mengatur catatan harian.",
+        context:
+          "Simpan ide, buat daftar kegiatan, dan atur catatan harianmu dengan mudah menggunakan Daily Notes.",
+        choices: [],
+        appDetails: {
+          name: "Daily Notes",
+          description:
+            "Aplikasi pencatat sederhana yang membantu pengguna menyimpan ide, membuat daftar kegiatan, dan mengatur catatan harian.",
+          developer: "Simple Productivity Studio",
+          category: "Productivity",
+          rating: "4.6",
+          downloads: "100.000+",
+          badge: "Simple Notes & Daily Planner",
+          source: "Toko aplikasi resmi (simulasi)",
+          sourceType: "official",
+          risk: "Rendah",
+          claim:
+            "Catat ide, atur kegiatan, dan simpan daftar harianmu dalam satu aplikasi sederhana.",
+          reviews:
+            "Sebagian besar ulasan memberikan tanggapan positif. Pengguna menyukai antarmuka sederhana dan fungsi pencatatan yang mudah digunakan.",
+          permissions: [
+            {
+              name: "Akses penyimpanan",
+              reason:
+                "Digunakan untuk menyimpan dan membuka file catatan yang diekspor.",
+              suspicious: false,
+            },
+            {
+              name: "Akses notifikasi",
+              reason:
+                "Digunakan untuk mengirim pengingat catatan yang dijadwalkan.",
+              suspicious: false,
+            },
+          ],
+          redFlags: [
+            "Tidak ditemukan permintaan izin yang tidak relevan dengan fungsi utama.",
+            "Identitas developer dan informasi aplikasi tersedia.",
+            "Aplikasi tersedia melalui toko aplikasi resmi dalam simulasi.",
+          ],
+          explanation:
+            "Daily Notes memiliki fungsi yang sesuai dengan izin yang diminta. Akses penyimpanan dapat digunakan untuk mengelola file catatan, sedangkan notifikasi dapat digunakan untuk pengingat. Namun, sumber, developer, ulasan, dan kebijakan privasi tetap perlu diperiksa.",
+          saferAction:
+            "Aplikasi ini dapat dipertimbangkan untuk dipasang setelah kamu memastikan identitas developer, membaca kebijakan privasi, dan memeriksa izin yang diminta.",
+          postInstall: [
+            "Periksa kembali izin aplikasi melalui pengaturan perangkat.",
+            "Pastikan aplikasi hanya digunakan sesuai fungsi yang dijelaskan.",
+            "Perbarui aplikasi melalui toko aplikasi resmi.",
+          ],
+        },
       },
     ],
   },
