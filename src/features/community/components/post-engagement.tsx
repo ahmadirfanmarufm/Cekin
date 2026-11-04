@@ -12,6 +12,7 @@ import type {
   CommunityViewer,
   LikeState,
 } from "@/features/community/types";
+import { markSeen } from "@/features/community/lib/seen-categories";
 import { CommentSection } from "./comment-section";
 import { LikeButton } from "./like-button";
 
@@ -41,6 +42,12 @@ export const PostEngagement = ({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(() => markSeen(post.category), 1500);
+    return () => clearTimeout(timer);
+  }, [visible, post.category]);
 
   useEffect(() => {
     setRemoteLikes({ total: post.reactions.total, hasLiked: post.reactions.hasReacted });

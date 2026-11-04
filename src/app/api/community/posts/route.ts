@@ -13,6 +13,7 @@ import {
   communityMedia,
   communityPosts,
   communityReactions,
+  communityReports,
   users,
 } from "@/lib/db/schema";
 
@@ -22,6 +23,8 @@ import {
   validateCommunityMedia,
   CommunityMediaValidationError,
 } from "@/features/community/lib/validation";
+
+import { rankFeed, parseSeen } from "@/features/community/server/feed-ranking";
 
 import {
   supabaseAdmin,
@@ -39,7 +42,10 @@ const COMMUNITY_CATEGORIES = [
   "other",
 ] as const;
 
-export async function GET() {
+const POOL_SIZE = 200; // kandidat yang diranking
+const PAGE_SIZE = 30; // yang dikirim ke klien
+
+export async function GET(request: Request) {
   try {
     const user = await getSessionUser();
 
@@ -49,65 +55,116 @@ export async function GET() {
       role: user?.role ?? null,
     };
 
-    const posts = await db
+    const { searchParams } = new URL(request.url);
+    const seen = parseSeen(searchParams.get("seen"));
+    const offset = Math.min(Math.max(0, Number(searchParams.get("offset")) || 0), POOL_SIZE);
+
+    const pool = await db
       .select({
         id: communityPosts.id,
         category: communityPosts.category,
-        title: communityPosts.title,
-        content: communityPosts.content,
-        status: communityPosts.status,
-        verificationStatus: communityPosts.verificationStatus,
         createdAt: communityPosts.createdAt,
-        updatedAt: communityPosts.updatedAt,
-        authorId: users.id,
-        author: users.username,
+        verificationStatus: communityPosts.verificationStatus,
       })
       .from(communityPosts)
-      .innerJoin(
-        users,
-        eq(communityPosts.authorId, users.id),
-      )
       .where(eq(communityPosts.status, "published"))
       .orderBy(desc(communityPosts.createdAt))
-      .limit(30);
+      .limit(POOL_SIZE);
 
-    if (posts.length === 0) {
-      return Response.json({
-        success: true,
-        data: [],
-        viewer,
-      });
+    if (pool.length === 0) {
+      return Response.json({ success: true, data: [], hasMore: false, viewer });
     }
 
-    const postIds = posts.map((post) => post.id);
+    const poolIds = pool.map((post) => post.id);
 
-    const mediaRecords = await db
-      .select()
-      .from(communityMedia)
-      .where(inArray(communityMedia.postId, postIds))
-      .orderBy(communityMedia.position);
+    const [likeRows, commentRows, reportRows] = await Promise.all([
+      db
+        .select({ postId: communityReactions.postId, total: count() })
+        .from(communityReactions)
+        .where(inArray(communityReactions.postId, poolIds))
+        .groupBy(communityReactions.postId),
+      db
+        .select({ postId: communityComments.postId, total: count() })
+        .from(communityComments)
+        .where(
+          and(
+            inArray(communityComments.postId, poolIds),
+            eq(communityComments.status, "published"),
+          ),
+        )
+        .groupBy(communityComments.postId),
+      db
+        .select({ postId: communityReports.postId, total: count() })
+        .from(communityReports)
+        .where(
+          and(
+            inArray(communityReports.postId, poolIds),
+            eq(communityReports.status, "pending"),
+          ),
+        )
+        .groupBy(communityReports.postId),
+    ]);
 
-    const reactionRecords = await db
-      .select({
-        postId: communityReactions.postId,
-        userId: communityReactions.userId,
-      })
-      .from(communityReactions)
-      .where(inArray(communityReactions.postId, postIds));
+    const toMap = (rows: { postId: string; total: number }[]) =>
+      new Map(rows.map((row) => [row.postId, Number(row.total)]));
 
-    const commentCounts = await db
-      .select({
-        postId: communityComments.postId,
-        total: count(),
-      })
-      .from(communityComments)
-      .where(
-        and(
-          inArray(communityComments.postId, postIds),
-          eq(communityComments.status, "published"),
-        ),
-      )
-      .groupBy(communityComments.postId);
+    const likeCounts = toMap(likeRows);
+    const commentCounts = toMap(commentRows);
+    const reportCounts = toMap(reportRows);
+
+    const now = Math.floor(Date.now() / 300_000) * 300_000;
+
+    const ranked = rankFeed(
+      pool.map((post) => ({
+        ...post,
+        likeCount: likeCounts.get(post.id) ?? 0,
+        commentCount: commentCounts.get(post.id) ?? 0,
+        reportCount: reportCounts.get(post.id) ?? 0,
+      })),
+      { now, seenByCategory: seen },
+    );
+
+    const pageIds = ranked.slice(offset, offset + PAGE_SIZE).map((post) => post.id);
+    const hasMore = offset + PAGE_SIZE < ranked.length;
+
+    if (pageIds.length === 0) {
+      return Response.json({ success: true, data: [], hasMore: false, viewer });
+    }
+
+    const [posts, mediaRecords, myReactions] = await Promise.all([
+      db
+        .select({
+          id: communityPosts.id,
+          category: communityPosts.category,
+          title: communityPosts.title,
+          content: communityPosts.content,
+          status: communityPosts.status,
+          verificationStatus: communityPosts.verificationStatus,
+          createdAt: communityPosts.createdAt,
+          updatedAt: communityPosts.updatedAt,
+          authorId: users.id,
+          author: users.username,
+        })
+        .from(communityPosts)
+        .innerJoin(users, eq(communityPosts.authorId, users.id))
+        .where(inArray(communityPosts.id, pageIds)),
+      db
+        .select()
+        .from(communityMedia)
+        .where(inArray(communityMedia.postId, pageIds))
+        .orderBy(communityMedia.position),
+      user
+        ? db
+            .select({ postId: communityReactions.postId })
+            .from(communityReactions)
+            .where(
+              and(
+                inArray(communityReactions.postId, pageIds),
+                eq(communityReactions.userId, user.id),
+              ),
+            )
+        : Promise.resolve([] as { postId: string }[]),
+    ]);
 
     const mediaWithUrls = await Promise.all(
       mediaRecords.map(async (media) => {
@@ -116,22 +173,7 @@ export async function GET() {
           .createSignedUrl(media.storagePath, 60 * 60);
 
         if (error) {
-          console.error(
-            "Gagal membuat signed URL:",
-            media.storagePath,
-            error,
-          );
-
-          return {
-            id: media.id,
-            postId: media.postId,
-            mediaType: media.mediaType,
-            mimeType: media.mimeType,
-            fileSize: media.fileSize,
-            duration: media.duration,
-            position: media.position,
-            url: null,
-          };
+          console.error("Gagal membuat signed URL:", media.storagePath, error);
         }
 
         return {
@@ -142,67 +184,50 @@ export async function GET() {
           fileSize: media.fileSize,
           duration: media.duration,
           position: media.position,
-          url: data.signedUrl,
+          url: error ? null : data.signedUrl,
         };
       }),
     );
 
-    const data = posts.map((post) => {
-      const postMedia = mediaWithUrls.filter(
-        (media) => media.postId === post.id,
-      );
+    const postsById = new Map(posts.map((post) => [post.id, post]));
+    const reactedIds = new Set(myReactions.map((row) => row.postId));
 
-      const postReactions = reactionRecords.filter(
-        (reaction) => reaction.postId === post.id,
-      );
+    const data = pageIds.flatMap((id) => {
+      const post = postsById.get(id);
+      if (!post) return [];
 
-      const commentCount =
-        commentCounts.find(
-          (item) => item.postId === post.id,
-        )?.total ?? 0;
+      return [
+        {
+          id: post.id,
+          category: post.category,
+          title: post.title,
+          content: post.content,
+          status: post.status,
+          verificationStatus: post.verificationStatus,
+          createdAt: post.createdAt,
+          updatedAt: post.updatedAt,
 
-      return {
-        id: post.id,
-        category: post.category,
-        title: post.title,
-        content: post.content,
-        status: post.status,
-        verificationStatus: post.verificationStatus,
-        createdAt: post.createdAt,
-        updatedAt: post.updatedAt,
+          author: { id: post.authorId, username: post.author },
 
-        author: {
-          id: post.authorId,
-          username: post.author,
+          media: mediaWithUrls.filter((media) => media.postId === post.id),
+
+          reactions: {
+            total: likeCounts.get(post.id) ?? 0,
+            hasReacted: reactedIds.has(post.id),
+          },
+
+          commentCount: commentCounts.get(post.id) ?? 0,
+          isMine: user ? post.authorId === user.id : false,
         },
-
-        media: postMedia,
-
-        reactions: {
-          total: postReactions.length,
-          hasReacted: user ? postReactions.some(
-            (reaction) => reaction.userId === user.id,
-          ) : false,
-        },
-
-        commentCount: Number(commentCount),
-        isMine: user ? post.authorId === user.id : false,
-      };
+      ];
     });
 
-    return Response.json({
-        success: true,
-        data,
-        viewer,
-    });
+    return Response.json({ success: true, data, hasMore, viewer });
   } catch (error) {
     console.error("Get community posts error:", error);
 
     return Response.json(
-      {
-        success: false,
-        message: "Gagal mengambil postingan Community.",
-      },
+      { success: false, message: "Gagal mengambil postingan Community." },
       { status: 500 },
     );
   }

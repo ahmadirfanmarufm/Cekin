@@ -336,10 +336,8 @@ export const communityCommentMedia = pgTable(
       .notNull()
       .references(() => communityComments.id, { onDelete: "cascade" }),
 
-    // "upload" = file di Supabase Storage, "gif" = tautan dari penyedia GIF (tidak memakan storage)
     source: varchar("source", { length: 20 }).notNull().default("upload"),
-
-    // image | video | gif
+    
     mediaType: varchar("media_type", { length: 20 }).notNull(),
 
     storagePath: text("storage_path"),
@@ -356,7 +354,6 @@ export const communityCommentMedia = pgTable(
   ],
 );
 
-/** Like pada komentar (satu pengguna satu like per komentar). */
 export const communityCommentLikes = pgTable(
   "cekin_community_comment_likes",
   {

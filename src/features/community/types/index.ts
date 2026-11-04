@@ -24,7 +24,7 @@ export type ModerationVerificationStatus =
 
 export type FeedFilter = "all" | "mine";
 
-export type SortOption = "newest" | "oldest";
+export type SortOption = "recommended" | "newest" | "oldest";
 
 export type SelectedMedia = {
     id: string;
