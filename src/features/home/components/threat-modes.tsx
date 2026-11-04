@@ -3,7 +3,7 @@ import Link from "next/link";
 import {
   Mail,
   MessageSquare,
-  Gamepad2,
+  BugPlay,
   Phone,
   Dices,
   Wallet,
@@ -22,9 +22,9 @@ const modes = [
     icon: MessageSquare,
   },
   {
-    title: "Game & aplikasi",
+    title: "Aplikasi",
     description: "APK dan izin berbahaya",
-    icon: Gamepad2,
+    icon: BugPlay,
   },
   {
     title: "Telepon penipuan",

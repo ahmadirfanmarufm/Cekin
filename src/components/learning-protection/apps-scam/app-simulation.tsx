@@ -1,4 +1,4 @@
-import { SimulationExperience } from "@/features/learning-protection/components//simulation-experience";
+import { AppsScam } from "@/features/learning-protection/components/apps-scam";
 import { getSimulation } from "@/features/learning-protection/data/simulations";
 
 export function AppSimulation() {
@@ -6,5 +6,5 @@ export function AppSimulation() {
 
   if (!simulation) return null;
 
-  return <SimulationExperience simulation={simulation} />;
+  return <AppsScam simulation={simulation} />;
 }

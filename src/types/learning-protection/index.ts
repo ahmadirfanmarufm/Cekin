@@ -21,6 +21,7 @@ export type SimulationScenario = {
   description: string;
   context: string;
   choices: SimulationChoice[];
+  appDetails?: AppScenarioData;
 };
 
 export type SimulationConfig = {
@@ -33,4 +34,28 @@ export type SimulationConfig = {
   icon: string;
   color: string;
   scenarios: SimulationScenario[];
+};
+
+export type AppScenarioData = {
+  name: string;
+  description: string;
+  developer: string;
+  category: string;
+  rating: string;
+  downloads: string;
+  badge: string;
+  source: string;
+  sourceType: "official" | "unofficial";
+  risk: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
+  claim: string;
+  reviews: string;
+  permissions: {
+    name: string;
+    reason: string;
+    suspicious: boolean;
+  }[];
+  redFlags: string[];
+  explanation: string;
+  saferAction: string;
+  postInstall: string[];
 };

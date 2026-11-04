@@ -1,4 +1,4 @@
-import { SimulationExperience } from "@/features/learning-protection/components//simulation-experience";
+import { MindTrapSimulation } from "@/features/learning-protection/components/mind-trap-simulation";
 import { getSimulation } from "@/features/learning-protection/data/simulations";
 
 export function MindSimulation() {
@@ -6,5 +6,5 @@ export function MindSimulation() {
 
   if (!simulation) return null;
 
-  return <SimulationExperience simulation={simulation} />;
+  return <MindTrapSimulation simulation={simulation} />;
 }

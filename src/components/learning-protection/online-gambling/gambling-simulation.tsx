@@ -1,4 +1,4 @@
-import { SimulationExperience } from "@/features/learning-protection/components//simulation-experience";
+import { GamblingAwareness } from "@/features/learning-protection/components/gambling-awareness";
 import { getSimulation } from "@/features/learning-protection/data/simulations";
 
 export function GamblingSimulation() {
@@ -6,5 +6,5 @@ export function GamblingSimulation() {
 
   if (!simulation) return null;
 
-  return <SimulationExperience simulation={simulation} />;
+  return <GamblingAwareness simulation={simulation} />;
 }
