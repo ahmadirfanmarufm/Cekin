@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -26,6 +27,7 @@ export async function GET() {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("AUTH_ME_ERROR:", error);
 
     return NextResponse.json(
