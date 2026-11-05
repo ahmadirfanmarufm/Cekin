@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -10,260 +9,655 @@ import {
   Brain,
   Check,
   CheckCircle2,
+  Crown,
   Eye,
+  HelpCircle,
   Lightbulb,
+  Lock,
+  MessageCircle,
+  Quote,
   RotateCcw,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Star,
+  Trophy,
   X,
 } from "lucide-react";
 import type {
+  ScenarioDifficulty,
   SimulationChoice,
   SimulationConfig,
+  SimulationScenario,
 } from "@/types/learning-protection";
+import {
+  MindTrapTutorial,
+  MIND_TRAP_TUTORIAL_KEY,
+} from "./mind-trap-tutorial";
+import {
+  MIND_TRAP_MASTER_BONUS,
+  MIND_TRAP_MAX_XP,
+  calculateMindTrapXp,
+  mindTrapLevelXp,
+} from "@/lib/learning-protection/xp";
+import { seededShuffle } from "@/lib/learning-protection/shuffle";
 
 type Props = {
   simulation: SimulationConfig;
 };
 
+const SIMULATION_ID = "mind-trap";
+
+const DIFFICULTY_STYLES: Record<ScenarioDifficulty, string> = {
+  Mudah: "bg-[var(--accent-soft)] text-[var(--accent)]",
+  Menengah: "bg-[var(--brand-soft)] text-[var(--brand)]",
+  Sulit: "bg-[var(--warning)]/15 text-[var(--warning)]",
+  Ahli: "bg-[var(--danger)]/10 text-[var(--danger)]",
+};
+
+const TACTICS = [
+  { name: "Urgensi & kelangkaan", hint: "“Tinggal 5 slot, hari ini saja.”" },
+  { name: "Otoritas", hint: "Gelar, jabatan, atau pengikut sebagai pengganti bukti." },
+  { name: "Bukti sosial", hint: "“Ribuan orang sudah berhasil.”" },
+  { name: "Balas budi", hint: "Hadiah kecil sebelum permintaan besar." },
+  { name: "Komitmen bertahap", hint: "Permintaan kecil yang terus membesar." },
+  { name: "Isolasi", hint: "“Jangan bilang siapa-siapa dulu.”" },
+];
+
+const CONFETTI = [
+  { left: "6%", top: "12%", size: 10, color: "bg-yellow-300", delay: "0s" },
+  { left: "16%", top: "62%", size: 8, color: "bg-emerald-300", delay: "0.3s" },
+  { left: "24%", top: "20%", size: 12, color: "bg-sky-300", delay: "0.6s" },
+  { left: "34%", top: "78%", size: 9, color: "bg-pink-300", delay: "0.2s" },
+  { left: "44%", top: "8%", size: 8, color: "bg-white/80", delay: "0.9s" },
+  { left: "56%", top: "70%", size: 11, color: "bg-yellow-300", delay: "0.5s" },
+  { left: "64%", top: "16%", size: 9, color: "bg-emerald-300", delay: "0.1s" },
+  { left: "74%", top: "58%", size: 12, color: "bg-sky-300", delay: "0.8s" },
+  { left: "84%", top: "22%", size: 8, color: "bg-pink-300", delay: "0.4s" },
+  { left: "92%", top: "72%", size: 10, color: "bg-white/80", delay: "0.7s" },
+  { left: "10%", top: "40%", size: 7, color: "bg-sky-300", delay: "1s" },
+  { left: "88%", top: "46%", size: 7, color: "bg-yellow-300", delay: "0.15s" },
+];
+
 export function MindTrapSimulation({ simulation }: Props) {
-    const scenarios = simulation.scenarios;
+  const scenarios = simulation.scenarios;
+  const totalCount = scenarios.length;
 
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [selectedChoice, setSelectedChoice] = useState<SimulationChoice | null>(null);
-    const [completedIds, setCompletedIds] = useState<string[]>([]);
-    const [safeIds, setSafeIds] = useState<string[]>([]);
-    const [showReflection, setShowReflection] = useState(false);
-    const [finished, setFinished] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [saveMessage, setSaveMessage] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedChoice, setSelectedChoice] =
+    useState<SimulationChoice | null>(null);
+  // Riwayat pilihan per level, berisi id pilihan berurutan (termasuk percobaan gagal).
+  const [attempts, setAttempts] = useState<Record<string, string[]>>({});
+  // Level yang sudah selesai (dijawab aman).
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  // Level yang langsung dijawab aman pada percobaan pertama.
+  const [safeIds, setSafeIds] = useState<string[]>([]);
+  const [runSeed, setRunSeed] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
 
-    const scenarioRef = useRef<HTMLElement>(null);
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const tutorialSnapshot = useRef<{
+    currentIndex: number;
+    completedIds: string[];
+    safeIds: string[];
+    attempts: Record<string, string[]>;
+  } | null>(null);
+  // Kunci localStorage per akun (atau "guest") agar tutorial tidak berulang.
+  const tutorialStorageKey = useRef(`${MIND_TRAP_TUTORIAL_KEY}:guest`);
 
-    const currentScenario = scenarios[currentIndex];
-    const progress = scenarios.length ? (completedIds.length / scenarios.length) * 100 : 0;
+  const scenarioRef = useRef<HTMLElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
 
-    if (!scenarios.length) {
-        return (
-            <main className="container py-16 text-center">
-                <Brain className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
-                <h1 className="heading heading-2">Skenario belum tersedia</h1>
-                <p className="mt-2 text-sm text-[var(--muted)]">
-                Konten Mind Trap sedang disiapkan.
-                </p>
-                <Link
-                href="/learning-protection"
-                className="button button-primary mt-6"
-                >
-                Kembali ke Learning & Protection
-                </Link>
-            </main>
-        );
+  const currentScenario = scenarios[currentIndex];
+
+  /* ---------- Hitungan level & XP ---------- */
+
+  const wrongCountOf = (scenario: SimulationScenario) =>
+    (attempts[scenario.id] ?? []).filter(
+      (choiceId) =>
+        !scenario.choices.find((choice) => choice.id === choiceId)?.isSafe,
+    ).length;
+
+  // XP tiap level berdasarkan jumlah jawaban salah sejauh ini.
+  const levelXpList = scenarios.map((scenario, index) =>
+    mindTrapLevelXp(index + 1, wrongCountOf(scenario)),
+  );
+
+  const earnedLevelXp = scenarios.reduce(
+    (sum, scenario, index) =>
+      completedIds.includes(scenario.id) ? sum + levelXpList[index] : sum,
+    0,
+  );
+
+  const potentialXp =
+    levelXpList.reduce((sum, xp) => sum + xp, 0) + MIND_TRAP_MASTER_BONUS;
+
+  const currentLevelXp = levelXpList[currentIndex] ?? 0;
+  const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
+
+  // Urutan pilihan diacak; berubah setiap kali level diulang.
+  const attemptNumber = currentScenario
+    ? (attempts[currentScenario.id]?.length ?? 0)
+    : 0;
+
+  const displayChoices = useMemo(
+    () =>
+      currentScenario
+        ? seededShuffle(
+            currentScenario.choices,
+            `${currentScenario.id}:${attemptNumber}:${runSeed}`,
+          )
+        : [],
+    [currentScenario, attemptNumber, runSeed],
+  );
+
+  const situationLines = currentScenario?.messages?.length
+    ? currentScenario.messages
+    : [currentScenario?.context || currentScenario?.description || ""];
+
+  /* ---------- Tutorial ---------- */
+
+  const startTutorial = () => {
+    tutorialSnapshot.current = {
+      currentIndex,
+      completedIds,
+      safeIds,
+      attempts,
+    };
+    setCurrentIndex(0);
+    setCompletedIds([]);
+    setSafeIds([]);
+    setAttempts({});
+    setSelectedChoice(null);
+    setTutorialActive(true);
+  };
+
+  const closeTutorial = (completed: boolean) => {
+    // Kembalikan progres asli seperti sebelum tutorial.
+    const snapshot = tutorialSnapshot.current;
+    if (snapshot) {
+      setCurrentIndex(snapshot.currentIndex);
+      setCompletedIds(snapshot.completedIds);
+      setSafeIds(snapshot.safeIds);
+      setAttempts(snapshot.attempts);
     }
+    setSelectedChoice(null);
+    setTutorialActive(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
 
-    const scrollToScenario = () => {
-        requestAnimationFrame(() => {
-            scenarioRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-            });
-        });
+    try {
+      localStorage.setItem(
+        tutorialStorageKey.current,
+        completed ? "done" : "skipped",
+      );
+    } catch {}
+  };
+
+  // Nilai terbaru untuk dipakai efek auto-start tanpa nilai usang.
+  const latest = useRef({ start: startTutorial, canAutoStart: true });
+  latest.current = {
+    start: startTutorial,
+    canAutoStart:
+      !tutorialActive &&
+      completedIds.length === 0 &&
+      !selectedChoice &&
+      Object.keys(attempts).length === 0,
+  };
+
+  /**
+   * Tutorial otomatis hanya untuk:
+   * - pengunjung baru / tamu yang belum pernah melihatnya,
+   * - user login yang BELUM menyelesaikan simulasi ini.
+   * User yang sudah menyelesaikannya tidak diganggu
+   * (tombol "Tutorial" tetap bisa dipakai kapan saja).
+   */
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const decide = async () => {
+      let userId = "guest";
+      let completed = false;
+
+      try {
+        const response = await fetch(
+          `/api/learning-protection/progress?simulationId=${SIMULATION_ID}`,
+          { credentials: "same-origin", cache: "no-store" },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authenticated && data.userId) userId = data.userId;
+          completed = Boolean(data.completed);
+        }
+      } catch {
+        // Gagal cek status: anggap tamu yang belum menyelesaikan.
+      }
+
+      if (cancelled) return;
+
+      tutorialStorageKey.current = `${MIND_TRAP_TUTORIAL_KEY}:${userId}`;
+
+      if (completed) return;
+
+      try {
+        if (localStorage.getItem(tutorialStorageKey.current)) return;
+      } catch {}
+
+      timer = setTimeout(() => {
+        if (!cancelled && latest.current.canAutoStart) {
+          latest.current.start();
+        }
+      }, 600);
     };
 
-    const handleChoice = (choice: SimulationChoice) => {
-        if (selectedChoice) return;
+    decide();
 
-        setSelectedChoice(choice);
-
-        if (!completedIds.includes(currentScenario.id)) {
-        setCompletedIds((previous) => [...previous, currentScenario.id]);
-        }
-
-        if (choice.isSafe && !safeIds.includes(currentScenario.id)) {
-        setSafeIds((previous) => [...previous, currentScenario.id]);
-        }
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
     };
+  }, []);
 
-    const handleScenarioChange = (index: number) => {
-        if (index === currentIndex || index < 0 || index >= scenarios.length) {
-        return;
-        }
+  // Tampilkan hasil jawaban (kecuali saat tutorial, yang mengatur scroll sendiri).
+  useEffect(() => {
+    if (!selectedChoice || tutorialActive) return;
 
-        setCurrentIndex(index);
-        setSelectedChoice(null);
-        setShowReflection(false);
-    };
+    const frameId = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
 
-    const handleNext = () => {
-        if (!selectedChoice) return;
+      feedbackRef.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    });
 
-        if (currentIndex < scenarios.length - 1) {
-            setCurrentIndex((previous) => previous + 1);
-            setSelectedChoice(null);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [selectedChoice, tutorialActive]);
 
-            scrollToScenario();
+  if (!totalCount || !currentScenario) {
+    return (
+      <main className="container py-16 text-center">
+        <Brain className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
+        <h1 className="heading heading-2">Skenario belum tersedia</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Konten Mind Trap sedang disiapkan.
+        </p>
+        <Link
+          href="/learning-protection"
+          className="button button-primary mt-6"
+        >
+          Kembali ke Learning & Protection
+        </Link>
+      </main>
+    );
+  }
 
-            return;
-        }
+  /* ---------- Aksi ---------- */
 
-        setFinished(true);
-        scrollToScenario();
-        saveCompletion();
-    };
+  const scrollToScenario = () => {
+    requestAnimationFrame(() => {
+      scenarioRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
 
-    const continueToNext = () => {
-        setCurrentIndex((previous) => previous + 1);
-        setSelectedChoice(null);
-        setShowReflection(false);
-    };
+  const handleChoice = (choice: SimulationChoice) => {
+    if (selectedChoice) return;
 
-    const saveCompletion = async () => {
-        if (saving) return;
+    const scenarioId = currentScenario.id;
+    const isFirstTry = (attempts[scenarioId] ?? []).length === 0;
 
-        setSaving(true);
+    setSelectedChoice(choice);
 
-        try {
-        const response = await fetch("/api/learning-protection/complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ simulationId: "mind-trap" }),
-        });
+    setAttempts((previous) => ({
+      ...previous,
+      [scenarioId]: [...(previous[scenarioId] ?? []), choice.id],
+    }));
 
-        if (response.status === 401) {
-            setSaveMessage(
-            "Kamu sudah menyelesaikan simulasi ini. Login untuk menyimpan progres dan XP."
-            );
-            return;
-        }
+    // Level hanya selesai jika jawabannya aman.
+    if (choice.isSafe) {
+      setCompletedIds((previous) =>
+        previous.includes(scenarioId) ? previous : [...previous, scenarioId],
+      );
 
-        if (!response.ok) {
-            setSaveMessage(
-            "Simulasi selesai, tetapi progres belum berhasil disimpan."
-            );
-            return;
-        }
+      if (isFirstTry) {
+        setSafeIds((previous) =>
+          previous.includes(scenarioId) ? previous : [...previous, scenarioId],
+        );
+      }
+    }
+  };
 
-        const result = await response.json();
+  // Salah menjawab: ulangi level yang sama dengan urutan pilihan baru.
+  const retryLevel = () => {
+    setSelectedChoice(null);
+    scrollToScenario();
+  };
 
-        if (result.alreadyCompleted) {
-            setSaveMessage("Progres simulasi ini sudah pernah tersimpan.");
-        } else {
-            setSaveMessage(
-            result.xpEarned
-                ? `Kamu mendapatkan ${result.xpEarned} XP!`
-                : "Progres simulasi berhasil disimpan."
-            );
-        }
+  const saveCompletion = async () => {
+    if (saving) return;
 
-        window.dispatchEvent(new Event("cekin-auth-change"));
-        } catch {
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/learning-protection/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          simulationId: SIMULATION_ID,
+          answers: attempts,
+        }),
+      });
+
+      if (response.status === 401) {
         setSaveMessage(
-            "Simulasi selesai, tetapi koneksi gagal menyimpan progres."
+          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
         );
-        } finally {
-        setSaving(false);
-        }
-    };
+        return;
+      }
 
-    const restart = () => {
-        setCurrentIndex(0);
-        setSelectedChoice(null);
-        setCompletedIds([]);
-        setSafeIds([]);
-        setFinished(false);
-        setSaveMessage("");
-
-        scrollToScenario();
-    };
-
-    if (finished) {
-        const percentage = Math.round((safeIds.length / scenarios.length) * 100);
-
-        return (
-        <main className="container py-10 md:py-16">
-            <div className="mx-auto max-w-2xl">
-            <div className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-sm">
-                <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-10 text-center text-white md:px-10">
-                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-                <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15">
-                    <Brain className="h-10 w-10" />
-                </div>
-                <p className="text-xs font-bold tracking-[0.2em] text-white/70">
-                    MIND TRAP COMPLETED
-                </p>
-                <h1 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                    Pikiranmu lebih waspada!
-                </h1>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
-                    Kamu sudah berlatih mengenali manipulasi psikologis. Terus
-                    gunakan kemampuan ini saat menghadapi situasi nyata.
-                </p>
-                </div>
-
-                <div className="p-6 md:p-9">
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
-                    <p className="text-3xl font-extrabold text-[var(--brand)]">
-                        {safeIds.length}/{scenarios.length}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                        Pilihan aman
-                    </p>
-                    </div>
-                    <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
-                    <p className="text-3xl font-extrabold text-[var(--accent)]">
-                        {percentage}%
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                        Tingkat kewaspadaan
-                    </p>
-                    </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
-                    <div className="flex items-start gap-3">
-                    <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
-                    <div>
-                        <h2 className="text-sm font-bold">
-                        Satu hal yang perlu diingat
-                        </h2>
-                        <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                        Ketika seseorang membuatmu merasa harus segera bertindak,
-                        berhenti sejenak. Keputusan yang baik tidak harus dibuat
-                        di bawah tekanan.
-                        </p>
-                    </div>
-                    </div>
-                </div>
-
-                {saveMessage && (
-                    <p className="mt-4 text-center text-xs text-[var(--muted)]">
-                    {saveMessage}
-                    </p>
-                )}
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <button
-                    onClick={restart}
-                    className="button button-secondary flex-1"
-                    >
-                    <RotateCcw size={16} />
-                    Ulangi simulasi
-                    </button>
-                    <Link
-                    href="/learning-protection"
-                    className="button button-primary flex-1"
-                    >
-                    Selesai
-                    <ArrowRight size={16} />
-                    </Link>
-                </div>
-                </div>
-            </div>
-            </div>
-        </main>
+      if (!response.ok) {
+        setSaveMessage(
+          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
         );
+        return;
+      }
+
+      const result = await response.json();
+      const scoreXp: number = result.scoreXp ?? 0;
+      const maxXp: number = result.maxXp ?? MIND_TRAP_MAX_XP;
+
+      if (result.xpEarned > 0) {
+        setSaveMessage(
+          scoreXp >= maxXp
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Mind Trap.`
+            : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi simulasi tanpa salah untuk meraih XP maksimal.`,
+        );
+      } else if ((result.bestXp ?? 0) >= maxXp) {
+        setSaveMessage("Kamu sudah meraih XP maksimal di Mind Trap.");
+      } else {
+        setSaveMessage(
+          `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
+        );
+      }
+
+      window.dispatchEvent(new Event("cekin-auth-change"));
+    } catch {
+      setSaveMessage(
+        "Level maksimal tercapai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.",
+      );
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleNext = async () => {
+    if (!selectedChoice || saving) return;
+
+    // Jawaban kurang aman: level belum selesai, ulangi.
+    if (!selectedChoice.isSafe) {
+      retryLevel();
+      return;
+    }
+
+    if (currentIndex < totalCount - 1) {
+      setCurrentIndex((previous) => previous + 1);
+      setSelectedChoice(null);
+      scrollToScenario();
+      return;
+    }
+
+    // Saat tutorial: tidak membuka hasil dan tidak menyimpan XP.
+    if (tutorialActive) {
+      setSelectedChoice(null);
+      return;
+    }
+
+    await saveCompletion();
+    setFinished(true);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const restart = () => {
+    setCurrentIndex(0);
+    setSelectedChoice(null);
+    setAttempts({});
+    setCompletedIds([]);
+    setSafeIds([]);
+    setRunSeed((previous) => previous + 1);
+    setFinished(false);
+    setSaveMessage("");
+
+    scrollToScenario();
+  };
+
+  /* ========================================
+     LAYAR REWARD: LEVEL MAKSIMAL
+  ======================================== */
+
+  if (finished) {
+    const wrongCounts = scenarios.map((scenario) => wrongCountOf(scenario));
+    const finalXp = calculateMindTrapXp(wrongCounts);
+    const totalWrong = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const isPerfect = totalWrong === 0;
+
+    return (
+      <main className="container py-10 md:py-16">
+        <div className="mx-auto max-w-2xl">
+          <div className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-sm">
+            <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-12 text-center text-white md:px-10">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+              <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+
+              {CONFETTI.map((piece, index) => (
+                <span
+                  key={index}
+                  aria-hidden="true"
+                  className={`absolute animate-bounce rounded-full motion-reduce:animate-none ${piece.color}`}
+                  style={{
+                    left: piece.left,
+                    top: piece.top,
+                    width: piece.size,
+                    height: piece.size,
+                    animationDelay: piece.delay,
+                    animationDuration: "1.8s",
+                  }}
+                />
+              ))}
+
+              <div className="relative mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[28px] bg-white/15 ring-4 ring-white/20">
+                <Crown className="h-12 w-12 text-yellow-300" />
+              </div>
+
+              <p className="relative text-xs font-bold tracking-[0.2em] text-yellow-200">
+                LEVEL MAKSIMAL TERCAPAI
+              </p>
+
+              <h1 className="relative mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
+                {isPerfect ? "Perfect Mind Guardian!" : "Selamat, Mind Guardian!"}
+              </h1>
+
+              <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
+                Kamu menamatkan seluruh {totalCount} level, dari FOMO sampai
+                rasa terlalu percaya diri. Kamu kini lebih mudah mengenali
+                tekanan yang bermain di pikiranmu.
+              </p>
+
+              <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
+                <Trophy size={16} />
+                Lencana Mind Guardian
+                {isPerfect && <Star size={14} className="fill-current" />}
+              </div>
+            </div>
+
+            <div className="p-6 md:p-9">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
+                  <p className="text-3xl font-extrabold text-[var(--brand)]">
+                    {completedIds.length}/{totalCount}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
+                    Level selesai
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
+                  <p className="text-3xl font-extrabold text-[var(--accent)]">
+                    {safeIds.length}/{totalCount}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
+                    Benar di percobaan pertama
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
+                  <p className="text-3xl font-extrabold text-[var(--foreground)]">
+                    {finalXp.total}
+                    <span className="text-base font-bold text-[var(--muted)]">
+                      /{MIND_TRAP_MAX_XP}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
+                    Total XP
+                  </p>
+                </div>
+              </div>
+
+              {/* Rincian reward */}
+              <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
+                <h2 className="text-sm font-extrabold text-[var(--foreground)]">
+                  Rincian reward
+                </h2>
+
+                <ul className="mt-3 space-y-2 text-sm">
+                  <li className="flex items-center justify-between text-[var(--muted)]">
+                    <span>XP dari {totalCount} level</span>
+                    <span className="font-bold text-[var(--foreground)]">
+                      +{finalXp.levelXp} XP
+                    </span>
+                  </li>
+                  <li className="flex items-center justify-between text-[var(--muted)]">
+                    <span className="flex items-center gap-2">
+                      <Crown size={14} className="text-[var(--warning)]" />
+                      Bonus Mind Guardian
+                    </span>
+                    <span className="font-bold text-[var(--accent)]">
+                      +{finalXp.bonus} XP
+                    </span>
+                  </li>
+                </ul>
+
+                <p className="mt-3 border-t border-[var(--border)] pt-3 text-xs leading-relaxed text-[var(--muted)]">
+                  {isPerfect
+                    ? "Tanpa satu pun jawaban kurang aman. Luar biasa!"
+                    : `Kamu sempat ${totalWrong} kali memilih respons kurang aman. Ulangi simulasi tanpa salah untuk meraih XP maksimal (${MIND_TRAP_MAX_XP} XP).`}
+                </p>
+              </div>
+
+              {/* Jebakan yang sudah dikuasai */}
+              <div className="mt-4 rounded-2xl border border-[var(--border)] p-5">
+                <div className="flex items-center gap-2">
+                  <Brain size={17} className="text-[var(--brand)]" />
+                  <h2 className="text-sm font-extrabold text-[var(--foreground)]">
+                    Jebakan yang sudah kamu kenali
+                  </h2>
+                </div>
+
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {scenarios.map((scenario, index) => {
+                    const firstTry = safeIds.includes(scenario.id);
+
+                    return (
+                      <li
+                        key={scenario.id}
+                        className="flex items-start gap-2 rounded-xl bg-[var(--surface)] px-3 py-2.5 text-xs leading-relaxed text-[var(--foreground)]"
+                      >
+                        {firstTry ? (
+                          <Star
+                            size={13}
+                            className="mt-0.5 shrink-0 fill-yellow-400 text-yellow-500"
+                          />
+                        ) : (
+                          <Check
+                            size={13}
+                            className="mt-0.5 shrink-0 text-[var(--accent)]"
+                          />
+                        )}
+                        <span>
+                          <span className="font-bold text-[var(--muted)]">
+                            Lv {index + 1}.{" "}
+                          </span>
+                          {scenario.topic}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <p className="mt-3 text-[10px] text-[var(--muted)]">
+                  Bintang berarti kamu menjawab benar pada percobaan pertama.
+                </p>
+              </div>
+
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[var(--border)] p-5">
+                <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
+                <div>
+                  <h2 className="text-sm font-bold">
+                    Satu hal yang perlu diingat
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
+                    Ketika seseorang membuatmu merasa harus segera bertindak,
+                    takut tertinggal, atau berutang budi, berhenti sejenak.
+                    Keputusan yang baik tidak harus dibuat di bawah tekanan,
+                    dan rasa yakin saja bukan bukti.
+                  </p>
+                </div>
+              </div>
+
+              {saveMessage && (
+                <p className="mt-4 text-center text-xs leading-relaxed text-[var(--muted)]">
+                  {saveMessage}
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={restart}
+                  className="button button-secondary flex-1"
+                >
+                  <RotateCcw size={16} />
+                  Ulangi simulasi
+                </button>
+                <Link
+                  href="/learning-protection"
+                  className="button button-primary flex-1"
+                >
+                  Selesai
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* ========================================
+     TAMPILAN UTAMA
+  ======================================== */
+
+  const isUnsafeAnswer = !!selectedChoice && !selectedChoice.isSafe;
+  const isLastLevel = currentIndex >= totalCount - 1;
 
   return (
     <main className="container py-8 pb-16 md:py-12">
@@ -287,34 +681,50 @@ export function MindTrapSimulation({ simulation }: Props) {
               Kenali trik yang bermain di pikiranmu.
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Skenario singkat. Pilih respons, lalu lihat pola psikologinya.
+              Naiki {totalCount} level. Makin tinggi levelnya, makin halus
+              tipuannya, sampai yang ada di dalam pikiranmu sendiri.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <ShieldCheck size={21} />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
-                {safeIds.length}
-              </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
-                Pilihan aman
-              </p>
+          <div className="flex items-center gap-3">
+            <button onClick={startTutorial} className="button button-secondary">
+              <HelpCircle size={16} />
+              Tutorial
+            </button>
+
+            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                <ShieldCheck size={21} />
+              </div>
+              <div>
+                <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
+                  {earnedLevelXp}
+                </p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                  XP terkumpul
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Progress */}
-        <div className="mb-7 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div
+          data-tutorial="progress"
+          className="mb-7 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-[var(--foreground)]">
               Perjalananmu
             </span>
-            <span className="text-xs font-semibold tabular-nums text-[var(--muted)]">
-              {completedIds.length} dari {scenarios.length} selesai
-            </span>
+            <div className="flex items-center gap-3 text-xs font-semibold tabular-nums text-[var(--muted)]">
+              <span>
+                {completedIds.length} dari {totalCount} level selesai
+              </span>
+              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+                Potensi XP {potentialXp}/{MIND_TRAP_MAX_XP}
+              </span>
+            </div>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--surface)]">
             <div
@@ -324,31 +734,46 @@ export function MindTrapSimulation({ simulation }: Props) {
           </div>
         </div>
 
-        {/* Scenario selector */}
-        <div className="mb-6">
-          <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
-            Pilih jebakan psikologi
-          </p>
+        {/* Peta level */}
+        <div data-tutorial="levels" className="mb-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
+              Peta level
+            </p>
+            <p className="text-[10px] font-bold text-[var(--muted)]">
+              Makin tinggi, makin halus
+            </p>
+          </div>
+
           <div className="flex gap-2 overflow-x-auto pb-2">
             {scenarios.map((scenario, index) => {
               const isCurrent = index === currentIndex;
               const isCompleted = completedIds.includes(scenario.id);
+              const isLocked = !isCompleted && !isCurrent;
 
               return (
-                <button
+                <div
                   key={scenario.id}
-                  onClick={() => handleScenarioChange(index)}
-                  className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition ${
+                  title={isLocked ? "Selesaikan level sebelumnya" : scenario.title}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold ${
                     isCurrent
                       ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--brand)]"
+                      : isCompleted
+                        ? "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] opacity-70"
                   }`}
                 >
                   <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-black/5 text-[10px]">
-                    {isCompleted ? <Check size={13} /> : `0${index + 1}`}
+                    {isCompleted ? (
+                      <Check size={13} />
+                    ) : isLocked ? (
+                      <Lock size={12} />
+                    ) : (
+                      index + 1
+                    )}
                   </span>
-                  {scenario.title}
-                </button>
+                  Level {index + 1}
+                </div>
               );
             })}
           </div>
@@ -359,45 +784,111 @@ export function MindTrapSimulation({ simulation }: Props) {
           <section
             ref={scenarioRef}
             className="min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--card)] shadow-sm"
-            >
+          >
             <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 md:px-7">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-[10px] font-extrabold tracking-[0.16em] text-[var(--brand)]">
-                  SKENARIO {currentIndex + 1} DARI {scenarios.length}
+                  LEVEL {currentIndex + 1} DARI {totalCount}
                 </span>
-                <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
-                  Kenali polanya
-                </span>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {currentScenario.difficulty && (
+                    <span
+                      className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${DIFFICULTY_STYLES[currentScenario.difficulty]}`}
+                    >
+                      {currentScenario.difficulty}
+                    </span>
+                  )}
+
+                  {/* Nama jebakan disembunyikan sampai user menjawab */}
+                  <span
+                    data-tutorial="trap-name"
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold ${
+                      selectedChoice
+                        ? "bg-[var(--brand-soft)] text-[var(--brand)]"
+                        : "bg-[var(--surface)] text-[var(--muted)] ring-1 ring-[var(--border)]"
+                    }`}
+                  >
+                    {selectedChoice ? (
+                      <>
+                        <Brain size={11} />
+                        Jebakan: {currentScenario.topic}
+                      </>
+                    ) : (
+                      <>
+                        <Lock size={11} />
+                        Jebakan tersembunyi
+                      </>
+                    )}
+                  </span>
+                </div>
               </div>
+
               <h2 className="mt-3 text-xl font-extrabold leading-snug text-[var(--foreground)] md:text-2xl">
                 {currentScenario.title}
               </h2>
             </div>
 
             <div className="p-5 md:p-7">
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              {/* Situasi */}
+              <div
+                data-tutorial="situation"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"
+              >
                 <div className="mb-3 flex items-center gap-2 text-[var(--muted)]">
                   <Eye size={16} />
                   <span className="text-[10px] font-extrabold tracking-wider">
                     BAYANGKAN SITUASI INI
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed text-[var(--foreground)]">
-                  {currentScenario.context || currentScenario.description}
-                </p>
+
+                {currentScenario.description && (
+                  <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                    {currentScenario.description}
+                  </p>
+                )}
+
+                {currentScenario.sender && (
+                  <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-[var(--muted)]">
+                    <MessageCircle size={13} />
+                    {currentScenario.sender.name}
+                    {currentScenario.sender.status && (
+                      <span className="font-medium">
+                        • {currentScenario.sender.status}
+                      </span>
+                    )}
+                  </p>
+                )}
+
+                <div className="mt-3 space-y-2">
+                  {situationLines.map((line, lineIndex) => (
+                    <div
+                      key={lineIndex}
+                      className="flex gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3.5"
+                    >
+                      <Quote
+                        size={14}
+                        className="mt-1 shrink-0 text-[var(--brand)]"
+                      />
+                      <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--foreground)]">
+                        {line}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="mb-4 mt-7">
                 <p className="text-sm font-extrabold text-[var(--foreground)]">
-                  Seseorang mendorongmu untuk segera bertindak. Apa responsmu?
+                  Apa responsmu?
                 </p>
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  Pilih respons yang paling mungkin kamu lakukan.
+                  Pilih respons yang paling mungkin kamu lakukan, dan jujurlah.
                 </p>
               </div>
 
-              <div className="space-y-3">
-                {currentScenario.choices.map((choice, index) => {
+              <div data-tutorial="choices" className="space-y-3">
+                {displayChoices.map((choice, index) => {
                   const isSelected = selectedChoice?.id === choice.id;
 
                   return (
@@ -450,8 +941,12 @@ export function MindTrapSimulation({ simulation }: Props) {
 
               {/* Answer reveal */}
               {selectedChoice && (
-                <div className="mt-6 animate-[fadeIn_300ms_ease-out]">
+                <div
+                  ref={feedbackRef}
+                  className="mt-6 scroll-mt-24 animate-[fadeIn_300ms_ease-out]"
+                >
                   <div
+                    data-tutorial="feedback"
                     className={`rounded-2xl border p-5 ${
                       selectedChoice.isSafe
                         ? "border-[var(--accent)]/30 bg-[var(--accent-soft)]"
@@ -462,26 +957,62 @@ export function MindTrapSimulation({ simulation }: Props) {
                       {selectedChoice.isSafe ? (
                         <CheckCircle2
                           size={20}
-                          className="text-[var(--accent)]"
+                          className="shrink-0 text-[var(--accent)]"
                         />
                       ) : (
                         <AlertTriangle
                           size={20}
-                          className="text-[var(--warning)]"
+                          className="shrink-0 text-[var(--warning)]"
                         />
                       )}
                       <h3 className="text-sm font-extrabold text-[var(--foreground)]">
                         {selectedChoice.isSafe
-                          ? "Respons yang lebih aman!"
+                          ? `Level ${currentIndex + 1} selesai!`
                           : "Ada jebakan yang perlu kamu sadari."}
                       </h3>
+
+                      <span
+                        className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold text-white ${
+                          selectedChoice.isSafe
+                            ? "bg-[var(--accent)]"
+                            : "bg-[var(--warning)]"
+                        }`}
+                      >
+                        {selectedChoice.isSafe
+                          ? `+${currentLevelXp} XP`
+                          : `XP level ini turun ke ${currentLevelXp}`}
+                      </span>
                     </div>
+
                     <p className="mt-2 text-sm leading-relaxed text-[var(--foreground)]">
                       {selectedChoice.feedback}
                     </p>
+
+                    {selectedChoice.reply && (
+                      <div className="mt-3 flex gap-2 rounded-xl bg-[var(--card)]/70 p-3">
+                        <MessageCircle
+                          size={14}
+                          className="mt-0.5 shrink-0 text-[var(--muted)]"
+                        />
+                        <p className="text-xs leading-relaxed text-[var(--muted)]">
+                          <span className="font-bold">Reaksi mereka: </span>
+                          {selectedChoice.reply}
+                        </p>
+                      </div>
+                    )}
+
+                    {isUnsafeAnswer && (
+                      <p className="mt-3 text-xs font-bold leading-relaxed text-[var(--warning)]">
+                        Level ini belum selesai. Pelajari jebakannya, lalu coba
+                        lagi dengan pilihan yang lebih aman.
+                      </p>
+                    )}
                   </div>
 
-                  <div className="mt-4 rounded-2xl border border-[var(--border)] p-5">
+                  <div
+                    data-tutorial="insight"
+                    className="mt-4 rounded-2xl border border-[var(--border)] p-5"
+                  >
                     <div className="flex items-center gap-2">
                       <Brain size={18} className="text-[var(--brand)]" />
                       <h3 className="text-sm font-extrabold text-[var(--foreground)]">
@@ -506,13 +1037,31 @@ export function MindTrapSimulation({ simulation }: Props) {
                   </div>
 
                   <button
+                    data-tutorial="next"
                     onClick={handleNext}
-                    className="button button-primary mt-5 w-full"
+                    disabled={saving}
+                    className={`button mt-5 w-full ${
+                      isUnsafeAnswer ? "button-secondary" : "button-primary"
+                    }`}
                   >
-                    {currentIndex === scenarios.length - 1
-                      ? "Lihat hasilku"
-                      : "Lanjut ke jebakan berikutnya"}
-                    <ArrowRight size={16} />
+                    {saving ? (
+                      "Menyimpan progres..."
+                    ) : isUnsafeAnswer ? (
+                      <>
+                        <RotateCcw size={16} />
+                        Coba lagi level ini
+                      </>
+                    ) : isLastLevel ? (
+                      <>
+                        <Trophy size={16} />
+                        Klaim hasil dan reward
+                      </>
+                    ) : (
+                      <>
+                        Lanjut ke Level {currentIndex + 2}
+                        <ArrowRight size={16} />
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -529,9 +1078,33 @@ export function MindTrapSimulation({ simulation }: Props) {
                 Misi kamu
               </h3>
               <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                Kenali bagaimana tekanan, rasa takut, dan pengaruh orang lain
-                bisa mengubah keputusanmu.
+                Capai Level {totalCount}. Di level tinggi, jebakannya tidak
+                selalu datang dari orang lain: kadang justru dari rasa yakin
+                dan keinginanmu sendiri untuk dibenarkan.
               </p>
+            </div>
+
+            <div
+              data-tutorial="tactics"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={17} className="text-[var(--warning)]" />
+                <h3 className="text-sm font-extrabold text-[var(--foreground)]">
+                  Trik yang sering dipakai
+                </h3>
+              </div>
+
+              <ul className="mt-3 space-y-3">
+                {TACTICS.map((tactic) => (
+                  <li key={tactic.name} className="text-xs leading-relaxed">
+                    <p className="font-bold text-[var(--foreground)]">
+                      {tactic.name}
+                    </p>
+                    <p className="text-[var(--muted)]">{tactic.hint}</p>
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
@@ -543,7 +1116,8 @@ export function MindTrapSimulation({ simulation }: Props) {
               </div>
               <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
                 Kamu berhak mengambil waktu untuk berpikir. Tidak perlu
-                mengikuti keputusan hanya karena seseorang mendesakmu.
+                mengikuti keputusan hanya karena seseorang mendesakmu, dan
+                tawaran yang sah akan tetap ada setelah kamu menundanya.
               </p>
             </div>
 
@@ -561,62 +1135,36 @@ export function MindTrapSimulation({ simulation }: Props) {
                 />
               </div>
               <p className="mt-3 text-xs text-white/70">
-                Satu langkah lebih waspada.
+                {completedIds.length} dari {totalCount} level telah kamu
+                selesaikan.
               </p>
+
+              <div className="mt-4 border-t border-white/15 pt-3">
+                <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">
+                  POTENSI XP
+                </p>
+                <p className="mt-1 text-lg font-extrabold">
+                  {potentialXp}
+                  <span className="text-xs font-bold text-white/60">
+                    /{MIND_TRAP_MAX_XP}
+                  </span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+                  Level tinggi bernilai lebih besar. Jawaban salah mengurangi
+                  XP level itu. Selesaikan Level {totalCount} untuk bonus{" "}
+                  {MIND_TRAP_MASTER_BONUS} XP dan lencana Mind Guardian.
+                </p>
+              </div>
             </div>
           </aside>
         </div>
-
-        {/* Reflection modal */}
-        {showReflection && selectedChoice && (
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reflection-title"
-          >
-            <div className="w-full max-w-md overflow-hidden rounded-3xl bg-[var(--card)] shadow-2xl">
-              <div className="bg-[var(--brand-dark)] p-6 text-white">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-                  <Brain size={24} />
-                </div>
-                <p className="mt-5 text-[10px] font-extrabold tracking-[0.18em] text-white/60">
-                  JEDA SEJENAK
-                </p>
-                <h2
-                  id="reflection-title"
-                  className="mt-2 text-2xl font-extrabold"
-                >
-                  Bawa pelajaran ini ke skenario berikutnya.
-                </h2>
-              </div>
-
-              <div className="p-6">
-                <p className="text-sm leading-relaxed text-[var(--muted)]">
-                  {selectedChoice.saferAction}
-                </p>
-                <div className="mt-5 flex items-start gap-3 rounded-2xl bg-[var(--accent-soft)] p-4">
-                  <CheckCircle2
-                    size={18}
-                    className="mt-0.5 shrink-0 text-[var(--accent)]"
-                  />
-                  <p className="text-xs font-semibold leading-relaxed text-[var(--foreground)]">
-                    Ingat: mengenali tekanan adalah langkah pertama untuk
-                    mengambil keputusan dengan sadar.
-                  </p>
-                </div>
-                <button
-                  onClick={continueToNext}
-                  className="button button-primary mt-6 w-full"
-                >
-                  Aku siap lanjut
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      <MindTrapTutorial
+        active={tutorialActive}
+        hasSelectedChoice={!!selectedChoice}
+        onClose={closeTutorial}
+      />
     </main>
   );
 }

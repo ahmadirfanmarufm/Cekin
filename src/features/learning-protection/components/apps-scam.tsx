@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -10,12 +9,15 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  Crown,
   Download,
   ExternalLink,
   Eye,
   FileWarning,
   Gamepad2,
+  HelpCircle,
   Lightbulb,
+  Lock,
   LockKeyhole,
   RotateCcw,
   ShieldAlert,
@@ -28,19 +30,22 @@ import {
 } from "lucide-react";
 
 import type {
-  AppScenarioData,
+  ScenarioDifficulty,
+  SimulationChoice,
   SimulationConfig,
 } from "@/types/learning-protection/index";
+import { seededShuffle } from "@/lib/learning-protection/shuffle";
+import {
+  APPS_SCAM_MASTER_BONUS,
+  APPS_SCAM_MAX_XP,
+  appsScamLevelXp,
+  calculateAppsScamXp,
+} from "@/lib/learning-protection/xp";
+import { AppsScamTutorial, APPS_SCAM_TUTORIAL_KEY } from "./apps-scam-tutorial";
 
 type Props = {
   simulation: SimulationConfig;
 };
-
-type AppScenario = AppScenarioData & {
-  id: string;
-};
-
-type UserAction = "install" | "verify" | "cancel";
 
 type SimulationView = "store" | "detail" | "permissions" | "result";
 
@@ -51,19 +56,44 @@ const riskStyles = {
   Kritis: "border-[var(--danger)]/25 bg-[var(--danger)]/10 text-[var(--danger)]",
 } as const;
 
+const DIFFICULTY_STYLES: Record<ScenarioDifficulty, string> = {
+  Mudah: "bg-[var(--accent-soft)] text-[var(--accent)]",
+  Menengah: "bg-[var(--brand-soft)] text-[var(--brand)]",
+  Sulit: "bg-[var(--warning)]/15 text-[var(--warning)]",
+  Ahli: "bg-[var(--danger)]/10 text-[var(--danger)]",
+};
+
 const steps = [
   { id: "store", label: "Temukan aplikasi", icon: Store },
   { id: "detail", label: "Periksa detail", icon: Eye },
   { id: "permissions", label: "Periksa izin", icon: LockKeyhole },
 ] as const;
 
+const CONFETTI = [
+  { left: "8%", top: "14%", size: 10, color: "bg-yellow-300", delay: "0s" },
+  { left: "20%", top: "64%", size: 8, color: "bg-emerald-300", delay: "0.3s" },
+  { left: "32%", top: "18%", size: 12, color: "bg-sky-300", delay: "0.6s" },
+  { left: "46%", top: "76%", size: 9, color: "bg-pink-300", delay: "0.2s" },
+  { left: "60%", top: "10%", size: 8, color: "bg-white/80", delay: "0.9s" },
+  { left: "72%", top: "66%", size: 11, color: "bg-yellow-300", delay: "0.5s" },
+  { left: "84%", top: "20%", size: 9, color: "bg-emerald-300", delay: "0.1s" },
+  { left: "92%", top: "58%", size: 10, color: "bg-sky-300", delay: "0.8s" },
+];
+
 export function AppsScam({ simulation }: Props) {
-  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
-  const [attemptsCompleted, setAttemptsCompleted] = useState(0);
-  const [attemptedAppIds, setAttemptedAppIds] = useState<string[]>([]);
+  const scenarios = useMemo(
+    () => simulation.scenarios.filter((scenario) => scenario.appDetails),
+    [simulation.scenarios],
+  );
+  const totalCount = scenarios.length;
+
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [view, setView] = useState<SimulationView>("store");
-  const [action, setAction] = useState<UserAction | null>(null);
-  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [selectedChoice, setSelectedChoice] = useState<SimulationChoice | null>(null);
+  const [attempts, setAttempts] = useState<Record<string, string[]>>({});
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [safeIds, setSafeIds] = useState<string[]>([]);
+  const [runSeed, setRunSeed] = useState(0);
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
   const [isSavingReward, setIsSavingReward] = useState(false);
@@ -72,49 +102,52 @@ export function AppsScam({ simulation }: Props) {
 
   const mainContentRef = useRef<HTMLElement | null>(null);
   const phoneContentRef = useRef<HTMLDivElement | null>(null);
-  const resultRef = useRef<HTMLDivElement | null>(null);
+  const resultRef = useRef<HTMLElement | null>(null);
 
-  const appScenarios: AppScenario[] = simulation.scenarios.flatMap(
-    (scenario) =>
-      scenario.appDetails
-        ? [
-            {
-              id: scenario.id,
-              ...scenario.appDetails,
-            },
-          ]
+  const currentScenario = scenarios[currentIndex];
+  const app = currentScenario?.appDetails;
+
+  const attemptNumber = currentScenario ? (attempts[currentScenario.id]?.length ?? 0) : 0;
+
+  // Urutan pilihan diacak, dan berubah tiap level diulang.
+  const displayChoices = useMemo(
+    () =>
+      currentScenario
+        ? seededShuffle(
+            currentScenario.choices,
+            `${currentScenario.id}:${attemptNumber}:${runSeed}`,
+          )
         : [],
+    [currentScenario, attemptNumber, runSeed],
   );
 
-  const totalScenarios = appScenarios.length;
+  const wrongCountOf = (scenarioId: string) => {
+    const scenario = scenarios.find((item) => item.id === scenarioId);
+    if (!scenario) return 0;
 
-  const availableApps = appScenarios.filter(
-    (app) => !attemptedAppIds.includes(app.id),
+    return (attempts[scenarioId] ?? []).filter(
+      (choiceId) => !scenario.choices.find((choice) => choice.id === choiceId)?.isSafe,
+    ).length;
+  };
+
+  const levelXpList = scenarios.map((scenario, index) =>
+    appsScamLevelXp(index + 1, wrongCountOf(scenario.id)),
   );
 
-  const currentApp =
-    appScenarios.find((app) => app.id === selectedAppId) ??
-    availableApps[0] ??
-    appScenarios[0];
+  const earnedLevelXp = scenarios.reduce(
+    (sum, scenario, index) =>
+      completedIds.includes(scenario.id) ? sum + levelXpList[index] : sum,
+    0,
+  );
 
-  const progress =
-    totalScenarios > 0
-      ? (attemptsCompleted / totalScenarios) * 100
-      : 0;
-
-  const isSafeDecision =
-    currentApp?.risk === "Rendah"
-      ? action === "install" || action === "verify"
-      : action === "verify" || action === "cancel";
-
-  const activeStep =
-    view === "store" ? 0 : view === "detail" ? 1 : 2;
+  const potentialXp = levelXpList.reduce((sum, xp) => sum + xp, 0) + APPS_SCAM_MASTER_BONUS;
+  const currentLevelXp = levelXpList[currentIndex] ?? 0;
+  const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
+  const activeStep = view === "store" ? 0 : view === "detail" ? 1 : 2;
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
       mainContentRef.current?.scrollIntoView({
         behavior: reduceMotion ? "auto" : "smooth",
@@ -128,20 +161,13 @@ export function AppsScam({ simulation }: Props) {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [view, selectedAppId]);
+  }, [view, currentIndex]);
 
   useEffect(() => {
     if (!finished) return;
 
     const frame = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-
-      resultRef.current?.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "start",
-      });
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -162,26 +188,118 @@ export function AppsScam({ simulation }: Props) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isEducationOpen, showGuide]);
 
-  if (!currentApp || totalScenarios === 0) {
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const tutorialSnapshot = useRef<{
+    currentIndex: number;
+    view: SimulationView;
+    completedIds: string[];
+    safeIds: string[];
+    attempts: Record<string, string[]>;
+  } | null>(null);
+  const tutorialStorageKey = useRef(`${APPS_SCAM_TUTORIAL_KEY}:guest`);
+
+  const startTutorial = () => {
+    tutorialSnapshot.current = { currentIndex, view, completedIds, safeIds, attempts };
+    setCurrentIndex(0);
+    setView("store");
+    setCompletedIds([]);
+    setSafeIds([]);
+    setAttempts({});
+    setSelectedChoice(null);
+    setIsEducationOpen(false);
+    setShowGuide(false);
+    setTutorialActive(true);
+  };
+
+  const closeTutorial = (completed: boolean) => {
+    const snapshot = tutorialSnapshot.current;
+    if (snapshot) {
+      setCurrentIndex(snapshot.currentIndex);
+      setView(snapshot.view);
+      setCompletedIds(snapshot.completedIds);
+      setSafeIds(snapshot.safeIds);
+      setAttempts(snapshot.attempts);
+    }
+    setSelectedChoice(null);
+    setIsEducationOpen(false);
+    setTutorialActive(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    try {
+      localStorage.setItem(tutorialStorageKey.current, completed ? "done" : "skipped");
+    } catch {}
+  };
+
+  const latest = useRef({ start: startTutorial, canAutoStart: true });
+  latest.current = {
+    start: startTutorial,
+    canAutoStart:
+      !tutorialActive &&
+      completedIds.length === 0 &&
+      !selectedChoice &&
+      Object.keys(attempts).length === 0,
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const decide = async () => {
+      let userId = "guest";
+      let completed = false;
+
+      try {
+        const response = await fetch(
+          "/api/learning-protection/progress?simulationId=apps-scam",
+          { credentials: "same-origin", cache: "no-store" },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authenticated && data.userId) userId = data.userId;
+          completed = Boolean(data.completed);
+        }
+      } catch {
+        // Gagal cek status: anggap tamu yang belum menyelesaikan.
+      }
+
+      if (cancelled) return;
+
+      tutorialStorageKey.current = `${APPS_SCAM_TUTORIAL_KEY}:${userId}`;
+
+      if (completed) return;
+
+      try {
+        if (localStorage.getItem(tutorialStorageKey.current)) return;
+      } catch {}
+
+      timer = setTimeout(() => {
+        if (!cancelled && latest.current.canAutoStart) latest.current.start();
+      }, 600);
+    };
+
+    void decide();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  if (!currentScenario || !app || totalCount === 0) {
     return (
       <main className="container py-16 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)]">
           <Store size={26} />
         </div>
 
-        <h1 className="heading heading-2 mt-5">
-          Skenario belum tersedia
-        </h1>
+        <h1 className="heading heading-2 mt-5">Skenario belum tersedia</h1>
 
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[var(--muted)]">
-          Konten simulasi aplikasi sedang disiapkan. Silakan kembali lagi
-          nanti.
+          Konten simulasi aplikasi sedang disiapkan. Silakan kembali lagi nanti.
         </p>
 
-        <Link
-          href="/learning-protection"
-          className="button button-primary mt-6"
-        >
+        <Link href="/learning-protection" className="button button-primary mt-6">
           <ArrowLeft size={16} />
           Kembali ke Learning & Protection
         </Link>
@@ -189,130 +307,120 @@ export function AppsScam({ simulation }: Props) {
     );
   }
 
+  /* ---------- Aksi ---------- */
+
   const saveSimulationCompletion = async () => {
     try {
       const response = await fetch("/api/learning-protection/complete", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          simulationId: "apps-scam",
-        }),
+        body: JSON.stringify({ simulationId: "apps-scam", answers: attempts }),
       });
 
       if (response.status === 401) {
         setRewardMessage(
-          "Kamu sudah menyelesaikan simulasi. Login untuk menyimpan progres dan mendapatkan XP.",
+          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
         );
         return;
-      }
-
-      let result: {
-        message?: string;
-        alreadyCompleted?: boolean;
-        xpEarned?: number;
-      } = {};
-
-      try {
-        result = await response.json();
-      } catch {
-        // Respons kosong tetap ditangani melalui status HTTP.
       }
 
       if (!response.ok) {
         setRewardMessage(
-          result.message ?? "Gagal menyimpan progres simulasi.",
+          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
         );
         return;
       }
 
-      if (result.alreadyCompleted) {
+      const result = await response.json();
+      const scoreXp: number = result.scoreXp ?? 0;
+      const maxXp: number = result.maxXp ?? APPS_SCAM_MAX_XP;
+
+      if (result.xpEarned > 0) {
         setRewardMessage(
-          "Simulasi ini sudah pernah kamu selesaikan. XP tidak diberikan dua kali.",
+          scoreXp >= maxXp
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Apps Scam.`
+            : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi tanpa salah untuk XP maksimal.`,
         );
-        return;
+      } else if ((result.bestXp ?? 0) >= maxXp) {
+        setRewardMessage("Kamu sudah meraih XP maksimal di Apps Scam.");
+      } else {
+        setRewardMessage(
+          `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
+        );
       }
-
-      setRewardMessage(
-        result.xpEarned
-          ? `Selamat! Kamu mendapatkan +${result.xpEarned} XP dari Game & Apps Scam.`
-          : "Progres simulasi berhasil disimpan.",
-      );
 
       window.dispatchEvent(new Event("cekin-auth-change"));
     } catch {
       setRewardMessage(
-        "Simulasi selesai, tetapi koneksi gagal menyimpan progres. Silakan coba lagi nanti.",
+        "Level maksimal tercapai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.",
       );
     }
   };
 
-  const openApp = (appId: string) => {
-    setSelectedAppId(appId);
-    setAction(null);
-    setView("detail");
-    setIsEducationOpen(false);
-  };
+  const handleChoice = (choice: SimulationChoice) => {
+    if (selectedChoice) return;
 
-  const openPermissionCheck = () => {
-    setView("permissions");
-    setIsEducationOpen(true);
-  };
+    const scenarioId = currentScenario.id;
+    const isFirstTry = (attempts[scenarioId] ?? []).length === 0;
 
-  const handleDecision = (value: UserAction) => {
-    if (action || !currentApp) return;
+    setSelectedChoice(choice);
+    setAttempts((previous) => ({
+      ...previous,
+      [scenarioId]: [...(previous[scenarioId] ?? []), choice.id],
+    }));
 
-    const isSafe =
-      currentApp.risk === "Rendah"
-        ? value === "install" || value === "verify"
-        : value === "verify" || value === "cancel";
+    if (choice.isSafe) {
+      setCompletedIds((previous) =>
+        previous.includes(scenarioId) ? previous : [...previous, scenarioId],
+      );
 
-    setAction(value);
-    setAttemptsCompleted((previous) => previous + 1);
-    setAttemptedAppIds((previous) =>
-      previous.includes(currentApp.id)
-        ? previous
-        : [...previous, currentApp.id],
-    );
-
-    if (isSafe) {
-      setCorrectAnswers((previous) => previous + 1);
+      if (isFirstTry) {
+        setSafeIds((previous) =>
+          previous.includes(scenarioId) ? previous : [...previous, scenarioId],
+        );
+      }
     }
 
+    setIsEducationOpen(false);
     setView("result");
   };
 
   const handleNext = async () => {
-    if (!action || isSavingReward) return;
+    if (!selectedChoice || isSavingReward) return;
 
-    if (attemptsCompleted >= totalScenarios) {
-      setIsSavingReward(true);
-
-      try {
-        await saveSimulationCompletion();
-        setFinished(true);
-      } finally {
-        setIsSavingReward(false);
-      }
-
+    // Pilihan kurang aman: ulangi level dari halaman detail.
+    if (!selectedChoice.isSafe) {
+      setSelectedChoice(null);
+      setView("detail");
       return;
     }
 
-    setSelectedAppId(null);
-    setAction(null);
-    setIsEducationOpen(false);
-    setView("store");
+    if (currentIndex < totalCount - 1) {
+      setCurrentIndex((previous) => previous + 1);
+      setSelectedChoice(null);
+      setView("store");
+      return;
+    }
+
+    setIsSavingReward(true);
+
+    try {
+      await saveSimulationCompletion();
+      setFinished(true);
+    } finally {
+      setIsSavingReward(false);
+    }
   };
 
   const handleRestart = () => {
-    setSelectedAppId(null);
-    setAttemptsCompleted(0);
-    setAttemptedAppIds([]);
+    setCurrentIndex(0);
     setView("store");
-    setAction(null);
-    setCorrectAnswers(0);
+    setSelectedChoice(null);
+    setAttempts({});
+    setCompletedIds([]);
+    setSafeIds([]);
+    setRunSeed((previous) => previous + 1);
     setFinished(false);
     setRewardMessage("");
     setIsSavingReward(false);
@@ -327,6 +435,8 @@ export function AppsScam({ simulation }: Props) {
     return "upcoming";
   };
 
+  /* ---------- Modal ---------- */
+
   const educationModal = (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm"
@@ -337,13 +447,10 @@ export function AppsScam({ simulation }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="permission-guide-title"
-        aria-describedby="permission-guide-description"
         onClick={(event) => event.stopPropagation()}
         className="my-auto w-full max-w-md overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--card)] shadow-2xl"
       >
         <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-7 text-white">
-          <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
-
           <button
             type="button"
             aria-label="Tutup panduan"
@@ -353,70 +460,48 @@ export function AppsScam({ simulation }: Props) {
             <X size={18} />
           </button>
 
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
             <LockKeyhole size={24} />
           </div>
 
-          <p className="relative mt-5 text-[10px] font-extrabold tracking-[0.18em] text-white/60">
+          <p className="mt-5 text-[10px] font-extrabold tracking-[0.18em] text-white/60">
             SEBELUM MELANJUTKAN
           </p>
 
-          <h2
-            id="permission-guide-title"
-            className="relative mt-2 text-2xl font-extrabold tracking-tight"
-          >
+          <h2 id="permission-guide-title" className="mt-2 text-2xl font-extrabold tracking-tight">
             Cek izin sebelum install.
           </h2>
 
-          <p
-            id="permission-guide-description"
-            className="relative mt-2 max-w-sm text-sm leading-relaxed text-white/75"
-          >
-            Izin aplikasi menentukan data dan fitur perangkat yang bisa
-            diakses oleh aplikasi tersebut.
+          <p className="mt-2 text-sm leading-relaxed text-white/75">
+            Izin menentukan data dan fitur perangkat yang bisa diakses aplikasi.
           </p>
         </div>
 
         <div className="space-y-3 p-5 sm:p-6">
           <div className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <CheckCircle2 size={18} />
-            </div>
+            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />
             <div>
-              <p className="text-sm font-bold text-[var(--foreground)]">
-                Cocokkan dengan fungsi
-              </p>
+              <p className="text-sm font-bold text-[var(--foreground)]">Cocokkan dengan fungsi</p>
               <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-                Aplikasi kamera mungkin membutuhkan kamera. Namun, game
-                sederhana belum tentu membutuhkan akses SMS atau kontak.
+                Aplikasi ojek butuh lokasi. Aplikasi senter tidak butuh SMS atau kontak.
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--warning)]/10 text-[var(--warning)]">
-              <AlertTriangle size={18} />
-            </div>
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[var(--warning)]" />
             <div>
-              <p className="text-sm font-bold text-[var(--foreground)]">
-                Waspadai izin sensitif
-              </p>
+              <p className="text-sm font-bold text-[var(--foreground)]">Waspadai izin sensitif</p>
               <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-                SMS, kontak, mikrofon, lokasi, dan aksesibilitas dapat
-                membuka akses ke informasi pribadi.
+                SMS, aksesibilitas, tampil di atas aplikasi lain, kontak, dan rekam layar bisa membuka akses ke data pribadi dan OTP.
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3 rounded-2xl bg-[var(--brand-soft)] p-4">
-            <ShieldCheck
-              size={19}
-              className="mt-0.5 shrink-0 text-[var(--brand)]"
-            />
+            <ShieldCheck size={19} className="mt-0.5 shrink-0 text-[var(--brand)]" />
             <p className="text-xs leading-relaxed text-[var(--brand-dark)]">
-              <strong>Ingat:</strong> Jangan langsung menyetujui semua
-              permintaan izin. Tolak izin yang tidak relevan dan cari tahu
-              alasannya terlebih dahulu.
+              <strong>Ingat:</strong> bedakan izin yang sesuai fungsi dan izin yang berlebihan. Tidak semua izin sensitif berarti bahaya, tetapi periksa alasannya.
             </p>
           </div>
 
@@ -432,6 +517,14 @@ export function AppsScam({ simulation }: Props) {
       </div>
     </div>
   );
+
+  const guideItems = [
+    ["Sumber unduhan", "Utamakan toko resmi. Hindari APK dari chat, iklan, atau situs tak dikenal."],
+    ["Identitas developer", "Cocokkan nama developer dengan penerbit resmi, dan periksa umur serta riwayat rilisnya."],
+    ["Ulasan", "Baca ulasan terbaru. Waspadai ulasan seragam atau akun yang baru dibuat."],
+    ["Izin aplikasi", "Cocokkan setiap izin dengan fungsi. Tolak yang opsional."],
+    ["Siapa yang menyuruh", "Waspadai aplikasi yang dipasang atas permintaan penelepon, grup, atau iklan."],
+  ];
 
   const guideModal = (
     <div
@@ -451,15 +544,10 @@ export function AppsScam({ simulation }: Props) {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
               <ShieldCheck size={21} />
             </div>
-            <h2
-              id="app-guide-title"
-              className="mt-4 text-xl font-extrabold text-[var(--foreground)]"
-            >
+            <h2 id="app-guide-title" className="mt-4 text-xl font-extrabold text-[var(--foreground)]">
               Panduan cek aplikasi
             </h2>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-              Ingat lima hal ini sebelum memasang aplikasi.
-            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">Ingat lima hal ini sebelum memasang aplikasi.</p>
           </div>
 
           <button
@@ -473,47 +561,14 @@ export function AppsScam({ simulation }: Props) {
         </div>
 
         <div className="space-y-3 p-5">
-          {[
-            {
-              title: "Sumber unduhan",
-              description:
-                "Utamakan toko aplikasi resmi. Hindari tautan APK dari pesan atau situs yang tidak dikenal.",
-            },
-            {
-              title: "Identitas developer",
-              description:
-                "Periksa nama pengembang dan pastikan identitasnya masuk akal.",
-            },
-            {
-              title: "Rating dan ulasan",
-              description:
-                "Baca ulasan terbaru. Waspadai ulasan yang terlihat seragam atau tidak relevan.",
-            },
-            {
-              title: "Izin aplikasi",
-              description:
-                "Cocokkan setiap izin dengan fungsi aplikasi. Jangan berikan akses berlebihan.",
-            },
-            {
-              title: "Klaim yang terlalu bagus",
-              description:
-                "Waspadai janji hadiah, fitur premium gratis, atau keuntungan yang tidak masuk akal.",
-            },
-          ].map((item, index) => (
-            <div
-              key={item.title}
-              className="flex items-start gap-3 rounded-xl bg-[var(--surface)] p-3"
-            >
+          {guideItems.map(([title, description], index) => (
+            <div key={title} className="flex items-start gap-3 rounded-xl bg-[var(--surface)] p-3">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-xs font-extrabold text-[var(--brand)]">
                 {index + 1}
               </span>
               <div>
-                <p className="text-xs font-bold text-[var(--foreground)]">
-                  {item.title}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-                  {item.description}
-                </p>
+                <p className="text-xs font-bold text-[var(--foreground)]">{title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{description}</p>
               </div>
             </div>
           ))}
@@ -531,122 +586,137 @@ export function AppsScam({ simulation }: Props) {
     </div>
   );
 
+  /* ========================================
+     LAYAR REWARD: LEVEL MAKSIMAL
+  ======================================== */
+
   if (finished) {
-    const percentage = Math.round(
-      (correctAnswers / totalScenarios) * 100,
-    );
+    const wrongCounts = scenarios.map((scenario) => wrongCountOf(scenario.id));
+    const finalXp = calculateAppsScamXp(wrongCounts);
+    const totalWrong = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const isPerfect = totalWrong === 0;
 
     return (
-      <main
-        ref={resultRef}
-        className="container py-10 md:py-16"
-      >
+      <main ref={resultRef} className="container py-10 md:py-16">
         <div className="mx-auto max-w-2xl">
           <div className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-sm">
-            <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-10 text-center text-white md:px-10">
+            <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-12 text-center text-white md:px-10">
               <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+              <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
 
-              <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15">
-                <Trophy size={38} />
+              {CONFETTI.map((piece, index) => (
+                <span
+                  key={index}
+                  aria-hidden="true"
+                  className={`absolute animate-bounce rounded-full motion-reduce:animate-none ${piece.color}`}
+                  style={{
+                    left: piece.left,
+                    top: piece.top,
+                    width: piece.size,
+                    height: piece.size,
+                    animationDelay: piece.delay,
+                    animationDuration: "1.8s",
+                  }}
+                />
+              ))}
+
+              <div className="relative mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[28px] bg-white/15 ring-4 ring-white/20">
+                <Crown className="h-12 w-12 text-yellow-300" />
               </div>
 
-              <p className="text-xs font-bold tracking-[0.2em] text-white/70">
-                APP SECURITY LAB COMPLETED
+              <p className="relative text-xs font-bold tracking-[0.2em] text-yellow-200">
+                LEVEL MAKSIMAL TERCAPAI
               </p>
 
-              <h1 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                Kamu lebih siap memilih aplikasi!
+              <h1 className="relative mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
+                {isPerfect ? "Perfect App Guardian!" : "Selamat, App Guardian!"}
               </h1>
 
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
-                Kamu sudah berlatih memeriksa aplikasi, developer, ulasan,
-                sumber unduhan, dan izin sebelum memasangnya.
+              <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
+                Kamu menamatkan seluruh {totalCount} level, dari APK MOD sampai pembaruan berbahaya yang menyamar jadi aplikasi tepercaya.
               </p>
+
+              <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
+                <Trophy size={16} />
+                Lencana App Guardian
+                {isPerfect && <Star size={14} className="fill-current" />}
+              </div>
             </div>
 
             <div className="p-6 md:p-9">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
                   <p className="text-3xl font-extrabold text-[var(--brand)]">
-                    {correctAnswers}/{totalScenarios}
+                    {completedIds.length}/{totalCount}
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Keputusan lebih aman
-                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">Level selesai</p>
                 </div>
 
                 <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
                   <p className="text-3xl font-extrabold text-[var(--accent)]">
-                    {percentage}%
+                    {safeIds.length}/{totalCount}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Hasil simulasi
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-[var(--accent)]/20 bg-[var(--accent-soft)] p-4 text-center">
-                  <CheckCircle2 className="mx-auto text-[var(--accent)]" />
-                  <p className="mt-2 text-xl font-extrabold text-[var(--accent)]">
-                    {correctAnswers}
-                  </p>
-                  <p className="text-xs font-semibold text-[var(--muted)]">
-                    Pilihan lebih aman
+                    Benar di percobaan pertama
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[var(--warning)]/25 bg-[var(--warning)]/10 p-4 text-center">
-                  <AlertTriangle className="mx-auto text-[var(--warning)]" />
-                  <p className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
-                    {totalScenarios - correctAnswers}
+                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
+                  <p className="text-3xl font-extrabold text-[var(--foreground)]">
+                    {finalXp.total}
+                    <span className="text-base font-bold text-[var(--muted)]">/{APPS_SCAM_MAX_XP}</span>
                   </p>
-                  <p className="text-xs font-semibold text-[var(--muted)]">
-                    Perlu dipelajari
-                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">Total XP</p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
-                <div className="flex items-start gap-3">
-                  <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
-                  <div>
-                    <h2 className="text-sm font-bold text-[var(--foreground)]">
-                      Satu hal yang perlu diingat
-                    </h2>
-                    <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                      Toko aplikasi resmi bukan jaminan mutlak keamanan.
-                      Tetap periksa developer, ulasan, sumber unduhan, dan
-                      izin aplikasi sebelum memasangnya.
-                    </p>
-                  </div>
+                <h2 className="text-sm font-extrabold text-[var(--foreground)]">Rincian reward</h2>
+
+                <ul className="mt-3 space-y-2 text-sm">
+                  <li className="flex items-center justify-between text-[var(--muted)]">
+                    <span>XP dari {totalCount} level</span>
+                    <span className="font-bold text-[var(--foreground)]">+{finalXp.levelXp} XP</span>
+                  </li>
+                  <li className="flex items-center justify-between text-[var(--muted)]">
+                    <span className="flex items-center gap-2">
+                      <Crown size={14} className="text-[var(--warning)]" />
+                      Bonus App Guardian
+                    </span>
+                    <span className="font-bold text-[var(--accent)]">+{finalXp.bonus} XP</span>
+                  </li>
+                </ul>
+
+                <p className="mt-3 border-t border-[var(--border)] pt-3 text-xs leading-relaxed text-[var(--muted)]">
+                  {isPerfect
+                    ? "Tanpa satu pun keputusan kurang aman. Luar biasa!"
+                    : `Kamu sempat ${totalWrong} kali memilih keputusan kurang aman. Ulangi tanpa salah untuk XP maksimal (${APPS_SCAM_MAX_XP} XP).`}
+                </p>
+              </div>
+
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[var(--border)] p-5">
+                <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
+                <div>
+                  <h2 className="text-sm font-bold text-[var(--foreground)]">Prinsip utama Apps Scam</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
+                    Toko resmi, rating tinggi, dan nama yang familier bukan jaminan mutlak. Periksa sumber, developer, izin, dan siapa yang menyuruhmu memasang. Jangan pernah memasang aplikasi atas permintaan penelepon atau pesan yang tidak kamu minta.
+                  </p>
                 </div>
               </div>
 
               {rewardMessage && (
-                <div
-                  role="status"
-                  className="mt-4 flex items-start gap-3 rounded-xl bg-[var(--brand-soft)] p-4 text-sm leading-relaxed text-[var(--brand-dark)]"
-                >
-                  <Trophy size={19} className="mt-0.5 shrink-0" />
-                  <p>{rewardMessage}</p>
-                </div>
+                <p role="status" className="mt-4 text-center text-xs leading-relaxed text-[var(--muted)]">
+                  {rewardMessage}
+                </p>
               )}
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleRestart}
-                  className="button button-secondary flex-1"
-                >
+                <button type="button" onClick={handleRestart} className="button button-secondary flex-1">
                   <RotateCcw size={16} />
                   Ulangi simulasi
                 </button>
 
-                <Link
-                  href="/learning-protection"
-                  className="button button-primary flex-1"
-                >
+                <Link href="/learning-protection" className="button button-primary flex-1">
                   Selesai
                   <ArrowRight size={16} />
                 </Link>
@@ -657,6 +727,15 @@ export function AppsScam({ simulation }: Props) {
       </main>
     );
   }
+
+  /* ========================================
+     TAMPILAN UTAMA
+  ======================================== */
+
+  const isUnsafe = !!selectedChoice && !selectedChoice.isSafe;
+  const isLastLevel = currentIndex >= totalCount - 1;
+  const redFlagTitle =
+    app.risk === "Rendah" ? "Sinyal yang menenangkan" : "Tanda yang perlu diperhatikan";
 
   return (
     <main className="container py-8 pb-16 md:py-12">
@@ -677,20 +756,13 @@ export function AppsScam({ simulation }: Props) {
               GAME & APPS SCAM
             </div>
 
-            <h1 className="heading heading-2 mt-4">
-              Jangan asal install aplikasi.
-            </h1>
+            <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
 
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Coba periksa aplikasi seperti di toko aplikasi sungguhan.
-              Kenali tanda mencurigakan sebelum memberikan akses ke
-              perangkatmu.
+              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-              <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 font-bold text-[var(--brand)]">
-                {simulation.difficulty}
-              </span>
               <span className="inline-flex items-center gap-1">
                 <Clock3 size={13} />
                 {simulation.duration}
@@ -701,36 +773,40 @@ export function AppsScam({ simulation }: Props) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <ShieldCheck size={21} />
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
-                {correctAnswers}
-              </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
-                Pilihan aman
-              </p>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={startTutorial} className="button button-secondary">
+              <HelpCircle size={16} />
+              Tutorial
+            </button>
+
+            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                <ShieldCheck size={21} />
+              </div>
+              <div>
+                <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
+                  {earnedLevelXp}
+                </p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                  XP terkumpul
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Progress */}
-        <div className="mb-7 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold text-[var(--foreground)]">
-                Perjalananmu
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {attemptsCompleted} dari {totalScenarios} aplikasi diperiksa
-              </p>
+        <div data-tutorial="progress" className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-[var(--foreground)]">Perjalananmu</span>
+            <div className="flex items-center gap-3 text-xs font-semibold tabular-nums text-[var(--muted)]">
+              <span>
+                {completedIds.length} dari {totalCount} level selesai
+              </span>
+              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+                Potensi XP {potentialXp}/{APPS_SCAM_MAX_XP}
+              </span>
             </div>
-
-            <span className="text-xs font-bold tabular-nums text-[var(--brand)]">
-              {Math.round(progress)}%
-            </span>
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-[var(--surface)]">
@@ -738,6 +814,43 @@ export function AppsScam({ simulation }: Props) {
               className="h-full rounded-full bg-[var(--accent)] transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
+          </div>
+        </div>
+
+        {/* Peta level */}
+        <div className="mb-6" data-tutorial="levels">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
+              Peta level
+            </p>
+            <p className="text-[10px] font-bold text-[var(--muted)]">Makin tinggi, makin sulit</p>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {scenarios.map((scenario, index) => {
+              const isCurrent = index === currentIndex;
+              const isCompleted = completedIds.includes(scenario.id);
+              const isLocked = !isCompleted && !isCurrent;
+
+              return (
+                <div
+                  key={scenario.id}
+                  title={isLocked ? "Selesaikan level sebelumnya" : scenario.title}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold ${
+                    isCurrent
+                      ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                      : isCompleted
+                        ? "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] opacity-70"
+                  }`}
+                >
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-black/5 text-[10px]">
+                    {isCompleted ? <Check size={13} /> : isLocked ? <Lock size={12} /> : index + 1}
+                  </span>
+                  Level {index + 1}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -759,15 +872,9 @@ export function AppsScam({ simulation }: Props) {
                 }`}
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/70">
-                  {status === "completed" ? (
-                    <CheckCircle2 size={16} />
-                  ) : (
-                    <Icon size={16} />
-                  )}
+                  {status === "completed" ? <CheckCircle2 size={16} /> : <Icon size={16} />}
                 </span>
-                <span className="min-w-0 leading-tight">
-                  {step.label}
-                </span>
+                <span className="min-w-0 leading-tight">{step.label}</span>
               </div>
             );
           })}
@@ -775,25 +882,19 @@ export function AppsScam({ simulation }: Props) {
 
         {/* Main layout */}
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-          {/* Phone simulation */}
-          <section
-            ref={mainContentRef}
-            className="min-w-0 scroll-mt-24"
-          >
+          <section ref={mainContentRef} className="min-w-0 scroll-mt-24">
             <div className="mx-auto w-full max-w-[480px]">
               <div className="rounded-[2.5rem] border-[7px] border-[#26364d] bg-[#26364d] p-2 shadow-xl">
                 <div
-                  ref={phoneContentRef}
+                  ref={phoneContentRef} data-tutorial-scroll
                   className="relative max-h-[850px] min-h-[620px] overflow-y-auto rounded-[2rem] bg-[var(--card)]"
                 >
-                  {/* Phone status */}
+                  {/* Status bar */}
                   <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-6 pb-3 pt-4 text-[10px] font-semibold text-[var(--muted)]">
                     <span>09:41</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-5 rounded-sm border border-current">
-                        <span className="block h-full w-3/4 rounded-sm bg-current" />
-                      </span>
-                    </div>
+                    <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 font-extrabold text-[var(--brand)]">
+                      Level {currentIndex + 1}
+                    </span>
                   </div>
 
                   {/* Store */}
@@ -803,10 +904,10 @@ export function AppsScam({ simulation }: Props) {
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
-                              APP STORE SIMULATOR
+                              LEVEL {currentIndex + 1} DARI {totalCount}
                             </p>
                             <h2 className="mt-1 text-xl font-extrabold text-[var(--foreground)]">
-                              Temukan aplikasi
+                              {currentScenario.title}
                             </h2>
                           </div>
 
@@ -815,101 +916,71 @@ export function AppsScam({ simulation }: Props) {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex items-center gap-2 rounded-xl bg-[var(--surface)] px-3 py-3 text-xs text-[var(--muted)]">
-                          <Eye size={15} />
-                          Cari game atau aplikasi...
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {currentScenario.difficulty && (
+                            <span
+                              className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${DIFFICULTY_STYLES[currentScenario.difficulty]}`}
+                            >
+                              {currentScenario.difficulty}
+                            </span>
+                          )}
+                          {currentScenario.topic && (
+                            <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
+                              {currentScenario.topic}
+                            </span>
+                          )}
                         </div>
+
+                        <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+                          {currentScenario.description}
+                        </p>
                       </div>
 
-                      <div className="p-4">
-                        <div className="mb-4 flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-bold text-[var(--foreground)]">
-                            Rekomendasi untukmu
-                          </h3>
-                          <span className="text-[10px] text-[var(--muted)]">
-                            {availableApps.length} tersisa
-                          </span>
+                      <div className="space-y-4 p-4">
+                        <div data-tutorial="found"  className="rounded-xl border border-[var(--brand)]/15 bg-[var(--brand-soft)] p-3">
+                          <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
+                            BAGAIMANA KAMU MENEMUKANNYA
+                          </p>
+                          <p className="mt-2 text-xs leading-5 text-[var(--brand-dark)]">
+                            {app.foundVia}
+                          </p>
                         </div>
 
-                        {availableApps.length > 0 ? (
-                          <div className="space-y-3">
-                            {availableApps.map((app, index) => (
-                              <button
-                                key={app.id}
-                                type="button"
-                                onClick={() => openApp(app.id)}
-                                className="group flex w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
-                              >
-                                <span
-                                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                                    index % 3 === 0
-                                      ? "bg-violet-100 text-violet-700"
-                                      : index % 3 === 1
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-amber-100 text-amber-700"
-                                  }`}
-                                >
-                                  {index % 3 === 0 ? (
-                                    <Gamepad2 size={23} />
-                                  ) : index % 3 === 1 ? (
-                                    <Smartphone size={23} />
-                                  ) : (
-                                    <Download size={23} />
-                                  )}
-                                </span>
+                        <button
+                          data-tutorial="app-card"
+                          type="button"
+                          onClick={() => setView("detail")}
+                          className="group flex w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                        >
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                            <Download size={23} />
+                          </span>
 
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-xs font-bold text-[var(--foreground)]">
-                                    {app.name}
-                                  </span>
-                                  <span className="mt-1 block truncate text-[10px] text-[var(--muted)]">
-                                    {app.developer}
-                                  </span>
-                                  <span className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]">
-                                    <Star
-                                      size={10}
-                                      className="fill-amber-400 text-amber-400"
-                                    />
-                                    {app.rating}
-                                    <span>·</span>
-                                    {app.downloads}
-                                  </span>
-                                </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-bold text-[var(--foreground)]">
+                              {app.name}
+                            </span>
+                            <span className="mt-1 block truncate text-[10px] text-[var(--muted)]">
+                              {app.developer}
+                            </span>
+                            <span className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]">
+                              <Star size={10} className="fill-amber-400 text-amber-400" />
+                              {app.rating}
+                              <span>·</span>
+                              {app.downloads}
+                            </span>
+                          </span>
 
-                                <ArrowRight
-                                  size={16}
-                                  className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
-                                />
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="rounded-2xl border border-dashed border-[var(--border)] p-6 text-center">
-                            <CheckCircle2
-                              size={28}
-                              className="mx-auto text-[var(--accent)]"
-                            />
-                            <p className="mt-3 text-sm font-bold text-[var(--foreground)]">
-                              Semua aplikasi sudah diperiksa
-                            </p>
-                            <p className="mt-1 text-xs text-[var(--muted)]">
-                              Lanjutkan untuk melihat hasil simulasi.
-                            </p>
-                          </div>
-                        )}
+                          <ArrowRight
+                            size={16}
+                            className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
+                          />
+                        </button>
 
-                        <div className="mt-5 rounded-xl border border-[var(--brand)]/15 bg-[var(--brand-soft)] p-3">
-                          <div className="flex items-start gap-2">
-                            <ShieldCheck
-                              size={17}
-                              className="mt-0.5 shrink-0 text-[var(--brand)]"
-                            />
-                            <p className="text-[10px] leading-5 text-[var(--brand-dark)]">
-                              Semua aplikasi di halaman ini adalah fiksi.
-                              Kamu sedang berlatih mengenali tanda aplikasi
-                              berisiko.
-                            </p>
-                          </div>
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                          <p className="text-[10px] leading-5 text-[var(--muted)]">
+                            Semua aplikasi di halaman ini adalah fiksi. Kamu sedang berlatih mengenali tanda aplikasi berisiko, juga mengenali aplikasi yang aman.
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -924,7 +995,7 @@ export function AppsScam({ simulation }: Props) {
                         className="mb-6 inline-flex items-center gap-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
                       >
                         <ArrowLeft size={15} />
-                        Kembali ke daftar
+                        Kembali
                       </button>
 
                       <div className="flex flex-col items-center text-center">
@@ -933,115 +1004,93 @@ export function AppsScam({ simulation }: Props) {
                         </div>
 
                         <h2 className="mt-4 text-xl font-extrabold text-[var(--foreground)]">
-                          {currentApp.name}
+                          {app.name}
                         </h2>
 
-                        <p className="mt-1 text-xs text-[var(--muted)]">
-                          {currentApp.developer}
-                        </p>
-
-                        <span
-                          className={`mt-3 rounded-full border px-3 py-1 text-[10px] font-bold ${
-                            riskStyles[currentApp.risk]
-                          }`}
-                        >
-                          RISIKO {currentApp.risk.toUpperCase()}
-                        </span>
+                        <p className="mt-1 text-xs text-[var(--muted)]">{app.developer}</p>
                       </div>
 
                       <div className="my-6 grid grid-cols-3 divide-x divide-[var(--border)] rounded-xl border border-[var(--border)] py-3 text-center">
                         <div>
                           <div className="flex items-center justify-center gap-1 text-xs font-bold text-[var(--foreground)]">
-                            <Star
-                              size={12}
-                              className="fill-amber-400 text-amber-400"
-                            />
-                            {currentApp.rating}
+                            <Star size={12} className="fill-amber-400 text-amber-400" />
+                            {app.rating}
                           </div>
-                          <p className="mt-1 text-[9px] text-[var(--muted)]">
-                            Rating
-                          </p>
+                          <p className="mt-1 text-[9px] text-[var(--muted)]">Rating</p>
                         </div>
 
                         <div>
-                          <p className="text-xs font-bold text-[var(--foreground)]">
-                            {currentApp.downloads}
-                          </p>
-                          <p className="mt-1 text-[9px] text-[var(--muted)]">
-                            Unduhan
-                          </p>
+                          <p className="text-xs font-bold text-[var(--foreground)]">{app.downloads}</p>
+                          <p className="mt-1 text-[9px] text-[var(--muted)]">Unduhan</p>
                         </div>
 
                         <div>
-                          <p className="text-xs font-bold text-[var(--foreground)]">
-                            {currentApp.category}
-                          </p>
-                          <p className="mt-1 text-[9px] text-[var(--muted)]">
-                            Kategori
-                          </p>
+                          <p className="text-xs font-bold text-[var(--foreground)]">{app.category}</p>
+                          <p className="mt-1 text-[9px] text-[var(--muted)]">Kategori</p>
                         </div>
                       </div>
 
                       <div className="space-y-4">
-                        <div>
+                        <div data-tutorial="soruce">
                           <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
                             SUMBER UNDUHAN
                           </p>
                           <div className="mt-2 flex items-center gap-2">
-                            {currentApp.sourceType === "official" ? (
-                              <Store
-                                size={16}
-                                className="text-[var(--accent)]"
-                              />
+                            {app.sourceType === "official" ? (
+                              <Store size={16} className="text-[var(--accent)]" />
                             ) : (
-                              <ExternalLink
-                                size={16}
-                                className="text-[var(--danger)]"
-                              />
+                              <ExternalLink size={16} className="text-[var(--danger)]" />
                             )}
-                            <p className="text-xs font-semibold text-[var(--foreground)]">
-                              {currentApp.source}
-                            </p>
+                            <p className="text-xs font-semibold text-[var(--foreground)]">{app.source}</p>
                           </div>
                         </div>
 
                         <div>
                           <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
-                            DESKRIPSI APLIKASI
+                            DESKRIPSI
                           </p>
-                          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
-                            {currentApp.description}
-                          </p>
+                          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">{app.description}</p>
                         </div>
 
-                        <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
+                        <div data-tutorial="claim" className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
                           <div className="flex items-center gap-2 text-[var(--foreground)]">
-                            <AlertTriangle
-                              size={15}
-                              className="text-[var(--warning)]"
-                            />
-                            <p className="text-[10px] font-extrabold">
-                              KLAIM PROMOSI
-                            </p>
+                            <AlertTriangle size={15} className="text-[var(--warning)]" />
+                            <p className="text-[10px] font-extrabold">KLAIM PROMOSI</p>
                           </div>
-                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                            {currentApp.claim}
-                          </p>
+                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{app.claim}</p>
                         </div>
 
-                        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                        {app.details && app.details.length > 0 && (
+                          <div className="rounded-xl border border-[var(--border)] p-3">
+                            <p className="text-[10px] font-extrabold text-[var(--foreground)]">
+                              INFORMASI TAMBAHAN
+                            </p>
+                            <ul className="mt-2 space-y-2">
+                              {app.details.map((item) => (
+                                <li key={item.label} className="text-xs leading-5">
+                                  <span className="font-bold text-[var(--foreground)]">{item.label}: </span>
+                                  <span className="text-[var(--muted)]">{item.value}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div data-tutorial="reviews" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
                           <p className="text-[10px] font-extrabold text-[var(--foreground)]">
                             INFORMASI ULASAN
                           </p>
-                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                            {currentApp.reviews}
-                          </p>
+                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{app.reviews}</p>
                         </div>
                       </div>
 
                       <button
+                        data-tutorial="check-permissions"
                         type="button"
-                        onClick={openPermissionCheck}
+                        onClick={() => {
+                          setView("permissions");
+                          setIsEducationOpen(!tutorialActive && currentIndex === 0 && attemptNumber === 0);
+                        }}
                         className="button button-primary mt-6 w-full"
                       >
                         Periksa Izin Aplikasi
@@ -1050,7 +1099,7 @@ export function AppsScam({ simulation }: Props) {
                     </div>
                   )}
 
-                  {/* Permissions */}
+                  {/* Permissions + keputusan */}
                   {view === "permissions" && (
                     <div className="min-h-[600px] p-5">
                       <button
@@ -1073,34 +1122,25 @@ export function AppsScam({ simulation }: Props) {
                           Izin yang diminta
                         </h2>
                         <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
-                          Apakah setiap izin ini memang diperlukan untuk
-                          menjalankan fungsi aplikasi?
+                          Apakah setiap izin ini memang diperlukan untuk fungsi aplikasi?
                         </p>
                       </div>
 
-                      <div className="space-y-2">
-                        {currentApp.permissions.map((permission) => (
+                      <div data-tutorial="permissions" className="space-y-2">
+                        {app.permissions.map((permission) => (
                           <div
                             key={permission.name}
                             className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3"
                           >
                             <div className="flex min-w-0 items-center gap-2.5">
                               {permission.suspicious ? (
-                                <AlertTriangle
-                                  size={17}
-                                  className="shrink-0 text-[var(--warning)]"
-                                />
+                                <AlertTriangle size={17} className="shrink-0 text-[var(--warning)]" />
                               ) : (
-                                <CheckCircle2
-                                  size={17}
-                                  className="shrink-0 text-[var(--accent)]"
-                                />
+                                <CheckCircle2 size={17} className="shrink-0 text-[var(--accent)]" />
                               )}
 
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-[var(--foreground)]">
-                                  {permission.name}
-                                </p>
+                                <p className="text-xs font-bold text-[var(--foreground)]">{permission.name}</p>
                                 <p className="mt-0.5 text-[10px] leading-4 text-[var(--muted)]">
                                   {permission.reason}
                                 </p>
@@ -1125,18 +1165,11 @@ export function AppsScam({ simulation }: Props) {
                         onClick={() => setIsEducationOpen(true)}
                         className="mt-4 flex w-full items-center gap-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand-soft)] p-3 text-left transition hover:border-[var(--brand)]"
                       >
-                        <Lightbulb
-                          size={17}
-                          className="shrink-0 text-[var(--brand)]"
-                        />
+                        <Lightbulb size={17} className="shrink-0 text-[var(--brand)]" />
                         <span className="flex-1 text-[10px] font-semibold leading-relaxed text-[var(--brand-dark)]">
-                          Belum yakin izin mana yang berbahaya?
-                          Buka panduan singkat.
+                          Belum yakin izin mana yang berbahaya? Buka panduan singkat.
                         </span>
-                        <ArrowRight
-                          size={15}
-                          className="shrink-0 text-[var(--brand)]"
-                        />
+                        <ArrowRight size={15} className="shrink-0 text-[var(--brand)]" />
                       </button>
 
                       <div className="mt-5 border-t border-[var(--border)] pt-5">
@@ -1144,58 +1177,48 @@ export function AppsScam({ simulation }: Props) {
                           Apa keputusanmu?
                         </h3>
                         <p className="mb-3 mt-1 text-[11px] text-[var(--muted)]">
-                          Pilih tindakan yang paling tepat berdasarkan
-                          informasi aplikasi.
+                          Pilih tindakan yang paling tepat berdasarkan semua informasi tadi.
                         </p>
 
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => handleDecision("install")}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/5 px-4 py-3 text-xs font-bold text-[var(--danger)] transition hover:bg-[var(--danger)]/10"
-                          >
-                            <Download size={15} />
-                            Tetap Install
-                          </button>
+                        <div data-tutorial="choices" className="space-y-2">
+                          {displayChoices.map((choice, index) => (
+                            <button
+                              key={choice.id}
+                              type="button"
+                              onClick={() => handleChoice(choice)}
+                              className="group flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                            >
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[10px] font-extrabold text-[var(--muted)] group-hover:bg-white group-hover:text-[var(--brand)]">
+                                {String.fromCharCode(65 + index)}
+                              </span>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDecision("verify")}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/25 bg-[var(--brand-soft)] px-4 py-3 text-xs font-bold text-[var(--brand)] transition hover:border-[var(--brand)]"
-                          >
-                            <Eye size={15} />
-                            Verifikasi Lebih Lanjut
-                          </button>
+                              <span className="flex-1 text-[11px] font-semibold leading-relaxed text-[var(--foreground)]">
+                                {choice.label}
+                              </span>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDecision("cancel")}
-                            className="button button-primary w-full"
-                          >
-                            <ShieldCheck size={15} />
-                            Batalkan Instalasi
-                          </button>
+                              <ArrowRight
+                                size={14}
+                                className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
+                              />
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Result for each app */}
-                  {view === "result" && action && (
+                  {/* Hasil keputusan */}
+                  {view === "result" && selectedChoice && (
                     <div className="flex min-h-[600px] flex-col p-5">
                       <div className="flex flex-1 flex-col items-center pt-7 text-center">
                         <div
                           className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${
-                            isSafeDecision
+                            selectedChoice.isSafe
                               ? "bg-[var(--accent-soft)] text-[var(--accent)]"
                               : "bg-[var(--danger)]/10 text-[var(--danger)]"
                           }`}
                         >
-                          {isSafeDecision ? (
-                            <ShieldCheck size={32} />
-                          ) : (
-                            <ShieldAlert size={32} />
-                          )}
+                          {selectedChoice.isSafe ? <ShieldCheck size={32} /> : <ShieldAlert size={32} />}
                         </div>
 
                         <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
@@ -1203,32 +1226,48 @@ export function AppsScam({ simulation }: Props) {
                         </p>
 
                         <h2 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
-                          {action === "install"
-                            ? "Keputusan berisiko!"
-                            : action === "verify"
-                              ? "Langkah yang bijak!"
-                              : "Instalasi dibatalkan!"}
+                          {selectedChoice.isSafe
+                            ? `Level ${currentIndex + 1} selesai!`
+                            : "Keputusan kurang tepat."}
                         </h2>
 
-                        <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
-                          {action === "install"
-                            ? "Kamu memilih memasang aplikasi tanpa memastikan seluruh tanda risikonya."
-                            : action === "verify"
-                              ? "Kamu memilih untuk mencari kepastian sebelum memberikan akses ke perangkat."
-                              : "Kamu memilih menghindari aplikasi yang belum terbukti aman."}
-                        </p>
+                        <span
+                          className={`mt-3 rounded-full px-3 py-1 text-[10px] font-extrabold text-white ${
+                            selectedChoice.isSafe ? "bg-[var(--accent)]" : "bg-[var(--warning)]"
+                          }`}
+                        >
+                          {selectedChoice.isSafe
+                            ? `+${currentLevelXp} XP`
+                            : `XP level ini turun ke ${currentLevelXp}`}
+                        </span>
 
-                        <div className="mt-5 w-full rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-left">
+                        <div data-tutorial="feedback" className="w-full">
+                          <div className="mt-4 w-full rounded-xl bg-[var(--surface)] p-3 text-left">
+                            <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
+                              KEPUTUSANMU
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
+                              {selectedChoice.label}
+                            </p>
+                          </div>
+
+                          <p className="mt-4 text-xs leading-6 text-[var(--foreground)]">
+                            {selectedChoice.feedback}
+                          </p>
+
+                          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                            {selectedChoice.explanation}
+                          </p>
+                        </div>
+
+                        <div data-tutorial="red-flags" className="mt-5 w-full rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-left">
                           <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--foreground)]">
-                            <AlertTriangle
-                              size={16}
-                              className="text-[var(--warning)]"
-                            />
-                            Tanda yang perlu diperhatikan
+                            <AlertTriangle size={16} className="text-[var(--warning)]" />
+                            {redFlagTitle}
                           </div>
 
                           <ul className="mt-3 space-y-2">
-                            {currentApp.redFlags.slice(0, 3).map((flag) => (
+                            {app.redFlags.map((flag) => (
                               <li
                                 key={flag}
                                 className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
@@ -1243,39 +1282,33 @@ export function AppsScam({ simulation }: Props) {
                         <div className="mt-3 w-full rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-soft)] p-4 text-left">
                           <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--accent)]">
                             <ShieldCheck size={16} />
-                            Tindakan yang disarankan
+                            Langkah yang lebih aman
                           </div>
 
                           <p className="mt-2 text-xs leading-5 text-[var(--foreground)]">
-                            {action === "install"
-                              ? "Hentikan penggunaan aplikasi, cabut izinnya jika memungkinkan, uninstall aplikasi, lalu lakukan pemindaian keamanan."
-                              : action === "verify"
-                                ? "Periksa kembali identitas developer, sumber unduhan, ulasan terbaru, dan relevansi izin sebelum mengambil keputusan."
-                                : currentApp.saferAction}
+                            {selectedChoice.saferAction}
                           </p>
                         </div>
 
-                        {action === "install" && (
+                        {isUnsafe && (
                           <div className="mt-3 w-full rounded-xl border border-[var(--danger)]/20 bg-[var(--danger)]/5 p-4 text-left">
                             <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--danger)]">
                               <FileWarning size={16} />
-                              Jika sudah terlanjur install
+                              Jika sudah terlanjur
                             </div>
 
                             <ul className="mt-3 space-y-2">
-                              {currentApp.postInstall.slice(0, 3).map(
-                                (step, index) => (
-                                  <li
-                                    key={step}
-                                    className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
-                                  >
-                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--danger)]/10 text-[10px] font-bold text-[var(--danger)]">
-                                      {index + 1}
-                                    </span>
-                                    {step}
-                                  </li>
-                                ),
-                              )}
+                              {app.postInstall.slice(0, 4).map((step, index) => (
+                                <li
+                                  key={step}
+                                  className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
+                                >
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--danger)]/10 text-[10px] font-bold text-[var(--danger)]">
+                                    {index + 1}
+                                  </span>
+                                  {step}
+                                </li>
+                              ))}
                             </ul>
                           </div>
                         )}
@@ -1283,18 +1316,32 @@ export function AppsScam({ simulation }: Props) {
 
                       <div className="mt-6 border-t border-[var(--border)] pt-5">
                         <button
+                          data-tutorial="next"
                           type="button"
                           onClick={handleNext}
                           disabled={isSavingReward}
-                          className="button button-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
+                          className={`button w-full disabled:cursor-not-allowed disabled:opacity-60 ${
+                            isUnsafe ? "button-secondary" : "button-primary"
+                          }`}
                         >
-                          {isSavingReward
-                            ? "Menyimpan progres..."
-                            : attemptsCompleted >= totalScenarios
-                              ? "Lihat hasil simulasi"
-                              : "Lanjut ke aplikasi berikutnya"}
-
-                          {!isSavingReward && <ArrowRight size={17} />}
+                          {isSavingReward ? (
+                            "Menyimpan progres..."
+                          ) : isUnsafe ? (
+                            <>
+                              <RotateCcw size={16} />
+                              Coba lagi level ini
+                            </>
+                          ) : isLastLevel ? (
+                            <>
+                              <Trophy size={16} />
+                              Klaim hasil dan reward
+                            </>
+                          ) : (
+                            <>
+                              Lanjut ke Level {currentIndex + 2}
+                              <ArrowRight size={16} />
+                            </>
+                          )}
                         </button>
 
                         <p className="mt-3 text-center text-[10px] text-[var(--muted)]">
@@ -1307,61 +1354,50 @@ export function AppsScam({ simulation }: Props) {
               </div>
 
               <p className="mt-3 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-                Tampilan toko aplikasi ini merupakan simulasi fiktif,
-                bukan toko aplikasi sungguhan.
+                Tampilan toko aplikasi ini merupakan simulasi fiktif, bukan toko aplikasi sungguhan.
               </p>
             </div>
           </section>
 
-          {/* Learning side panel */}
+          {/* Side panel */}
           <aside className="space-y-4">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
                 <Lightbulb size={20} />
               </div>
 
-              <h2 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">
-                Misi kamu
-              </h2>
+              <h2 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">Misi kamu</h2>
 
               <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
                 {view === "store"
-                  ? "Pilih aplikasi dan cari petunjuk yang bisa menunjukkan risiko."
+                  ? "Perhatikan bagaimana aplikasi ini sampai ke tanganmu. Itu petunjuk pertama."
                   : view === "detail"
-                    ? "Periksa sumber, developer, klaim, rating, dan ulasan."
+                    ? "Periksa sumber, developer, klaim, ulasan, dan informasi tambahan."
                     : view === "permissions"
-                      ? "Cocokkan izin yang diminta dengan fungsi aplikasi."
-                      : "Pahami alasan keputusanmu dan pelajari tindakan yang lebih aman."}
+                      ? "Cocokkan izin dengan fungsi, lalu putuskan tindakan yang paling tepat."
+                      : "Pahami alasan keputusanmu. Level baru terbuka jika keputusanmu aman."}
               </p>
             </div>
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="flex items-center gap-2">
-                <ShieldCheck
-                  size={17}
-                  className="text-[var(--accent)]"
-                />
-                <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                  Checklist keamanan
-                </h3>
+                <ShieldCheck size={17} className="text-[var(--accent)]" />
+                <h3 className="text-sm font-extrabold text-[var(--foreground)]">Checklist keamanan</h3>
               </div>
 
               <ul className="mt-4 space-y-3">
                 {[
                   "Gunakan sumber unduhan resmi.",
-                  "Periksa identitas developer.",
+                  "Cocokkan developer dengan penerbit resmi.",
                   "Baca ulasan terbaru.",
-                  "Cek izin aplikasi.",
-                  "Hindari APK MOD mencurigakan.",
+                  "Cek izin sesuai fungsi.",
+                  "Jangan pasang karena disuruh orang lain.",
                 ].map((item) => (
                   <li
                     key={item}
                     className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted)]"
                   >
-                    <CheckCircle2
-                      size={14}
-                      className="mt-0.5 shrink-0 text-[var(--accent)]"
-                    />
+                    <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[var(--accent)]" />
                     {item}
                   </li>
                 ))}
@@ -1378,13 +1414,9 @@ export function AppsScam({ simulation }: Props) {
             </div>
 
             <div className="rounded-2xl bg-[var(--brand-dark)] p-5 text-white">
-              <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">
-                PROGRESS
-              </p>
+              <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">PROGRESS</p>
 
-              <p className="mt-2 text-3xl font-extrabold tabular-nums">
-                {Math.round(progress)}%
-              </p>
+              <p className="mt-2 text-3xl font-extrabold tabular-nums">{Math.round(progress)}%</p>
 
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20">
                 <div
@@ -1394,37 +1426,48 @@ export function AppsScam({ simulation }: Props) {
               </div>
 
               <p className="mt-3 text-xs text-white/70">
-                {attemptsCompleted} dari {totalScenarios} aplikasi diperiksa.
+                {completedIds.length} dari {totalCount} level telah kamu selesaikan.
               </p>
+
+              <div className="mt-4 border-t border-white/15 pt-3">
+                <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">POTENSI XP</p>
+                <p className="mt-1 text-lg font-extrabold">
+                  {potentialXp}
+                  <span className="text-xs font-bold text-white/60">/{APPS_SCAM_MAX_XP}</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+                  Level tinggi bernilai lebih besar. Keputusan salah mengurangi XP level itu. Selesaikan Level {totalCount} untuk bonus {APPS_SCAM_MASTER_BONUS} XP dan lencana App Guardian.
+                </p>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-[var(--warning)]/25 bg-[var(--warning)]/10 p-4">
               <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
-                <AlertTriangle
-                  size={17}
-                  className="text-[var(--warning)]"
-                />
-                Sudah download?
+                <AlertTriangle size={17} className="text-[var(--warning)]" />
+                Sudah terlanjur memasang?
               </div>
 
               <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                Download belum berarti aplikasi sudah terinstal. Jangan
-                membuka APK dari sumber tidak dikenal. Jika sudah terpasang
-                dan mencurigakan, cabut izin, uninstall, lalu lakukan
-                pemeriksaan keamanan.
+                Jangan buka aplikasinya, cabut izin, uninstall, lalu jalankan pemindaian keamanan. Jika terkait akun keuangan, hubungi bank lewat kanal resmi.
               </p>
             </div>
           </aside>
         </div>
 
         <p className="mt-8 text-center text-xs leading-6 text-[var(--muted)]">
-          CEKIN Learning & Protection · Semua aplikasi, developer, rating,
-          dan ulasan merupakan simulasi fiktif.
+          CEKIN Learning & Protection · Semua aplikasi, developer, rating, dan ulasan merupakan simulasi fiktif.
         </p>
       </div>
 
       {isEducationOpen && educationModal}
       {showGuide && guideModal}
+
+      <AppsScamTutorial
+        active={tutorialActive}
+        view={view}
+        hasSelectedChoice={!!selectedChoice}
+        onClose={closeTutorial}
+      />
     </main>
   );
 }

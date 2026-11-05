@@ -6,6 +6,13 @@ export type SimulationId =
   | "gambling"
   | "mind";
 
+export type ScenarioDifficulty = "Mudah" | "Menengah" | "Sulit" | "Ahli";
+
+export type ScenarioSender = {
+  name: string;
+  status?: string;
+};
+
 export type SimulationChoice = {
   id: string;
   label: string;
@@ -13,6 +20,7 @@ export type SimulationChoice = {
   feedback: string;
   explanation: string;
   saferAction: string;
+  reply?: string;
 };
 
 export type SimulationScenario = {
@@ -22,6 +30,22 @@ export type SimulationScenario = {
   context: string;
   choices: SimulationChoice[];
   appDetails?: AppScenarioData;
+  emailDetails?: EmailScenarioData;
+  level?: number;
+  difficulty?: ScenarioDifficulty;
+  topic?: string;
+  sender?: ScenarioSender;
+  messages?: string[];
+  gamblingDetails?: GamblingScenarioData
+};
+
+export type GamblingScenarioData = {
+  channel: string;
+  sender: string;
+  headline: string;
+  body: string[];
+  cta?: string;
+  signals: GamblingSignal[];
 };
 
 export type SimulationConfig = {
@@ -34,6 +58,45 @@ export type SimulationConfig = {
   icon: string;
   color: string;
   scenarios: SimulationScenario[];
+};
+
+export type AppDetailItem = {
+  label: string;
+  value: string;
+  suspicious: boolean;
+};
+
+export type EmailCheck = {
+  label: string;
+  value: string;
+  suspicious: boolean;
+};
+
+export type EmailLink = {
+  text: string;
+  url: string;
+};
+
+export type EmailAttachment = {
+  name: string;
+  size: string;
+};
+
+export type EmailScenarioData = {
+  senderName: string;
+  senderEmail: string;
+  replyTo?: string;
+  subject: string;
+  body: string[];
+  links?: EmailLink[];
+  attachments?: EmailAttachment[];
+  checks: EmailCheck[];
+};
+
+export type GamblingSignal = {
+  label: string;
+  value: string;
+  suspicious: boolean;
 };
 
 export type AppScenarioData = {
@@ -58,4 +121,6 @@ export type AppScenarioData = {
   explanation: string;
   saferAction: string;
   postInstall: string[];
+  foundVia: string;
+  details?: AppDetailItem[];
 };
