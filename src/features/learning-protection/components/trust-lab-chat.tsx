@@ -10,8 +10,9 @@ import {
   Check,
   CheckCheck,
   CheckCircle2,
+  CircleStar,
+  Clock3,
   Crown,
-  Eye,
   HelpCircle,
   Lightbulb,
   Lock,
@@ -29,6 +30,7 @@ import {
   Video,
   Wifi,
   X,
+  Zap,
 } from "lucide-react";
 import type {
   ScenarioDifficulty,
@@ -59,7 +61,6 @@ const DIFFICULTY_STYLES: Record<ScenarioDifficulty, string> = {
   Ahli: "bg-[var(--danger)]/10 text-[var(--danger)]",
 };
 
-// Acak urutan pilihan secara deterministik, supaya jawaban aman tidak selalu di posisi yang sama.
 function hashSeed(input: string) {
   let hash = 2166136261;
 
@@ -718,14 +719,21 @@ export function TrustLabChat({ simulation }: Props) {
               TRUST LAB
             </div>
 
-            <h1 className="heading heading-2 mt-4">
-              Jangan mudah percaya sebelum memeriksa.
-            </h1>
+            <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
 
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit
-              penipuannya dikenali.
+              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
             </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+              <span className="inline-flex items-center gap-1">
+                <Clock3 size={13} />
+                {simulation.duration}
+              </span>
+              <span className="rounded-full border border-[var(--border)] px-3 py-1">
+                Simulasi fiktif
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -737,16 +745,16 @@ export function TrustLabChat({ simulation }: Props) {
               Tutorial
             </button>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-                <ShieldCheck size={21} />
+            <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1">
+              <div className="flex w-8 items-center justify-center rounded-xl text-[var(--warning)]">
+                <CircleStar size={21} />
               </div>
 
-              <div>
-                <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
+              <div className="flex justify-center items-center">
+                <p className="text-xl m-2 font-extrabold leading-none text-[var(--foreground)]">
                   {earnedLevelXp}
                 </p>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
                   XP terkumpul
                 </p>
               </div>
@@ -754,60 +762,10 @@ export function TrustLabChat({ simulation }: Props) {
           </div>
         </div>
 
-        {/* Learning flow */}
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-              <Eye size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                01. Amati chat
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
-                Perhatikan isi dan pengirim pesan.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-              <MessageCircle size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                02. Pilih respons
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
-                Tentukan tindakan yang tepat.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <Lightbulb size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                03. Naik level
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
-                Respons aman membuka level berikutnya.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Progress */}
-        <div
-          data-tutorial="progress"
-          className="mb-7 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4"
-        >
+        <div data-tutorial="progress" className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-[var(--foreground)]">
-              Perjalananmu
-            </span>
+            <span className="text-xs font-bold text-[var(--foreground)]">Perjalananmu</span>
             <div className="flex items-center gap-3 text-xs font-semibold tabular-nums text-[var(--muted)]">
               <span>
                 {completedIds.length} dari {totalCount} level selesai

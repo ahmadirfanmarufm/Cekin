@@ -267,7 +267,6 @@ export function GuidedTutorial({
       }
     : null;
 
-  // Jika target tidak ditemukan, jangan mengunci seluruh layar.
   const showDim = !!hole || !step.target || !lookupFailed;
 
   const cardWidth = viewport.w
@@ -507,9 +506,9 @@ export function GuidedTutorial({
 
             <button
               onClick={() => onClose(false)}
-              className="shrink-0 text-[11px] font-semibold text-[var(--muted)] transition hover:text-[var(--foreground)]"
+              className="shrink-0"
             >
-              Lewati
+              <span className="text-sm text-[var(--brand)] transition hover:text-[var(--brand-dark)]">Lewati</span>
             </button>
           </div>
 

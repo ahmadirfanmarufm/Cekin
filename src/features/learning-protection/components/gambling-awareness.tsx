@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  CircleStar,
   Clock3,
   Crown,
   HeartHandshake,
@@ -560,11 +561,10 @@ export function GamblingAwareness({ simulation }: Props) {
               GAMBLING AWARENESS
             </div>
 
-            <h1 className="heading heading-2 mt-4">Kenali jebakan di balik judi online.</h1>
+            <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
 
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Naiki {totalCount} level. Makin tinggi levelnya, makin halus jebakannya, dari iklan bonus
-              sampai dorongan dari dalam diri.
+              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
@@ -573,26 +573,30 @@ export function GamblingAwareness({ simulation }: Props) {
                 {simulation.duration}
               </span>
               <span className="rounded-full border border-[var(--border)] px-3 py-1">
-                Simulasi fiktif, tanpa taruhan sungguhan
+                Simulasi fiktif
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" onClick={startTutorial} className="button button-secondary">
+            <button
+              onClick={startTutorial}
+              className="button button-secondary"
+            >
               <HelpCircle size={16} />
               Tutorial
             </button>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-                <ShieldCheck size={21} />
+            <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1">
+              <div className="flex w-8 items-center justify-center rounded-xl text-[var(--warning)]">
+                <CircleStar size={21} />
               </div>
-              <div>
-                <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
+
+              <div className="flex justify-center items-center">
+                <p className="text-xl m-2 font-extrabold leading-none text-[var(--foreground)]">
                   {earnedLevelXp}
                 </p>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
                   XP terkumpul
                 </p>
               </div>

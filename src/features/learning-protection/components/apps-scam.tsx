@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  CircleStar,
   Clock3,
   Crown,
   Download,
@@ -27,6 +28,7 @@ import {
   Store,
   Trophy,
   X,
+  Zap,
 } from "lucide-react";
 
 import type {
@@ -774,20 +776,24 @@ export function AppsScam({ simulation }: Props) {
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" onClick={startTutorial} className="button button-secondary">
+            <button
+              onClick={startTutorial}
+              className="button button-secondary"
+            >
               <HelpCircle size={16} />
               Tutorial
             </button>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-                <ShieldCheck size={21} />
+            <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1">
+              <div className="flex w-8 items-center justify-center rounded-xl text-[var(--warning)]">
+                <CircleStar size={21} />
               </div>
-              <div>
-                <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
+
+              <div className="flex justify-center items-center">
+                <p className="text-xl m-2 font-extrabold leading-none text-[var(--foreground)]">
                   {earnedLevelXp}
                 </p>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
                   XP terkumpul
                 </p>
               </div>
