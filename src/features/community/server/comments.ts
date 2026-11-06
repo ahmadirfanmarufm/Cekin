@@ -11,10 +11,6 @@ import {
 import { COMMUNITY_BUCKET, supabaseAdmin } from "@/lib/supabase/admin";
 import type { CommentMediaKind, CommunityComment } from "@/features/community/types";
 
-/**
- * Mengambil komentar (beserta lampiran + jumlah like) dalam beberapa query, bukan N+1.
- * Bila commentId diisi, hanya komentar itu yang dikembalikan.
- */
 export async function fetchComments(params: {
   postId: string;
   viewerId: string | null;

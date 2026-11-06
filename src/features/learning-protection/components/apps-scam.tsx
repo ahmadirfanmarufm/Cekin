@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BatteryFull,
   Check,
   CheckCircle2,
   CircleStar,
@@ -23,10 +24,12 @@ import {
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
+  Signal,
   Smartphone,
   Star,
   Store,
   Trophy,
+  Wifi,
   X,
   Zap,
 } from "lucide-react";
@@ -64,12 +67,6 @@ const DIFFICULTY_STYLES: Record<ScenarioDifficulty, string> = {
   Sulit: "bg-[var(--warning)]/15 text-[var(--warning)]",
   Ahli: "bg-[var(--danger)]/10 text-[var(--danger)]",
 };
-
-const steps = [
-  { id: "store", label: "Temukan aplikasi", icon: Store },
-  { id: "detail", label: "Periksa detail", icon: Eye },
-  { id: "permissions", label: "Periksa izin", icon: LockKeyhole },
-] as const;
 
 const CONFETTI = [
   { left: "8%", top: "14%", size: 10, color: "bg-yellow-300", delay: "0s" },
@@ -145,7 +142,6 @@ export function AppsScam({ simulation }: Props) {
   const potentialXp = levelXpList.reduce((sum, xp) => sum + xp, 0) + APPS_SCAM_MASTER_BONUS;
   const currentLevelXp = levelXpList[currentIndex] ?? 0;
   const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
-  const activeStep = view === "store" ? 0 : view === "detail" ? 1 : 2;
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -429,14 +425,7 @@ export function AppsScam({ simulation }: Props) {
     setIsEducationOpen(false);
     setShowGuide(false);
   };
-
-  const getStepStatus = (index: number) => {
-    if (view === "result") return "completed";
-    if (index < activeStep) return "completed";
-    if (index === activeStep) return "active";
-    return "upcoming";
-  };
-
+  
   /* ---------- Modal ---------- */
 
   const educationModal = (
@@ -759,11 +748,7 @@ export function AppsScam({ simulation }: Props) {
             </div>
 
             <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
-
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
-            </p>
-
+            
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
               <span className="inline-flex items-center gap-1">
                 <Clock3 size={13} />
@@ -809,7 +794,7 @@ export function AppsScam({ simulation }: Props) {
               <span>
                 {completedIds.length} dari {totalCount} level selesai
               </span>
-              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+              <span className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
                 Potensi XP {potentialXp}/{APPS_SCAM_MAX_XP}
               </span>
             </div>
@@ -860,608 +845,661 @@ export function AppsScam({ simulation }: Props) {
           </div>
         </div>
 
-        {/* Steps */}
-        <div className="mb-7 grid grid-cols-3 gap-2 sm:gap-4">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            const status = getStepStatus(index);
-
-            return (
-              <div
-                key={step.id}
-                className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-xs font-semibold transition sm:gap-3 sm:p-3 ${
-                  status === "active"
-                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                    : status === "completed"
-                      ? "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)]"
-                }`}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/70">
-                  {status === "completed" ? <CheckCircle2 size={16} /> : <Icon size={16} />}
-                </span>
-                <span className="min-w-0 leading-tight">{step.label}</span>
-              </div>
-            );
-          })}
-        </div>
-
         {/* Main layout */}
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <section ref={mainContentRef} className="min-w-0 scroll-mt-24">
-            <div className="mx-auto w-full max-w-[480px]">
-              <div className="rounded-[2.5rem] border-[7px] border-[#26364d] bg-[#26364d] p-2 shadow-xl">
-                <div
-                  ref={phoneContentRef} data-tutorial-scroll
-                  className="relative max-h-[850px] min-h-[620px] overflow-y-auto rounded-[2rem] bg-[var(--card)]"
-                >
-                  {/* Status bar */}
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-6 pb-3 pt-4 text-[10px] font-semibold text-[var(--muted)]">
-                    <span>09:41</span>
-                    <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 font-extrabold text-[var(--brand)]">
-                      Level {currentIndex + 1}
-                    </span>
+        
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+            {/* Main Content */}
+            <section
+              ref={mainContentRef}
+              className="min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--card)] shadow-sm"
+            >
+              {/* Scenario Header */}
+              <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 md:px-7">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-[10px] font-extrabold tracking-[0.16em] text-[var(--brand)]">
+                    LEVEL {currentIndex + 1} DARI {totalCount}
+                  </span>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {currentScenario.difficulty && (
+                      <span
+                        className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${
+                          DIFFICULTY_STYLES[currentScenario.difficulty]
+                        }`}
+                      >
+                        {currentScenario.difficulty}
+                      </span>
+                    )}
+
+                    {currentScenario.topic && (
+                      <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
+                        {currentScenario.topic}
+                      </span>
+                    )}
                   </div>
+                </div>
 
-                  {/* Store */}
-                  {view === "store" && (
-                    <div className="min-h-[600px]">
-                      <div className="border-b border-[var(--border)] px-5 pb-5 pt-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
-                              LEVEL {currentIndex + 1} DARI {totalCount}
-                            </p>
-                            <h2 className="mt-1 text-xl font-extrabold text-[var(--foreground)]">
-                              {currentScenario.title}
-                            </h2>
-                          </div>
+                <h2 className="mt-3 text-xl font-extrabold leading-snug text-[var(--foreground)] md:text-2xl">
+                  {currentScenario.title}
+                </h2>
 
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-                            <Store size={20} />
-                          </div>
-                        </div>
+                {currentScenario.description && (
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                    {currentScenario.description}
+                  </p>
+                )}
+              </div>
 
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {currentScenario.difficulty && (
-                            <span
-                              className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${DIFFICULTY_STYLES[currentScenario.difficulty]}`}
-                            >
-                              {currentScenario.difficulty}
-                            </span>
-                          )}
-                          {currentScenario.topic && (
-                            <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
-                              {currentScenario.topic}
-                            </span>
-                          )}
-                        </div>
+              {/* Phone Simulation */}
+              <div className="p-4 md:p-6">
+                {/* iPhone Mockup */}
+                <div
+                  className="relative mx-auto w-full max-w-[390px]"
+                  aria-label="Simulasi toko aplikasi pada perangkat iPhone"
+                >
+                  {/* Left Side Buttons */}
+                  <div className="absolute -left-[7px] top-[18%] z-0 h-5 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
+                  <div className="absolute -left-[7px] top-[25%] z-0 h-8 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
+                  <div className="absolute -left-[7px] top-[34%] z-0 h-8 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
 
-                        <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-                          {currentScenario.description}
-                        </p>
-                      </div>
+                  {/* Right Power Button */}
+                  <div className="absolute -right-[7px] top-[27%] z-0 h-14 w-[4px] rounded-r-md bg-[#64748b] shadow-sm" />
 
-                      <div className="space-y-4 p-4">
-                        <div data-tutorial="found"  className="rounded-xl border border-[var(--brand)]/15 bg-[var(--brand-soft)] p-3">
-                          <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
-                            BAGAIMANA KAMU MENEMUKANNYA
-                          </p>
-                          <p className="mt-2 text-xs leading-5 text-[var(--brand-dark)]">
-                            {app.foundVia}
-                          </p>
-                        </div>
+                  {/* iPhone Body */}
+                  <div className="relative z-10 rounded-[38px] border-[5px] border-[#26364d] bg-[#26364d] p-[4px] shadow-[0_25px_65px_rgba(36,87,166,0.18)] sm:rounded-[43px] sm:border-[6px] sm:p-[5px]">
+                    {/* Screen */}
+                    <div
+                      ref={phoneContentRef}
+                      data-tutorial-scroll
+                      className="relative max-h-[850px] min-h-[620px] overflow-y-auto rounded-[30px] bg-[var(--card)] sm:rounded-[35px]"
+                    >
+                      {/* Phone Status Bar */}
+                      <div className="relative flex h-10 items-center justify-between bg-[var(--surface)] px-5 pt-1 text-[var(--foreground)]">
+                        <span className="text-[10px] font-bold">09:41</span>
 
-                        <button
-                          data-tutorial="app-card"
-                          type="button"
-                          onClick={() => setView("detail")}
-                          className="group flex w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
-                        >
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                            <Download size={23} />
-                          </span>
+                        {/* Dynamic Island */}
+                        <div className="absolute left-1/2 top-2 h-[19px] w-[75px] -translate-x-1/2 rounded-full bg-[#111827] sm:w-[80px]" />
 
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-xs font-bold text-[var(--foreground)]">
-                              {app.name}
-                            </span>
-                            <span className="mt-1 block truncate text-[10px] text-[var(--muted)]">
-                              {app.developer}
-                            </span>
-                            <span className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]">
-                              <Star size={10} className="fill-amber-400 text-amber-400" />
-                              {app.rating}
-                              <span>·</span>
-                              {app.downloads}
-                            </span>
-                          </span>
-
-                          <ArrowRight
-                            size={16}
-                            className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
-                          />
-                        </button>
-
-                        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                          <p className="text-[10px] leading-5 text-[var(--muted)]">
-                            Semua aplikasi di halaman ini adalah fiksi. Kamu sedang berlatih mengenali tanda aplikasi berisiko, juga mengenali aplikasi yang aman.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* App detail */}
-                  {view === "detail" && (
-                    <div className="min-h-[600px] p-5">
-                      <button
-                        type="button"
-                        onClick={() => setView("store")}
-                        className="mb-6 inline-flex items-center gap-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
-                      >
-                        <ArrowLeft size={15} />
-                        Kembali
-                      </button>
-
-                      <div className="flex flex-col items-center text-center">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--brand-soft)] text-[var(--brand)]">
-                          <Gamepad2 size={38} />
-                        </div>
-
-                        <h2 className="mt-4 text-xl font-extrabold text-[var(--foreground)]">
-                          {app.name}
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[var(--muted)]">{app.developer}</p>
-                      </div>
-
-                      <div className="my-6 grid grid-cols-3 divide-x divide-[var(--border)] rounded-xl border border-[var(--border)] py-3 text-center">
-                        <div>
-                          <div className="flex items-center justify-center gap-1 text-xs font-bold text-[var(--foreground)]">
-                            <Star size={12} className="fill-amber-400 text-amber-400" />
-                            {app.rating}
-                          </div>
-                          <p className="mt-1 text-[9px] text-[var(--muted)]">Rating</p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-bold text-[var(--foreground)]">{app.downloads}</p>
-                          <p className="mt-1 text-[9px] text-[var(--muted)]">Unduhan</p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-bold text-[var(--foreground)]">{app.category}</p>
-                          <p className="mt-1 text-[9px] text-[var(--muted)]">Kategori</p>
+                        {/* Status Icons */}
+                        <div className="flex items-center gap-1.5">
+                          <Signal size={12} />
+                          <Wifi size={12} />
+                          <BatteryFull size={14} />
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <div data-tutorial="soruce">
-                          <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
-                            SUMBER UNDUHAN
-                          </p>
-                          <div className="mt-2 flex items-center gap-2">
-                            {app.sourceType === "official" ? (
-                              <Store size={16} className="text-[var(--accent)]" />
-                            ) : (
-                              <ExternalLink size={16} className="text-[var(--danger)]" />
-                            )}
-                            <p className="text-xs font-semibold text-[var(--foreground)]">{app.source}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
-                            DESKRIPSI
-                          </p>
-                          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">{app.description}</p>
-                        </div>
-
-                        <div data-tutorial="claim" className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
-                          <div className="flex items-center gap-2 text-[var(--foreground)]">
-                            <AlertTriangle size={15} className="text-[var(--warning)]" />
-                            <p className="text-[10px] font-extrabold">KLAIM PROMOSI</p>
-                          </div>
-                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{app.claim}</p>
-                        </div>
-
-                        {app.details && app.details.length > 0 && (
-                          <div className="rounded-xl border border-[var(--border)] p-3">
-                            <p className="text-[10px] font-extrabold text-[var(--foreground)]">
-                              INFORMASI TAMBAHAN
-                            </p>
-                            <ul className="mt-2 space-y-2">
-                              {app.details.map((item) => (
-                                <li key={item.label} className="text-xs leading-5">
-                                  <span className="font-bold text-[var(--foreground)]">{item.label}: </span>
-                                  <span className="text-[var(--muted)]">{item.value}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        <div data-tutorial="reviews" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                          <p className="text-[10px] font-extrabold text-[var(--foreground)]">
-                            INFORMASI ULASAN
-                          </p>
-                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{app.reviews}</p>
-                        </div>
-                      </div>
-
-                      <button
-                        data-tutorial="check-permissions"
-                        type="button"
-                        onClick={() => {
-                          setView("permissions");
-                          setIsEducationOpen(!tutorialActive && currentIndex === 0 && attemptNumber === 0);
-                        }}
-                        className="button button-primary mt-6 w-full"
-                      >
-                        Periksa Izin Aplikasi
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Permissions + keputusan */}
-                  {view === "permissions" && (
-                    <div className="min-h-[600px] p-5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setView("detail");
-                          setIsEducationOpen(false);
-                        }}
-                        className="mb-6 inline-flex items-center gap-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
-                      >
-                        <ArrowLeft size={15} />
-                        Kembali ke detail
-                      </button>
-
-                      <div className="mb-5">
-                        <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
-                          APP PERMISSION CHECK
-                        </p>
-                        <h2 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
-                          Izin yang diminta
-                        </h2>
-                        <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
-                          Apakah setiap izin ini memang diperlukan untuk fungsi aplikasi?
-                        </p>
-                      </div>
-
-                      <div data-tutorial="permissions" className="space-y-2">
-                        {app.permissions.map((permission) => (
+                      {/* Store */}
+                      {view === "store" && (
+                        <div className="min-h-[600px] space-y-4 p-4">
                           <div
-                            key={permission.name}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3"
+                            data-tutorial="found"
+                            className="rounded-xl border border-[var(--brand)]/15 bg-[var(--brand-soft)] p-3"
                           >
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              {permission.suspicious ? (
-                                <AlertTriangle size={17} className="shrink-0 text-[var(--warning)]" />
-                              ) : (
-                                <CheckCircle2 size={17} className="shrink-0 text-[var(--accent)]" />
-                              )}
+                            <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
+                              BAGAIMANA KAMU MENEMUKANNYA
+                            </p>
+                            <p className="mt-2 text-xs leading-5 text-[var(--brand-dark)]">
+                              {app.foundVia}
+                            </p>
+                          </div>
 
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-[var(--foreground)]">{permission.name}</p>
-                                <p className="mt-0.5 text-[10px] leading-4 text-[var(--muted)]">
-                                  {permission.reason}
+                          <button
+                            data-tutorial="app-card"
+                            type="button"
+                            onClick={() => setView("detail")}
+                            className="group flex w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition transition-300 hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                          >
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                              <Download size={23} />
+                            </span>
+
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-bold text-[var(--foreground)]">
+                                {app.name}
+                              </span>
+                              <span className="mt-1 block truncate text-[10px] text-[var(--muted)]">
+                                {app.developer}
+                              </span>
+                              <span className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]">
+                                <Star size={10} className="fill-amber-400 text-amber-400" />
+                                {app.rating}
+                                <span>·</span>
+                                {app.downloads}
+                              </span>
+                            </span>
+
+                            <ArrowRight
+                              size={16}
+                              className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
+                            />
+                          </button>
+
+                          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                            <p className="text-[10px] leading-5 text-[var(--muted)]">
+                              Semua aplikasi di halaman ini adalah fiksi. Kamu sedang berlatih mengenali tanda aplikasi berisiko, juga mengenali aplikasi yang aman.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* App Detail */}
+                      {view === "detail" && (
+                        <div className="min-h-[600px] p-5">
+                          <button
+                            type="button"
+                            onClick={() => setView("store")}
+                            className="mb-6 inline-flex items-center gap-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
+                          >
+                            <ArrowLeft size={15} />
+                            Kembali
+                          </button>
+
+                          <div className="flex flex-col items-center text-center">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                              <Gamepad2 size={38} />
+                            </div>
+
+                            <h2 className="mt-4 text-xl font-extrabold text-[var(--foreground)]">
+                              {app.name}
+                            </h2>
+
+                            <p className="mt-1 text-xs text-[var(--muted)]">
+                              {app.developer}
+                            </p>
+                          </div>
+
+                          <div className="my-6 grid grid-cols-3 divide-x divide-[var(--border)] rounded-xl border border-[var(--border)] py-3 text-center">
+                            <div>
+                              <div className="flex items-center justify-center gap-1 text-xs font-bold text-[var(--foreground)]">
+                                <Star size={12} className="fill-amber-400 text-amber-400" />
+                                {app.rating}
+                              </div>
+                              <p className="mt-1 text-[9px] text-[var(--muted)]">Rating</p>
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-bold text-[var(--foreground)]">
+                                {app.downloads}
+                              </p>
+                              <p className="mt-1 text-[9px] text-[var(--muted)]">Unduhan</p>
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-bold text-[var(--foreground)]">
+                                {app.category}
+                              </p>
+                              <p className="mt-1 text-[9px] text-[var(--muted)]">Kategori</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div data-tutorial="soruce">
+                              <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
+                                SUMBER UNDUHAN
+                              </p>
+                              <div className="mt-2 flex items-center gap-2">
+                                {app.sourceType === "official" ? (
+                                  <Store size={16} className="text-[var(--accent)]" />
+                                ) : (
+                                  <ExternalLink size={16} className="text-[var(--danger)]" />
+                                )}
+                                <p className="text-xs font-semibold text-[var(--foreground)]">
+                                  {app.source}
                                 </p>
                               </div>
                             </div>
 
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${
-                                permission.suspicious
-                                  ? "bg-[var(--warning)]/10 text-[#9a6700]"
-                                  : "bg-[var(--accent-soft)] text-[var(--accent)]"
-                              }`}
-                            >
-                              {permission.suspicious ? "Periksa" : "Wajar"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsEducationOpen(true)}
-                        className="mt-4 flex w-full items-center gap-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand-soft)] p-3 text-left transition hover:border-[var(--brand)]"
-                      >
-                        <Lightbulb size={17} className="shrink-0 text-[var(--brand)]" />
-                        <span className="flex-1 text-[10px] font-semibold leading-relaxed text-[var(--brand-dark)]">
-                          Belum yakin izin mana yang berbahaya? Buka panduan singkat.
-                        </span>
-                        <ArrowRight size={15} className="shrink-0 text-[var(--brand)]" />
-                      </button>
-
-                      <div className="mt-5 border-t border-[var(--border)] pt-5">
-                        <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                          Apa keputusanmu?
-                        </h3>
-                        <p className="mb-3 mt-1 text-[11px] text-[var(--muted)]">
-                          Pilih tindakan yang paling tepat berdasarkan semua informasi tadi.
-                        </p>
-
-                        <div data-tutorial="choices" className="space-y-2">
-                          {displayChoices.map((choice, index) => (
-                            <button
-                              key={choice.id}
-                              type="button"
-                              onClick={() => handleChoice(choice)}
-                              className="group flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
-                            >
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[10px] font-extrabold text-[var(--muted)] group-hover:bg-white group-hover:text-[var(--brand)]">
-                                {String.fromCharCode(65 + index)}
-                              </span>
-
-                              <span className="flex-1 text-[11px] font-semibold leading-relaxed text-[var(--foreground)]">
-                                {choice.label}
-                              </span>
-
-                              <ArrowRight
-                                size={14}
-                                className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Hasil keputusan */}
-                  {view === "result" && selectedChoice && (
-                    <div className="flex min-h-[600px] flex-col p-5">
-                      <div className="flex flex-1 flex-col items-center pt-7 text-center">
-                        <div
-                          className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${
-                            selectedChoice.isSafe
-                              ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                              : "bg-[var(--danger)]/10 text-[var(--danger)]"
-                          }`}
-                        >
-                          {selectedChoice.isSafe ? <ShieldCheck size={32} /> : <ShieldAlert size={32} />}
-                        </div>
-
-                        <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
-                          HASIL KEPUTUSAN
-                        </p>
-
-                        <h2 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
-                          {selectedChoice.isSafe
-                            ? `Level ${currentIndex + 1} selesai!`
-                            : "Keputusan kurang tepat."}
-                        </h2>
-
-                        <span
-                          className={`mt-3 rounded-full px-3 py-1 text-[10px] font-extrabold text-white ${
-                            selectedChoice.isSafe ? "bg-[var(--accent)]" : "bg-[var(--warning)]"
-                          }`}
-                        >
-                          {selectedChoice.isSafe
-                            ? `+${currentLevelXp} XP`
-                            : `XP level ini turun ke ${currentLevelXp}`}
-                        </span>
-
-                        <div data-tutorial="feedback" className="w-full">
-                          <div className="mt-4 w-full rounded-xl bg-[var(--surface)] p-3 text-left">
-                            <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
-                              KEPUTUSANMU
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
-                              {selectedChoice.label}
-                            </p>
-                          </div>
-
-                          <p className="mt-4 text-xs leading-6 text-[var(--foreground)]">
-                            {selectedChoice.feedback}
-                          </p>
-
-                          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
-                            {selectedChoice.explanation}
-                          </p>
-                        </div>
-
-                        <div data-tutorial="red-flags" className="mt-5 w-full rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-left">
-                          <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--foreground)]">
-                            <AlertTriangle size={16} className="text-[var(--warning)]" />
-                            {redFlagTitle}
-                          </div>
-
-                          <ul className="mt-3 space-y-2">
-                            {app.redFlags.map((flag) => (
-                              <li
-                                key={flag}
-                                className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
-                              >
-                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--warning)]" />
-                                {flag}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div className="mt-3 w-full rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-soft)] p-4 text-left">
-                          <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--accent)]">
-                            <ShieldCheck size={16} />
-                            Langkah yang lebih aman
-                          </div>
-
-                          <p className="mt-2 text-xs leading-5 text-[var(--foreground)]">
-                            {selectedChoice.saferAction}
-                          </p>
-                        </div>
-
-                        {isUnsafe && (
-                          <div className="mt-3 w-full rounded-xl border border-[var(--danger)]/20 bg-[var(--danger)]/5 p-4 text-left">
-                            <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--danger)]">
-                              <FileWarning size={16} />
-                              Jika sudah terlanjur
+                            <div>
+                              <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
+                                DESKRIPSI
+                              </p>
+                              <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                                {app.description}
+                              </p>
                             </div>
 
-                            <ul className="mt-3 space-y-2">
-                              {app.postInstall.slice(0, 4).map((step, index) => (
-                                <li
-                                  key={step}
-                                  className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
-                                >
-                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--danger)]/10 text-[10px] font-bold text-[var(--danger)]">
-                                    {index + 1}
-                                  </span>
-                                  {step}
-                                </li>
-                              ))}
-                            </ul>
+                            <div
+                              data-tutorial="claim"
+                              className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3"
+                            >
+                              <div className="flex items-center gap-2 text-[var(--foreground)]">
+                                <AlertTriangle size={15} className="text-[var(--warning)]" />
+                                <p className="text-[10px] font-extrabold">KLAIM PROMOSI</p>
+                              </div>
+                              <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                                {app.claim}
+                              </p>
+                            </div>
+
+                            {app.details && app.details.length > 0 && (
+                              <div className="rounded-xl border border-[var(--border)] p-3">
+                                <p className="text-[10px] font-extrabold text-[var(--foreground)]">
+                                  INFORMASI TAMBAHAN
+                                </p>
+                                <ul className="mt-2 space-y-2">
+                                  {app.details.map((item) => (
+                                    <li key={item.label} className="text-xs leading-5">
+                                      <span className="font-bold text-[var(--foreground)]">
+                                        {item.label}:{" "}
+                                      </span>
+                                      <span className="text-[var(--muted)]">
+                                        {item.value}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            <div
+                              data-tutorial="reviews"
+                              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+                            >
+                              <p className="text-[10px] font-extrabold text-[var(--foreground)]">
+                                INFORMASI ULASAN
+                              </p>
+                              <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                                {app.reviews}
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </div>
 
-                      <div className="mt-6 border-t border-[var(--border)] pt-5">
-                        <button
-                          data-tutorial="next"
-                          type="button"
-                          onClick={handleNext}
-                          disabled={isSavingReward}
-                          className={`button w-full disabled:cursor-not-allowed disabled:opacity-60 ${
-                            isUnsafe ? "button-secondary" : "button-primary"
-                          }`}
-                        >
-                          {isSavingReward ? (
-                            "Menyimpan progres..."
-                          ) : isUnsafe ? (
-                            <>
-                              <RotateCcw size={16} />
-                              Coba lagi level ini
-                            </>
-                          ) : isLastLevel ? (
-                            <>
-                              <Trophy size={16} />
-                              Klaim hasil dan reward
-                            </>
-                          ) : (
-                            <>
-                              Lanjut ke Level {currentIndex + 2}
-                              <ArrowRight size={16} />
-                            </>
-                          )}
-                        </button>
+                          <button
+                            data-tutorial="check-permissions"
+                            type="button"
+                            onClick={() => {
+                              setView("permissions");
+                              setIsEducationOpen(!tutorialActive && currentIndex === 0 && attemptNumber === 0);
+                            }}
+                            className="button button-primary mt-6 w-full"
+                          >
+                            Periksa Izin Aplikasi
+                            <ArrowRight size={16} />
+                          </button>
+                        </div>
+                      )}
 
-                        <p className="mt-3 text-center text-[10px] text-[var(--muted)]">
-                          CEKIN · App Security Lab
-                        </p>
+                      {/* Permissions + Keputusan */}
+                      {view === "permissions" && (
+                        <div className="min-h-[600px] p-5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setView("detail");
+                              setIsEducationOpen(false);
+                            }}
+                            className="mb-6 inline-flex items-center gap-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
+                          >
+                            <ArrowLeft size={15} />
+                            Kembali ke detail
+                          </button>
+
+                          <div className="mb-5">
+                            <p className="text-[10px] font-extrabold tracking-wider text-[var(--brand)]">
+                              APP PERMISSION CHECK
+                            </p>
+                            <h2 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
+                              Izin yang diminta
+                            </h2>
+                            <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                              Apakah setiap izin ini memang diperlukan untuk fungsi aplikasi?
+                            </p>
+                          </div>
+
+                          <div data-tutorial="permissions" className="space-y-2">
+                            {app.permissions.map((permission) => (
+                              <div
+                                key={permission.name}
+                                className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3"
+                              >
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  {permission.suspicious ? (
+                                    <AlertTriangle size={17} className="shrink-0 text-[var(--warning)]" />
+                                  ) : (
+                                    <CheckCircle2 size={17} className="shrink-0 text-[var(--accent)]" />
+                                  )}
+
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-[var(--foreground)]">
+                                      {permission.name}
+                                    </p>
+                                    <p className="mt-0.5 text-[10px] leading-4 text-[var(--muted)]">
+                                      {permission.reason}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <span
+                                  className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${
+                                    permission.suspicious
+                                      ? "bg-[var(--warning)]/10 text-[#9a6700]"
+                                      : "bg-[var(--accent-soft)] text-[var(--accent)]"
+                                  }`}
+                                >
+                                  {permission.suspicious ? "Periksa" : "Wajar"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setIsEducationOpen(true)}
+                            className="mt-4 flex w-full items-center gap-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand-soft)] p-3 text-left transition hover:border-[var(--brand)]"
+                          >
+                            <Lightbulb size={17} className="shrink-0 text-[var(--brand)]" />
+                            <span className="flex-1 text-[10px] font-semibold leading-relaxed text-[var(--brand-dark)]">
+                              Belum yakin izin mana yang berbahaya? Buka panduan singkat.
+                            </span>
+                            <ArrowRight size={15} className="shrink-0 text-[var(--brand)]" />
+                          </button>
+
+                          <div className="mt-5 border-t border-[var(--border)] pt-5">
+                            <h3 className="text-sm font-extrabold text-[var(--foreground)]">
+                              Apa keputusanmu?
+                            </h3>
+                            <p className="mb-3 mt-1 text-[11px] text-[var(--muted)]">
+                              Pilih tindakan yang paling tepat berdasarkan semua informasi tadi.
+                            </p>
+
+                            <div data-tutorial="choices" className="space-y-2">
+                              {displayChoices.map((choice, index) => (
+                                <button
+                                  key={choice.id}
+                                  type="button"
+                                  onClick={() => handleChoice(choice)}
+                                  className="group flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                                >
+                                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[10px] font-extrabold text-[var(--muted)] group-hover:bg-white group-hover:text-[var(--brand)]">
+                                    {String.fromCharCode(65 + index)}
+                                  </span>
+
+                                  <span className="flex-1 text-[11px] font-semibold leading-relaxed text-[var(--foreground)]">
+                                    {choice.label}
+                                  </span>
+
+                                  <ArrowRight
+                                    size={14}
+                                    className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hasil Keputusan */}
+                      {view === "result" && selectedChoice && (
+                        <div className="flex min-h-[600px] flex-col p-5">
+                          <div className="flex flex-1 flex-col items-center pt-7 text-center">
+                            <div
+                              className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${
+                                selectedChoice.isSafe
+                                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                                  : "bg-[var(--danger)]/10 text-[var(--danger)]"
+                              }`}
+                            >
+                              {selectedChoice.isSafe ? <ShieldCheck size={32} /> : <ShieldAlert size={32} />}
+                            </div>
+
+                            <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
+                              HASIL KEPUTUSAN
+                            </p>
+
+                            <h2 className="mt-2 text-xl font-extrabold text-[var(--foreground)]">
+                              {selectedChoice.isSafe
+                                ? `Level ${currentIndex + 1} selesai!`
+                                : "Keputusan kurang tepat."}
+                            </h2>
+
+                            <span
+                              className={`mt-3 rounded-full px-3 py-1 text-[10px] font-extrabold text-white ${
+                                selectedChoice.isSafe ? "bg-[var(--accent)]" : "bg-[var(--warning)]"
+                              }`}
+                            >
+                              {selectedChoice.isSafe
+                                ? `+${currentLevelXp} XP`
+                                : `XP level ini turun ke ${currentLevelXp}`}
+                            </span>
+
+                            <div data-tutorial="feedback" className="w-full">
+                              <div className="mt-4 w-full rounded-xl bg-[var(--surface)] p-3 text-left">
+                                <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
+                                  KEPUTUSANMU
+                                </p>
+                                <p className="mt-1 text-xs leading-5 text-[var(--foreground)]">
+                                  {selectedChoice.label}
+                                </p>
+                              </div>
+
+                              <p className="mt-4 text-xs leading-6 text-[var(--foreground)]">
+                                {selectedChoice.feedback}
+                              </p>
+
+                              <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                                {selectedChoice.explanation}
+                              </p>
+                            </div>
+
+                            <div
+                              data-tutorial="red-flags"
+                              className="mt-5 w-full rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-left"
+                            >
+                              <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--foreground)]">
+                                <AlertTriangle size={16} className="text-[var(--warning)]" />
+                                {redFlagTitle}
+                              </div>
+
+                              <ul className="mt-3 space-y-2">
+                                {app.redFlags.map((flag) => (
+                                  <li
+                                    key={flag}
+                                    className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
+                                  >
+                                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--warning)]" />
+                                    {flag}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            <div className="mt-3 w-full rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-soft)] p-4 text-left">
+                              <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--accent)]">
+                                <ShieldCheck size={16} />
+                                Langkah yang lebih aman
+                              </div>
+
+                              <p className="mt-2 text-xs leading-5 text-[var(--foreground)]">
+                                {selectedChoice.saferAction}
+                              </p>
+                            </div>
+
+                            {isUnsafe && (
+                              <div className="mt-3 w-full rounded-xl border border-[var(--danger)]/20 bg-[var(--danger)]/5 p-4 text-left">
+                                <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--danger)]">
+                                  <FileWarning size={16} />
+                                  Jika sudah terlanjur
+                                </div>
+
+                                <ul className="mt-3 space-y-2">
+                                  {app.postInstall.slice(0, 4).map((step, index) => (
+                                    <li
+                                      key={step}
+                                      className="flex gap-2 text-[10px] leading-5 text-[var(--muted)]"
+                                    >
+                                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--danger)]/10 text-[10px] font-bold text-[var(--danger)]">
+                                        {index + 1}
+                                      </span>
+                                      {step}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-6 border-t border-[var(--border)] pt-5">
+                            <button
+                              data-tutorial="next"
+                              type="button"
+                              onClick={handleNext}
+                              disabled={isSavingReward}
+                              className={`button w-full disabled:cursor-not-allowed disabled:opacity-60 ${
+                                isUnsafe ? "button-secondary" : "button-primary"
+                              }`}
+                            >
+                              {isSavingReward ? (
+                                "Menyimpan progres..."
+                              ) : isUnsafe ? (
+                                <>
+                                  <RotateCcw size={16} />
+                                  Coba lagi level ini
+                                </>
+                              ) : isLastLevel ? (
+                                <>
+                                  <Trophy size={16} />
+                                  Klaim hasil dan reward
+                                </>
+                              ) : (
+                                <>
+                                  Lanjut ke Level {currentIndex + 2}
+                                  <ArrowRight size={16} />
+                                </>
+                              )}
+                            </button>
+
+                            <p className="mt-3 text-center text-[10px] text-[var(--muted)]">
+                              CEKIN · App Security Lab
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* iPhone Home Indicator */}
+                      <div className="sticky bottom-0 flex justify-center border-t border-[var(--border)] bg-[var(--card)] pb-2.5 pt-2">
+                        <div className="h-1 w-20 rounded-full bg-[#17233b]" />
                       </div>
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                {/* Simulation Disclaimer */}
+                <p className="mt-4 text-center text-[10px] leading-relaxed text-[var(--muted)]">
+                  Tampilan toko aplikasi ini merupakan simulasi fiktif, bukan toko aplikasi sungguhan.
+                </p>
+              </div>
+            </section>
+
+            {/* Side Panel */}
+            <aside className="space-y-4">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                  <Lightbulb size={20} />
+                </div>
+
+                <h2 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">
+                  Misi kamu
+                </h2>
+
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                  {view === "store"
+                    ? "Perhatikan bagaimana aplikasi ini sampai ke tanganmu. Itu petunjuk pertama."
+                    : view === "detail"
+                      ? "Periksa sumber, developer, klaim, ulasan, dan informasi tambahan."
+                      : view === "permissions"
+                        ? "Cocokkan izin dengan fungsi, lalu putuskan tindakan yang paling tepat."
+                        : "Pahami alasan keputusanmu. Level baru terbuka jika keputusanmu aman."}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={17} className="text-[var(--accent)]" />
+                  <h3 className="text-sm font-extrabold text-[var(--foreground)]">
+                    Checklist keamanan
+                  </h3>
+                </div>
+
+                <ul className="mt-4 space-y-3">
+                  {[
+                    "Gunakan sumber unduhan resmi.",
+                    "Cocokkan developer dengan penerbit resmi.",
+                    "Baca ulasan terbaru.",
+                    "Cek izin sesuai fungsi.",
+                    "Jangan pasang karena disuruh orang lain.",
+                  ].map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted)]"
+                    >
+                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGuide(true)}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand-soft)] px-3 py-3 text-xs font-bold text-[var(--brand)] transition hover:border-[var(--brand)]"
+                >
+                  <Eye size={15} />
+                  Buka panduan singkat
+                </button>
+              </div>
+
+              <div className="rounded-2xl bg-[var(--brand-dark)] p-5 text-white">
+                <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">
+                  PROGRESS
+                </p>
+
+                <p className="mt-2 text-3xl font-extrabold tabular-nums">
+                  {Math.round(progress)}%
+                </p>
+
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20">
+                  <div
+                    className="h-full rounded-full bg-white transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                <p className="mt-3 text-xs text-white/70">
+                  {completedIds.length} dari {totalCount} level telah kamu selesaikan.
+                </p>
+
+                <div className="mt-4 border-t border-white/15 pt-3">
+                  <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">
+                    POTENSI XP
+                  </p>
+                  <p className="mt-1 text-lg font-extrabold">
+                    {potentialXp}
+                    <span className="text-xs font-bold text-white/60">
+                      /{APPS_SCAM_MAX_XP}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+                    Level tinggi bernilai lebih besar. Keputusan salah mengurangi XP level itu. Selesaikan Level {totalCount} untuk bonus {APPS_SCAM_MASTER_BONUS} XP dan lencana App Guardian.
+                  </p>
                 </div>
               </div>
 
-              <p className="mt-3 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-                Tampilan toko aplikasi ini merupakan simulasi fiktif, bukan toko aplikasi sungguhan.
-              </p>
-            </div>
-          </section>
+              <div className="rounded-2xl border border-[var(--warning)]/25 bg-[var(--warning)]/10 p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+                  <AlertTriangle size={17} className="text-[var(--warning)]" />
+                  Sudah terlanjur memasang?
+                </div>
 
-          {/* Side panel */}
-          <aside className="space-y-4">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-                <Lightbulb size={20} />
-              </div>
-
-              <h2 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">Misi kamu</h2>
-
-              <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                {view === "store"
-                  ? "Perhatikan bagaimana aplikasi ini sampai ke tanganmu. Itu petunjuk pertama."
-                  : view === "detail"
-                    ? "Periksa sumber, developer, klaim, ulasan, dan informasi tambahan."
-                    : view === "permissions"
-                      ? "Cocokkan izin dengan fungsi, lalu putuskan tindakan yang paling tepat."
-                      : "Pahami alasan keputusanmu. Level baru terbuka jika keputusanmu aman."}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={17} className="text-[var(--accent)]" />
-                <h3 className="text-sm font-extrabold text-[var(--foreground)]">Checklist keamanan</h3>
-              </div>
-
-              <ul className="mt-4 space-y-3">
-                {[
-                  "Gunakan sumber unduhan resmi.",
-                  "Cocokkan developer dengan penerbit resmi.",
-                  "Baca ulasan terbaru.",
-                  "Cek izin sesuai fungsi.",
-                  "Jangan pasang karena disuruh orang lain.",
-                ].map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted)]"
-                  >
-                    <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                type="button"
-                onClick={() => setShowGuide(true)}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand-soft)] px-3 py-3 text-xs font-bold text-[var(--brand)] transition hover:border-[var(--brand)]"
-              >
-                <Eye size={15} />
-                Buka panduan singkat
-              </button>
-            </div>
-
-            <div className="rounded-2xl bg-[var(--brand-dark)] p-5 text-white">
-              <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">PROGRESS</p>
-
-              <p className="mt-2 text-3xl font-extrabold tabular-nums">{Math.round(progress)}%</p>
-
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20">
-                <div
-                  className="h-full rounded-full bg-white transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-
-              <p className="mt-3 text-xs text-white/70">
-                {completedIds.length} dari {totalCount} level telah kamu selesaikan.
-              </p>
-
-              <div className="mt-4 border-t border-white/15 pt-3">
-                <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">POTENSI XP</p>
-                <p className="mt-1 text-lg font-extrabold">
-                  {potentialXp}
-                  <span className="text-xs font-bold text-white/60">/{APPS_SCAM_MAX_XP}</span>
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-white/60">
-                  Level tinggi bernilai lebih besar. Keputusan salah mengurangi XP level itu. Selesaikan Level {totalCount} untuk bonus {APPS_SCAM_MASTER_BONUS} XP dan lencana App Guardian.
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                  Jangan buka aplikasinya, cabut izin, uninstall, lalu jalankan pemindaian keamanan. Jika terkait akun keuangan, hubungi bank lewat kanal resmi.
                 </p>
               </div>
-            </div>
-
-            <div className="rounded-2xl border border-[var(--warning)]/25 bg-[var(--warning)]/10 p-4">
-              <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
-                <AlertTriangle size={17} className="text-[var(--warning)]" />
-                Sudah terlanjur memasang?
-              </div>
-
-              <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                Jangan buka aplikasinya, cabut izin, uninstall, lalu jalankan pemindaian keamanan. Jika terkait akun keuangan, hubungi bank lewat kanal resmi.
-              </p>
-            </div>
-          </aside>
-        </div>
+            </aside>
+          </div>
 
         <p className="mt-8 text-center text-xs leading-6 text-[var(--muted)]">
-          CEKIN Learning & Protection · Semua aplikasi, developer, rating, dan ulasan merupakan simulasi fiktif.
+          CEKIN Learning & Protection - Semua aplikasi, developer, rating, dan ulasan merupakan simulasi fiktif.
         </p>
       </div>
 

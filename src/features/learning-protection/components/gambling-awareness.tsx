@@ -16,6 +16,7 @@ import {
   Info,
   Lightbulb,
   Lock,
+  Megaphone,
   RotateCcw,
   Search,
   ShieldCheck,
@@ -561,12 +562,8 @@ export function GamblingAwareness({ simulation }: Props) {
               GAMBLING AWARENESS
             </div>
 
-            <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
-
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
-            </p>
-
+            <h1 className="heading heading-2 mt-4">Kenalin jebakan di balik judi online.</h1>
+            
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
               <span className="inline-flex items-center gap-1">
                 <Clock3 size={13} />
@@ -615,7 +612,7 @@ export function GamblingAwareness({ simulation }: Props) {
               <span>
                 {completedIds.length} dari {totalCount} level selesai
               </span>
-              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+              <span className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
                 Potensi XP {potentialXp}/{GAMBLING_MAX_XP}
               </span>
             </div>

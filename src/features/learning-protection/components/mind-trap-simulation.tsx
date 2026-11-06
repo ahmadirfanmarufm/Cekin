@@ -85,13 +85,9 @@ export function MindTrapSimulation({ simulation }: Props) {
   const totalCount = scenarios.length;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedChoice, setSelectedChoice] =
-    useState<SimulationChoice | null>(null);
-  // Riwayat pilihan per level, berisi id pilihan berurutan (termasuk percobaan gagal).
+  const [selectedChoice, setSelectedChoice] = useState<SimulationChoice | null>(null);
   const [attempts, setAttempts] = useState<Record<string, string[]>>({});
-  // Level yang sudah selesai (dijawab aman).
   const [completedIds, setCompletedIds] = useState<string[]>([]);
-  // Level yang langsung dijawab aman pada percobaan pertama.
   const [safeIds, setSafeIds] = useState<string[]>([]);
   const [runSeed, setRunSeed] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -105,7 +101,6 @@ export function MindTrapSimulation({ simulation }: Props) {
     safeIds: string[];
     attempts: Record<string, string[]>;
   } | null>(null);
-  // Kunci localStorage per akun (atau "guest") agar tutorial tidak berulang.
   const tutorialStorageKey = useRef(`${MIND_TRAP_TUTORIAL_KEY}:guest`);
 
   const scenarioRef = useRef<HTMLElement>(null);
@@ -121,7 +116,6 @@ export function MindTrapSimulation({ simulation }: Props) {
         !scenario.choices.find((choice) => choice.id === choiceId)?.isSafe,
     ).length;
 
-  // XP tiap level berdasarkan jumlah jawaban salah sejauh ini.
   const levelXpList = scenarios.map((scenario, index) =>
     mindTrapLevelXp(index + 1, wrongCountOf(scenario)),
   );
@@ -138,7 +132,6 @@ export function MindTrapSimulation({ simulation }: Props) {
   const currentLevelXp = levelXpList[currentIndex] ?? 0;
   const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
 
-  // Urutan pilihan diacak; berubah setiap kali level diulang.
   const attemptNumber = currentScenario
     ? (attempts[currentScenario.id]?.length ?? 0)
     : 0;
@@ -176,7 +169,6 @@ export function MindTrapSimulation({ simulation }: Props) {
   };
 
   const closeTutorial = (completed: boolean) => {
-    // Kembalikan progres asli seperti sebelum tutorial.
     const snapshot = tutorialSnapshot.current;
     if (snapshot) {
       setCurrentIndex(snapshot.currentIndex);
@@ -196,7 +188,6 @@ export function MindTrapSimulation({ simulation }: Props) {
     } catch {}
   };
 
-  // Nilai terbaru untuk dipakai efek auto-start tanpa nilai usang.
   const latest = useRef({ start: startTutorial, canAutoStart: true });
   latest.current = {
     start: startTutorial,
@@ -207,13 +198,6 @@ export function MindTrapSimulation({ simulation }: Props) {
       Object.keys(attempts).length === 0,
   };
 
-  /**
-   * Tutorial otomatis hanya untuk:
-   * - pengunjung baru / tamu yang belum pernah melihatnya,
-   * - user login yang BELUM menyelesaikan simulasi ini.
-   * User yang sudah menyelesaikannya tidak diganggu
-   * (tombol "Tutorial" tetap bisa dipakai kapan saja).
-   */
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -681,10 +665,6 @@ export function MindTrapSimulation({ simulation }: Props) {
 
             <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
 
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
-            </p>
-
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
               <div className="badge">
                 <Brain size={14} />
@@ -735,7 +715,7 @@ export function MindTrapSimulation({ simulation }: Props) {
               <span>
                 {completedIds.length} dari {totalCount} level selesai
               </span>
-              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+              <span className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
                 Potensi XP {potentialXp}/{MIND_TRAP_MAX_XP}
               </span>
             </div>

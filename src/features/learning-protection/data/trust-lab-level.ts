@@ -1,17 +1,21 @@
 import type { SimulationScenario } from "@/types/learning-protection/index";
+import { defineLevel, exit, fatal, good, slip, turn } from "./dialogue-builders";
 
-function defineScenario(
-  scenario: Omit<SimulationScenario, "context"> & { context?: string },
-): SimulationScenario {
-  return {
-    ...scenario,
-    context: scenario.context ?? scenario.messages?.join("\n\n") ?? "",
-  };
-}
+/**
+ * Trust Lab: 10 level, tiap level adalah percakapan WhatsApp 3 giliran dengan penipu.
+ *
+ * Level 1-3  (Mudah)    : lowongan palsu, bonus bertekanan waktu, paket berisi file APK.
+ * Level 4-6  (Menengah) : penyamaran adik, task scam, kode WhatsApp "salah kirim".
+ * Level 7-8  (Sulit)    : CS palsu di DM, suara kerabat hasil kloning AI.
+ * Level 9-10 (Ahli)     : investasi AI + romansa, "salah transfer" yang uangnya benar-benar masuk.
+ *
+ * Penipu tidak menyerah setelah satu penolakan: tekanan makin kuat tiap giliran,
+ * dan tanda bahaya terbuka dari cara mereka bereaksi saat kamu memeriksa.
+ */
 
 export const trustLabScenarios: SimulationScenario[] = [
   /* ===== LEVEL 1 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-1",
     level: 1,
     difficulty: "Mudah",
@@ -19,101 +23,169 @@ export const trustLabScenarios: SimulationScenario[] = [
     title: "Lowongan Kerja Online",
     description: "Seseorang menghubungimu lewat WhatsApp soal pekerjaan.",
     sender: { name: "HRD Remote Karier", status: "akun bisnis" },
-    messages: [
-      "Halo! Selamat, kamu terpilih sebagai kandidat kerja remote kami 🎉",
-      "Gaji Rp500.000–Rp1.000.000 per hari, cukup dari HP. Untuk mengaktifkan akun pekerja, bayar biaya administrasi Rp75.000. Apakah kamu bersedia?",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Membayar biaya administrasi agar bisa mulai bekerja.",
-        isSafe: false,
-        feedback: "Hati-hati! Ini pola klasik penipuan lowongan kerja.",
-        explanation:
-          "Perusahaan sungguhan tidak memungut biaya dari pelamar. Gaji tinggi dan proses mudah dipakai sebagai umpan agar korban membayar.",
-        saferAction:
-          "Periksa perusahaan lewat situs dan kanal resminya. Jangan membayar apa pun untuk mendapatkan pekerjaan.",
-        reply:
-          "Terima kasih! Transfer ke rekening berikut ya, lalu kirim bukti bayarnya 🙏",
-      },
-      {
-        id: "b",
-        label: "Memeriksa identitas perusahaan dan lowongan lewat kanal resminya.",
-        isSafe: true,
-        feedback: "Keputusan bagus! Kamu tidak langsung percaya.",
-        explanation:
-          "Verifikasi perusahaan adalah langkah pertama sebelum memberi data atau uang kepada siapa pun.",
-        saferAction:
-          "Cari situs resmi perusahaan dan hubungi kontak yang tercantum di sana, bukan kontak dari pesan tadi.",
-      },
-      {
-        id: "c",
-        label: "Mengirim foto KTP dan nomor rekening dulu supaya diproses.",
-        isSafe: false,
-        feedback: "Jangan terburu-buru memberikan data pribadi.",
-        explanation:
-          "KTP dan data rekening dapat dipakai untuk membuka pinjaman, akun palsu, atau penipuan atas namamu.",
-        saferAction:
-          "Pastikan perusahaan dan proses rekrutmennya valid sebelum memberikan data apa pun.",
-        reply:
-          "Siap! Kirim juga foto selfie sambil memegang KTP-mu ya untuk verifikasi.",
-      },
-    ],
+    takeaway: "Perusahaan sungguhan tidak memungut biaya dari pelamar.",
+    t1: turn(
+      [
+        "Halo! Selamat, kamu lolos kandidat kerja remote kami 🎉",
+        "Gaji Rp500rb–1jt per hari, cukup dari HP. Mau lanjut?",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, ini foto KTP dan nomor rekening saya",
+          "KTP dan rekening bisa dipakai untuk pinjaman dan akun palsu atas namamu.",
+          "Siap! Kirim juga selfie sambil pegang KTP ya.",
+        ),
+        slip(
+          "b",
+          "Ini nama lengkap dan alamat rumah saya",
+          "Terima kasih Kak. Sekarang kirim foto KTP ya.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Boleh tahu nama PT dan alamat kantornya?",
+          "Kami PT Karya Digital Global, kantor di luar negeri. Yang penting kamu serius ya.",
+          "t2",
+          "Info perusahaan tidak jelas",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Biar akunmu aktif, bayar biaya administrasi Rp75.000 ya. Hari ini saja, besok kuota habis."],
+      [
+        fatal(
+          "a",
+          "Oke, saya transfer Rp75.000 sekarang",
+          "Perusahaan sungguhan tidak memungut biaya dari pelamar.",
+          "Makasih! Setelah ini ada biaya seragam Rp150.000 ya.",
+        ),
+        slip(
+          "b",
+          "Boleh bayar setengahnya dulu?",
+          "Boleh Kak, Rp40.000 dulu. Cepat ya!",
+          "t3",
+        ),
+        good(
+          "c",
+          "Perusahaan resmi tidak minta biaya. Saya cek dulu ya.",
+          "Jangan lama-lama, slotmu bisa diberikan ke orang lain!",
+          "t3",
+          "Meminta biaya di awal",
+        ),
+      ],
+    ),
+    t3: turn(
+      ["Ini kesempatan terakhir, Kak. Banyak yang sudah berhasil lho. Jadi atau tidak?"],
+      [
+        fatal(
+          "a",
+          "Ya sudah, saya bayar sekarang",
+          "Tekanan “kesempatan terakhir” dipakai agar kamu tidak sempat mengecek.",
+          "Pintar! Ini rekeningnya.",
+        ),
+        fatal(
+          "b",
+          "Saya kirim KTP saja sebagai jaminan",
+          "KTP yang kamu kirim bisa disalahgunakan untuk pinjaman atas namamu.",
+          "Terima kasih, KTP diterima.",
+        ),
+        exit(
+          "c",
+          "Tidak. Saya berhenti dan laporkan akun ini",
+          "Kamu menolak tekanan dan melaporkan. Tepat!",
+        ),
+      ],
+    ),
   }),
 
   /* ===== LEVEL 2 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-2",
     level: 2,
     difficulty: "Mudah",
-    topic: "Bonus palsu & tekanan waktu",
+    topic: "Bonus palsu dan tekanan waktu",
     title: "Bonus Saldo Dompet Digital",
     description: "Seseorang yang mengaku admin promo menghubungimu.",
     sender: { name: "Admin Promo Dompetku", status: "akun bisnis" },
-    messages: [
-      "Akun kamu mendapatkan bonus Rp2.000.000! 🎁",
-      "Top-up Rp100.000 dulu untuk mengaktifkan bonus. Bonus hangus dalam 10 menit jika tidak segera diklaim!",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Segera top-up sebelum bonus hangus.",
-        isSafe: false,
-        feedback: "Waspada! Kamu sedang ditekan untuk memutuskan cepat.",
-        explanation:
-          "Batas waktu singkat dan hadiah besar adalah teknik tekanan psikologis agar korban tidak sempat berpikir.",
-        saferAction:
-          "Jangan membayar. Periksa info bonus lewat aplikasi resmi yang kamu buka sendiri.",
-        reply:
-          "Pilihan tepat! Transfer sekarang ya, waktunya tinggal 4 menit ⏰",
-      },
-      {
-        id: "b",
-        label: "Memeriksa informasi bonus lewat aplikasi resmi.",
-        isSafe: true,
-        feedback: "Tepat! Kamu memverifikasi dulu.",
-        explanation:
-          "Promo yang asli bisa dicek di dalam aplikasi atau situs resmi penyedia layanan.",
-        saferAction:
-          "Abaikan pesan tadi dan hubungi layanan pelanggan resmi bila perlu.",
-      },
-      {
-        id: "c",
-        label: "Menawar: minta bonus dicairkan dulu, baru top-up.",
-        isSafe: false,
-        feedback: "Menawar tidak mengubah jebakannya.",
-        explanation:
-          "Penipu bisa pura-pura setuju lalu tetap meminta uang. Menawar hanya memperpanjang percakapan di bawah tekanan.",
-        saferAction:
-          "Hentikan percakapan dan verifikasi lewat aplikasi resmi, bukan lewat chat ini.",
-        reply:
-          "Boleh Kak, tapi sistem butuh Rp50.000 dulu untuk verifikasi. Cepat ya, tinggal 7 menit!",
-      },
-    ],
+    takeaway: "Bonus asli bisa dicek di aplikasi resmi, tanpa setoran dan tanpa OTP.",
+    t1: turn(
+      [
+        "Akun kamu dapat bonus Rp2.000.000! 🎁",
+        "Klaim sekarang, bonus hangus 10 menit lagi.",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, saya top-up sekarang",
+          "Bonus asli tidak meminta setoran lebih dulu.",
+          "Transfer ke rekening ini ya, waktunya 7 menit!",
+        ),
+        slip(
+          "b",
+          "Gimana cara klaimnya?",
+          "Top-up Rp100.000 dulu untuk aktivasi bonus.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Saya cek dulu di aplikasi resminya",
+          "Tidak perlu cek, itu lama. Langsung klaim di sini saja!",
+          "t2",
+          "Melarangmu mengecek",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Waktumu tinggal 5 menit! Kirim juga kode OTP yang masuk untuk verifikasi."],
+      [
+        fatal(
+          "a",
+          "Ini kode OTP-nya: 4 8 2 9 1 7",
+          "OTP adalah kunci akunmu. Pihak resmi tidak pernah memintanya.",
+          "Kode diterima, mohon tunggu...",
+        ),
+        slip(
+          "b",
+          "Cairkan bonusnya dulu, baru saya top-up",
+          "Sistem tidak bisa begitu, Kak. Cepat ya!",
+          "t3",
+        ),
+        good(
+          "c",
+          "Admin resmi tidak pernah minta OTP",
+          "Kalau begitu bonusnya hangus ya!",
+          "t3",
+          "Meminta kode OTP",
+        ),
+      ],
+    ),
+    t3: turn(
+      ["Bonus hangus dalam 1 menit! Ini benar-benar kesempatan terakhir."],
+      [
+        fatal(
+          "a",
+          "Oke, saya bayar sekarang",
+          "Hitung mundur hanyalah tekanan buatan.",
+          "Bagus, ini rekeningnya.",
+        ),
+        fatal(
+          "b",
+          "Saya kirim kodenya saja deh",
+          "OTP tidak boleh dibagikan, apa pun alasannya.",
+          "Kode diterima.",
+        ),
+        exit(
+          "c",
+          "Biar hangus. Saya blokir akun ini",
+          "Kamu tidak terpancing hitung mundur.",
+        ),
+      ],
+    ),
   }),
 
   /* ===== LEVEL 3 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-3",
     level: 3,
     difficulty: "Mudah",
@@ -121,51 +193,84 @@ export const trustLabScenarios: SimulationScenario[] = [
     title: "Paket Tertahan",
     description: "Pesan dari nomor yang mengaku kurir ekspedisi.",
     sender: { name: "Info Paket KilatExpress", status: "akun bisnis" },
-    messages: [
-      "📦 Paket atas namamu tertahan di gudang karena alamat kurang lengkap.",
-      "Lihat foto paket dan konfirmasi alamat lewat file berikut:",
-      "📎 Foto_Paket_KilatExpress.apk (4,2 MB)",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Mengunduh dan membuka file itu untuk melihat paketnya.",
-        isSafe: false,
-        feedback: "Bahaya! File .apk bukan foto, melainkan aplikasi.",
-        explanation:
-          "APK dari chat adalah aplikasi yang dipasang di luar toko resmi. Aplikasi seperti ini dapat membaca SMS (termasuk OTP), notifikasi, dan mengambil alih m-banking.",
-        saferAction:
-          "Jangan pasang file tersebut. Cek status paket lewat aplikasi atau situs resmi kurir dengan nomor resi milikmu.",
-        reply:
-          "Setelah terpasang, izinkan semua akses yang diminta ya Kak, supaya foto paketnya muncul.",
-      },
-      {
-        id: "b",
-        label:
-          "Tidak membuka file; cek paket lewat aplikasi atau situs resmi kurir dengan nomor resimu.",
-        isSafe: true,
-        feedback: "Tepat! Kamu tidak memasang file dari chat.",
-        explanation:
-          "Kurir sungguhan tidak mengirim foto paket dalam bentuk file aplikasi. Resi bisa dicek lewat kanal resmi.",
-        saferAction:
-          "Blokir dan laporkan nomor pengirim. Jika sudah telanjur memasang, putuskan internet dan hubungi bank.",
-      },
-      {
-        id: "c",
-        label: "Memasang file itu tapi menolak semua izin yang diminta.",
-        isSafe: false,
-        feedback: "Memasang saja sudah berisiko.",
-        explanation:
-          "Aplikasi berbahaya sering memaksa izin tambahan atau memakai fitur aksesibilitas untuk mengendalikan ponsel.",
-        saferAction:
-          "Jangan pasang aplikasi dari file yang dikirim lewat chat, apa pun alasannya.",
-        reply: "Kalau layar minta 'Aktifkan Aksesibilitas', setujui saja ya Kak.",
-      },
-    ],
+    takeaway: "Foto paket tidak pernah berbentuk file .apk. Jangan pasang aplikasi dari chat.",
+    t1: turn(
+      [
+        "📦 Paketmu tertahan karena alamat kurang lengkap.",
+        "Lihat foto paket dan konfirmasi alamat: 📎 Foto_Paket.apk (4,2 MB)",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, saya buka filenya",
+          "File .apk adalah aplikasi yang bisa membaca SMS dan OTP, bahkan mengambil alih m-banking.",
+          "Izinkan semua akses ya Kak supaya fotonya muncul.",
+        ),
+        slip(
+          "b",
+          "Saya unduh di HP lama saja",
+          "Silakan Kak, izinkan semua akses yang diminta ya.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Kirim foto biasa saja, bukan file .apk",
+          "Tidak bisa Kak, harus lewat aplikasi kami.",
+          "t2",
+          "Memaksa pasang aplikasi",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Kalau tidak dikonfirmasi 1 jam, paket dikembalikan dan kena denda Rp35.000."],
+      [
+        fatal(
+          "a",
+          "Ya sudah, saya bayar dendanya",
+          "Denda paket lewat chat adalah modus.",
+          "Terima kasih, transfer ke rekening ini.",
+        ),
+        slip(
+          "b",
+          "Ini alamat lengkap saya",
+          "Terima kasih Kak. Nomor KTP juga ya.",
+          "t3",
+        ),
+        good(
+          "c",
+          "Saya cek resi di aplikasi resmi kurir",
+          "Resinya tidak akan muncul di sana, itu sistem kami!",
+          "t3",
+          "Resi tidak bisa dicek",
+        ),
+      ],
+    ),
+    t3: turn(
+      ["Peringatan terakhir. Pasang aplikasinya sekarang atau paket dibatalkan."],
+      [
+        fatal(
+          "a",
+          "Baik, saya pasang sekarang",
+          "Aplikasi dari chat bukan dari toko resmi dan bisa menguasai ponselmu.",
+          "Bagus, izinkan aksesibilitas ya.",
+        ),
+        fatal(
+          "b",
+          "Saya kirim KTP saja",
+          "KTP yang dikirim bisa disalahgunakan.",
+          "KTP diterima.",
+        ),
+        exit(
+          "c",
+          "Saya cek lewat aplikasi resmi kurir. Blokir",
+          "Kamu mengecek lewat kanal resmi dan tidak memasang apa pun.",
+        ),
+      ],
+    ),
   }),
 
   /* ===== LEVEL 4 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-4",
     level: 4,
     difficulty: "Menengah",
@@ -173,428 +278,568 @@ export const trustLabScenarios: SimulationScenario[] = [
     title: "Nomor Baru Adikmu",
     description: "Nomor tak dikenal mengaku sebagai adikmu.",
     sender: { name: "+62 857-3391-0142", status: "nomor baru" },
-    messages: [
-      "Kak, ini aku Dimas 🙏 HP lamaku rusak, ini nomor baruku ya.",
-      "Aku lagi buru-buru bayar vendor, tapi m-banking belum bisa dipakai di HP baru. Bisa transferin Rp1.850.000 ke rekening temanku dulu? Nanti malam kuganti, janji.",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Langsung transfer karena ini adikmu dan dia terdengar buru-buru.",
-        isSafe: false,
-        feedback: "Jangan mengambil keputusan hanya karena ada urgensi.",
-        explanation:
-          "Pelaku memakai nama keluarga dan alasan HP rusak agar kamu tidak sempat memverifikasi.",
-        saferAction:
-          "Hubungi nomor lama adikmu atau keluarga lain untuk memastikan sebelum mentransfer.",
-        reply:
-          "Makasih banget Kak! Ini rekeningnya: 7712 3345 a.n. Rudi Hartono. Kirim buktinya ya 🙏",
-      },
-      {
-        id: "b",
-        label:
-          "Menanyakan lewat chat 'Kamu siapa?' dan percaya jika jawabannya cocok.",
-        isSafe: false,
-        feedback: "Jawaban lewat chat mudah ditebak atau dicari.",
-        explanation:
-          "Nama, panggilan, dan kebiasaan keluarga sering bisa ditemukan dari media sosial. Cocok di chat bukan bukti.",
-        saferAction:
-          "Verifikasi lewat telepon ke nomor lama atau lewat anggota keluarga lain.",
-        reply:
-          "Ya ampun Kak, masa lupa sama adik sendiri 😅 Dimas lah! Cepetan ya transfernya.",
-      },
-      {
-        id: "c",
-        label:
-          "Menelepon nomor Dimas yang lama atau menghubungi keluarga lain untuk memastikan.",
-        isSafe: true,
-        feedback: "Bagus! Kamu memakai jalur yang sudah kamu percaya.",
-        explanation:
-          "Menghubungi lewat nomor lama atau orang lain adalah cara paling andal membuktikan identitas.",
-        saferAction:
-          "Jangan transfer sebelum identitas terbukti. Simpan nomor baru hanya setelah terkonfirmasi.",
-      },
-      {
-        id: "d",
-        label: "Transfer sebagian saja dulu (Rp500.000) sambil menunggu penjelasan.",
-        isSafe: false,
-        feedback: "Mentransfer sebagian tetap berarti kehilangan uang.",
-        explanation:
-          "Uang yang sudah terkirim sulit ditarik, dan pelaku biasanya lanjut meminta tambahan.",
-        saferAction: "Pastikan identitas dulu, baru pertimbangkan membantu.",
-        reply:
-          "Kak, kurang segitu. Masih kurang Rp1.350.000 nih, tolong ya, vendornya nunggu.",
-      },
-    ],
+    takeaway: "Nomor baru yang minta uang? Telepon nomor lamanya atau keluarga lain dulu.",
+    t1: turn(
+      [
+        "Kak, ini Dimas 🙏 HP lamaku rusak, ini nomor baruku.",
+        "Bisa tolong transferin Rp1.850.000 ke rekening temanku? Buat bayar vendor, nanti malam kuganti.",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, kirim nomor rekeningnya",
+          "Pelaku memakai nama keluarga dan alasan HP rusak agar kamu tidak sempat memeriksa.",
+          "Makasih Kak! BCA 7712 3345 a.n. Rudi.",
+        ),
+        slip(
+          "b",
+          "Tanya lewat chat: “Siapa nama ibu kita?”",
+          "Ibu Ratih kan? Udah ya Kak, cepetan transfer.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Aku telepon nomor lamamu dulu ya",
+          "HP lamaku rusak Kak, nggak bisa! Transfer dulu aja.",
+          "t2",
+          "Menolak ditelepon",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Kak ayo dong, vendornya nungguin. Kakak tega ya sama adik sendiri? 😢"],
+      [
+        fatal(
+          "a",
+          "Ya udah, aku transfer sekarang",
+          "Rasa bersalah dipakai untuk menekanmu.",
+          "Makasih Kak, kamu penyelamatku!",
+        ),
+        slip(
+          "b",
+          "Aku transfer Rp500.000 dulu deh",
+          "Kurang Kak, kurang Rp1.350.000 lagi!",
+          "t3",
+        ),
+        good(
+          "c",
+          "Aku tanya orang tua dulu ya",
+          "Jangan! Mama nanti khawatir. Rahasiain dulu ya!",
+          "t3",
+          "Melarang menghubungi keluarga",
+        ),
+      ],
+    ),
+    t3: turn(
+      ["Kak serius ini darurat, 10 menit lagi gagal bayar. Kirim sekarang!"],
+      [
+        fatal(
+          "a",
+          "Oke, kukirim sekarang",
+          "Urgensi dibuat agar kamu tidak sempat memverifikasi.",
+          "Terima kasih Kak!",
+        ),
+        fatal(
+          "b",
+          "Kukirim Rp1 juta saja ya",
+          "Jumlah lebih kecil tetap uang yang hilang, dan permintaan berikutnya pasti datang.",
+          "Makasih, tapi kurang ya Kak...",
+        ),
+        exit(
+          "c",
+          "Aku telepon nomor lama dan keluarga dulu. Blokir",
+          "Kamu memverifikasi lewat jalur lain dan menolak tekanan.",
+        ),
+      ],
+    ),
   }),
 
   /* ===== LEVEL 5 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-5",
     level: 5,
     difficulty: "Menengah",
     topic: "Penipuan tugas online (task scam)",
     title: "Komisi Pertama Benar-benar Cair",
-    description:
-      "Kemarin kamu iseng ikut kerja sampingan 'like & subscribe', dan komisi Rp45.000 benar-benar masuk ke rekeningmu.",
+    description: "Kemarin kamu ikut kerja sampingan “like & subscribe”, dan komisinya benar-benar masuk.",
     sender: { name: "Admin Tugas Harian", status: "online" },
-    messages: [
-      "Halo Kak! Komisi 3 tugas kemarin sudah cair Rp45.000 ya ✅",
-      "Hari ini Kakak naik ke TUGAS PREMIUM. Setor dulu Rp500.000 sebagai modal tugas, komisinya Rp750.000 langsung cair hari ini. Slot tinggal 2 orang!",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Ikut karena komisi pertama terbukti cair.",
-        isSafe: false,
-        feedback: "Justru komisi kecil itulah umpannya.",
-        explanation:
-          "Pelaku sengaja membayar kecil di awal untuk membangun kepercayaan, lalu meminta setoran besar yang tidak akan kembali.",
-        saferAction:
-          "Berhenti. Pekerjaan sungguhan tidak meminta setoran modal dari pekerjanya.",
-        reply:
-          "Mantap Kak! Setor ke rekening ini, lalu kirim bukti transfer agar tugas dibuka.",
-      },
-      {
-        id: "b",
-        label: "Setor jumlah kecil dulu (Rp100.000) untuk menguji.",
-        isSafe: false,
-        feedback: "Menguji dengan uang kecil tetap masuk perangkap.",
-        explanation:
-          "Setoran kecil membuatmu makin terlibat. Biasanya muncul alasan baru untuk setor lebih banyak sebelum dana 'bisa dicairkan'.",
-        saferAction:
-          "Jangan menyetor sama sekali. Simpan bukti chat dan transaksi.",
-        reply:
-          "Tugas bisa dibuka mulai Rp300.000 Kak, tapi komisinya turun jadi Rp450.000 ya.",
-      },
-      {
-        id: "c",
-        label:
-          "Berhenti, tidak menyetor, dan menyimpan bukti chat sebagai arsip laporan.",
-        isSafe: true,
-        feedback: "Tepat! Kamu mengenali pola umpan lalu setoran.",
-        explanation:
-          "Komisi pertama cair + permintaan setoran lebih besar adalah ciri khas penipuan tugas online.",
-        saferAction:
-          "Laporkan akun ke platform pesan dan, bila sudah menyetor, segera hubungi bank dan layanan pengaduan resmi.",
-      },
-      {
-        id: "d",
-        label: "Mengajak temanmu ikut agar dapat bonus rujukan.",
-        isSafe: false,
-        feedback: "Kamu justru menyeret orang lain ke penipuan.",
-        explanation:
-          "Skema rujukan dipakai untuk memperluas korban. Orang yang kamu ajak bisa rugi dan kamu ikut kehilangan kepercayaan mereka.",
-        saferAction:
-          "Jangan mengajak siapa pun. Peringatkan teman dan keluarga tentang modus ini.",
-        reply:
-          "Wah mantap, bonus rujukan Rp50.000 per orang! Kirim kontak temanmu ya.",
-      },
-    ],
+    takeaway: "Komisi kecil di awal itu umpan. Kerja asli tidak meminta setoran.",
+    t1: turn(
+      [
+        "Komisi 3 tugas kemarin Rp45.000 sudah cair ✅",
+        "Hari ini naik ke TUGAS PREMIUM: setor Rp500.000, komisi Rp750.000 cair hari ini.",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, saya setor Rp500.000",
+          "Setoran “modal tugas” tidak akan kembali.",
+          "Mantap Kak! Setor ke rekening ini ya.",
+        ),
+        slip(
+          "b",
+          "Setor Rp100.000 dulu buat coba",
+          "Bisa, tapi komisinya turun jadi Rp150.000 ya.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Pekerjaan asli tidak minta setoran modal",
+          "Ini bukan setoran, tapi “jaminan tugas”, nanti kembali!",
+          "t2",
+          "Setoran disebut “jaminan”",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Slot tinggal 2 orang! Ajak temanmu juga biar dapat bonus rujukan Rp50.000."],
+      [
+        fatal(
+          "a",
+          "Saya ajak teman-teman saya",
+          "Skema rujukan memperluas korban dan kamu ikut terseret.",
+          "Wah mantap! Kirim kontak mereka ya.",
+        ),
+        slip(
+          "b",
+          "Saya setor, pinjam dulu ke teman",
+          "Cepat ya, tinggal 1 slot!",
+          "t3",
+        ),
+        good(
+          "c",
+          "Saya mau tarik komisi Rp45.000 dan berhenti",
+          "Penarikan harus menyelesaikan tugas premium dulu.",
+          "t3",
+          "Penarikan ditahan",
+        ),
+      ],
+    ),
+    t3: turn(
+      ["Kalau berhenti sekarang, semua komisimu hangus!"],
+      [
+        fatal(
+          "a",
+          "Ya sudah, saya setor sekarang",
+          "Ancaman “hangus” dipakai agar kamu terus menyetor.",
+          "Bagus! Ini rekeningnya.",
+        ),
+        fatal(
+          "b",
+          "Saya pinjam uang untuk setor",
+          "Berutang demi mengejar komisi hanya menambah kerugian.",
+          "Pintar! Cepat ya.",
+        ),
+        exit(
+          "c",
+          "Biar hangus. Saya berhenti dan laporkan",
+          "Kamu menerima kehilangan kecil agar tidak rugi besar.",
+        ),
+      ],
+    ),
   }),
 
   /* ===== LEVEL 6 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-6",
     level: 6,
     difficulty: "Menengah",
     topic: "Pengambilalihan akun WhatsApp",
     title: "Kode yang Salah Kirim",
-    description:
-      "Pesan datang dari kontak yang kamu kenal, tetapi akunnya mungkin sudah diambil alih.",
+    description: "Pesan datang dari kontak yang kamu kenal, tapi akunnya mungkin sudah diambil alih.",
     sender: { name: "Rina Kantor", status: "online" },
-    messages: [
-      "Eh, ini Rina. Tadi ada kode verifikasi masuk ke nomormu ya? Itu salah kirim, harusnya ke HP-ku 😅",
-      "Tolong ketikin 6 digit kodenya ke sini, cepetan ya aku lagi rapat, akunku keburu terkunci 🙏",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Mengirim kode karena yang meminta temanmu sendiri.",
-        isSafe: false,
-        feedback: "Akunmu bisa langsung diambil alih.",
-        explanation:
-          "Kode itu sebenarnya dikirim ke nomormu karena penyerang sedang mencoba masuk ke akun WhatsApp-mu. Akun temanmu kemungkinan sudah dikuasai.",
-        saferAction:
-          "Jangan kirim kode apa pun. Telepon Rina langsung untuk memastikan.",
-        reply: "Makasih ya! Sebentar, aku masukin dulu...",
-      },
-      {
-        id: "b",
-        label: "Mengirim hanya 3 digit pertama sebagai tanda bantu.",
-        isSafe: false,
-        feedback: "Sebagian kode tetap berbahaya.",
-        explanation:
-          "Penyerang bisa menebak sisanya atau meminta sisanya di pesan berikutnya. Kode verifikasi tidak boleh dibagikan sebagian pun.",
-        saferAction: "Jangan bagikan digit apa pun dari kode tersebut.",
-        reply: "Kurang 3 digit lagi nih, tolong lanjutin ya, tinggal dikit!",
-      },
-      {
-        id: "c",
-        label:
-          "Tidak mengirim kode, menelepon Rina langsung, lalu mengaktifkan verifikasi dua langkah.",
-        isSafe: true,
-        feedback: "Sempurna! Kamu menutup celah akunmu.",
-        explanation:
-          "Menelepon memastikan siapa yang sebenarnya menulis. Verifikasi dua langkah (PIN) mempersulit pengambilalihan akun.",
-        saferAction:
-          "Beritahu Rina lewat telepon bahwa akunnya kemungkinan diretas, dan minta ia memulihkan akunnya.",
-      },
-    ],
+    takeaway: "Kode verifikasi itu rahasia, bahkan untuk teman. Telepon orangnya langsung.",
+    t1: turn(
+      [
+        "Eh ini Rina. Tadi ada kode verifikasi masuk ke nomormu ya? Salah kirim 😅",
+        "Tolong kirim 6 digitnya ya, aku lagi rapat, akunku keburu terkunci 🙏",
+      ],
+      [
+        fatal(
+          "a",
+          "Kodenya 4 8 3 9 1 2",
+          "Kamu menyerahkan akun WhatsApp-mu.",
+          "Makasih ya!",
+        ),
+        slip(
+          "b",
+          "Kukirim 3 digit pertama aja",
+          "Kurang 3 digit lagi nih, lanjutin dong!",
+          "t2",
+        ),
+        good(
+          "c",
+          "Aku telepon kamu dulu ya",
+          "Jangan! Aku lagi rapat, nggak bisa angkat.",
+          "t2",
+          "Menolak ditelepon",
+        ),
+      ],
+    ),
+    t2: turn(["Ayo cepet, 1 menit lagi akunku diblokir!"], [
+      fatal(
+        "a",
+        "Ini kode lengkapnya",
+        "Kode lengkap memberi mereka akses penuh ke akunmu.",
+        "Makasih banget!",
+      ),
+      slip(
+        "b",
+        "Aku foto layar SMS-nya ya",
+        "Boleh! Cepet ya.",
+        "t3",
+      ),
+      good(
+        "c",
+        "Kode itu rahasia. Siapa pun tidak boleh minta",
+        "Ya ampun, jahat banget sih kamu!",
+        "t3",
+        "Marah saat kode ditolak",
+      ),
+    ]),
+    t3: turn(["Ya udah, pinjemin pulsa Rp100.000 aja, nanti kuganti."], [
+      fatal(
+        "a",
+        "Oke, kukirim pulsanya",
+        "Akun yang diretas dipakai untuk memeras kontak satu per satu.",
+        "Makasih ya!",
+      ),
+      fatal(
+        "b",
+        "Kukirim kodenya aja deh",
+        "Kode tidak boleh dibagikan apa pun alasannya.",
+        "Nah gitu dong.",
+      ),
+      exit(
+        "c",
+        "Akunmu diretas. Aku telepon kamu dan laporkan",
+        "Kamu mengenali pola akun diretas dan memberi tahu pemiliknya lewat jalur lain.",
+      ),
+    ]),
   }),
 
   /* ===== LEVEL 7 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-7",
     level: 7,
     difficulty: "Sulit",
     topic: "Akun layanan pelanggan palsu",
     title: "CS Resmi yang Menghampirimu",
-    description:
-      "Kamu baru mengeluh di media sosial soal refund pesanan yang belum cair, lalu sebuah akun mengirim DM.",
+    description: "Kamu mengeluh soal refund di media sosial, lalu sebuah akun mengirim DM.",
     sender: { name: "BelanjaKu Care Official", status: "centang biru • akun bisnis" },
-    messages: [
-      "Halo Kak, kami melihat keluhan Kakak di media sosial. Mohon maaf atas ketidaknyamanannya 🙏",
-      "Refund Rp389.000 siap kami proses sekarang. Silakan verifikasi di refund-belanjaku-care.example lalu masukkan kode 6 digit yang kami kirim lewat SMS agar dana langsung masuk.",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Percaya dan mengikuti karena akunnya bercentang biru dan namanya mirip resmi.",
-        isSafe: false,
-        feedback: "Centang dan nama mirip bukan bukti.",
-        explanation:
-          "Centang bisa dibeli atau ditiru, dan nama akun mudah dibuat mirip. Kode SMS yang diminta kemungkinan OTP untuk membobol akunmu.",
-        saferAction:
-          "Gunakan pusat bantuan di dalam aplikasi resmi. Abaikan dan laporkan akun DM tersebut.",
-        reply:
-          "Terima kasih Kak, kode sudah kami terima. Mohon tunggu 5 menit ya 🙏",
-      },
-      {
-        id: "b",
-        label: "Membuka tautan hanya untuk melihat, tanpa memasukkan kode.",
-        isSafe: false,
-        feedback: "Risikonya sudah mulai saat tautan dibuka.",
-        explanation:
-          "Halaman palsu bisa meminta data, mengarahkan ke unduhan berbahaya, atau menyalin informasi perangkatmu.",
-        saferAction:
-          "Jangan buka tautan dari DM. Buka aplikasi resmi yang kamu pasang sendiri.",
-        reply: "Sudah terbuka Kak? Silakan isi kolom kode di bagian bawah ya.",
-      },
-      {
-        id: "c",
-        label: "Mengirim nomor pesanan dan nama lengkap agar 'CS' bisa mengecek.",
-        isSafe: false,
-        feedback: "Data pesananmu membuat penipu makin meyakinkan.",
-        explanation:
-          "Nomor pesanan dan nama dipakai untuk tampil kredibel di langkah berikutnya, misalnya saat menelepon atau meminta kode.",
-        saferAction:
-          "Jangan beri data apa pun ke akun yang menghubungimu duluan.",
-        reply:
-          "Terima kasih Kak. Pesanan ditemukan. Untuk lanjut, mohon kirimkan kode yang masuk ke SMS-mu.",
-      },
-      {
-        id: "d",
-        label:
-          "Mengabaikan DM, membuka aplikasi marketplace, dan memeriksa refund lewat pusat bantuan resmi di dalamnya.",
-        isSafe: true,
-        feedback: "Tepat! Kamu memakai kanal yang kamu buka sendiri.",
-        explanation:
-          "Layanan resmi tidak meminta kode SMS lewat DM. Status refund selalu bisa dicek di dalam aplikasi.",
-        saferAction:
-          "Laporkan akun DM sebagai penipuan dan hindari menanggapi akun yang menghubungimu lebih dulu.",
-      },
-    ],
+    takeaway: "Layanan resmi tidak mendatangimu lewat DM dan tidak pernah meminta kode.",
+    t1: turn(
+      [
+        "Halo Kak, kami lihat keluhan Kakak di media sosial 🙏",
+        "Refund Rp389.000 kami proses sekarang. Verifikasi di refund-belanjaku-care.example ya.",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, saya buka tautannya dan isi data",
+          "Halaman palsu mencuri data dan kodemu.",
+          "Silakan masukkan nomor, PIN, dan kode SMS.",
+        ),
+        slip(
+          "b",
+          "Ini nomor pesanan dan nama lengkap saya",
+          "Pesanan ditemukan. Kode SMS-nya mohon dikirim.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Saya cek refund di aplikasi resmi saja",
+          "Lewat aplikasi prosesnya 14 hari. Kami bisa langsung sekarang.",
+          "t2",
+          "Mendorong keluar dari aplikasi resmi",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Akun kami bercentang biru, Kak. Percayalah. Kirim kode 6 digit yang masuk ke SMS."],
+      [
+        fatal(
+          "a",
+          "Ini kodenya...",
+          "Kode SMS itu OTP untuk membobol akunmu.",
+          "Terima kasih Kak, mohon tunggu.",
+        ),
+        slip(
+          "b",
+          "Oke, centang biru berarti resmi",
+          "Betul Kak, kami tunggu kodenya.",
+          "t3",
+        ),
+        good(
+          "c",
+          "Centang bisa dibeli. Admin resmi tidak minta kode",
+          "Kakak mempersulit proses refund sendiri lho.",
+          "t3",
+          "Meminta kode SMS",
+        ),
+      ],
+    ),
+    t3: turn(["Refund hangus dalam 15 menit jika tidak diverifikasi."], [
+      fatal(
+        "a",
+        "Baik, saya verifikasi sekarang",
+        "Batas waktu dipakai agar kamu tidak sempat memeriksa.",
+        "Silakan kirim kodenya.",
+      ),
+      fatal(
+        "b",
+        "Saya kirim kodenya biar cepat",
+        "OTP tidak pernah boleh dibagikan.",
+        "Kode diterima.",
+      ),
+      exit(
+        "c",
+        "Saya laporkan akun ini dan cek di pusat bantuan resmi",
+        "Kamu memakai kanal resmi di dalam aplikasi dan melaporkan akun palsu.",
+      ),
+    ]),
   }),
 
   /* ===== LEVEL 8 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-8",
     level: 8,
     difficulty: "Sulit",
     topic: "Kloning suara dengan AI",
     title: "Suara yang Terdengar Persis Adikmu",
-    description:
-      "Kamu menerima pesan suara yang terdengar persis seperti adikmu, panik dan terisak.",
+    description: "Kamu menerima pesan suara yang terdengar persis seperti adikmu, panik dan terisak.",
     sender: { name: "+62 821-6620-7715", status: "online" },
-    messages: [
-      "🎤 Pesan suara 0:12 (suara adikmu terdengar panik dan terisak)",
-      "Kak, aku kecelakaan, motorku nabrak orang. Aku di klinik dan mereka minta DP Rp3.000.000 sekarang. HP-ku rusak, ini pakai HP orang. Tolong transfer ke rekening klinik ya, cepat Kak 😭",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Langsung transfer karena suaranya benar-benar suara adikmu.",
-        isSafe: false,
-        feedback: "Suara yang mirip bukan bukti identitas.",
-        explanation:
-          "Suara kini bisa ditiru AI hanya dari potongan video pendek di media sosial. Rasa panik sengaja dibuat agar kamu tidak sempat memeriksa.",
-        saferAction:
-          "Hubungi adikmu lewat nomor yang biasa atau keluarga lain sebelum mentransfer apa pun.",
-        reply: "Makasih Kak, cepat ya, dokternya sudah menunggu 🙏",
-      },
-      {
-        id: "b",
-        label: "Meminta foto selfie dan KTP-nya sebagai bukti.",
-        isSafe: false,
-        feedback: "Foto dan dokumen juga bisa dipalsukan.",
-        explanation:
-          "Pelaku dapat memakai foto curian dari akun korban atau gambar buatan AI. Dokumen yang dikirim lewat chat bukan verifikasi sungguhan.",
-        saferAction:
-          "Verifikasi lewat telepon ke nomor adikmu yang lama atau lewat keluarga lain.",
-        reply: "Ini fotonya Kak 📸 Sekarang tolong transfer ya, waktunya mepet.",
-      },
-      {
-        id: "c",
-        label: "Transfer separuh dulu (Rp1.500.000), sisanya setelah ada kabar.",
-        isSafe: false,
-        feedback: "Uang yang terkirim sulit ditarik kembali.",
-        explanation:
-          "Setelah satu transfer berhasil, pelaku biasanya meminta tambahan dengan alasan biaya lain.",
-        saferAction:
-          "Jangan transfer sebelum kamu mengonfirmasi kejadian lewat jalur terpercaya.",
-        reply: "Masih kurang Kak, dokternya minta sisanya sekarang juga 😭",
-      },
-      {
-        id: "d",
-        label:
-          "Menutup chat, menelepon nomor adikmu yang biasa atau menghubungi keluarga lain, dan memakai kata sandi keluarga bila ada.",
-        isSafe: true,
-        feedback: "Luar biasa! Kamu mematahkan tekanan emosional.",
-        explanation:
-          "Menghubungi lewat jalur lain adalah cara paling andal. Kata sandi keluarga yang disepakati sebelumnya tidak bisa ditiru AI.",
-        saferAction:
-          "Sepakati kata sandi keluarga untuk situasi darurat, dan hubungi klinik langsung lewat nomor yang kamu cari sendiri.",
-      },
-    ],
+    takeaway: "Suara bisa ditiru AI. Sepakati kata sandi keluarga untuk situasi darurat.",
+    t1: turn(
+      [
+        "🎤 Pesan suara 0:12 (suara adikmu, panik dan terisak)",
+        "Kak aku kecelakaan, di klinik diminta DP Rp3.000.000. HP-ku rusak, pakai HP orang. Transfer cepat Kak 😭",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, kutransfer. Suaranya jelas adikku",
+          "Suara bisa ditiru AI hanya dari video pendek di media sosial.",
+          "Makasih Kak, dokternya sudah nunggu 🙏",
+        ),
+        slip(
+          "b",
+          "Kirim foto selfie dan KTP-mu dulu",
+          "Ini fotonya Kak 📸 Tolong cepat.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Aku telepon nomor adikku yang biasa",
+          "HP-ku rusak Kak! Pakai HP orang! Transfer dulu!",
+          "t2",
+          "Menolak ditelepon",
+        ),
+      ],
+    ),
+    t2: turn(["Kak dokternya nunggu! Aku takut... jangan kasih tahu Mama dulu 😭"], [
+      fatal(
+        "a",
+        "Oke, kutransfer sekarang",
+        "Rasa panik sengaja dibuat agar kamu tidak sempat berpikir.",
+        "Makasih Kak!",
+      ),
+      slip(
+        "b",
+        "Kutransfer Rp1.500.000 dulu",
+        "Masih kurang, sisanya sekarang juga!",
+        "t3",
+      ),
+      good(
+        "c",
+        "Apa kata sandi keluarga kita?",
+        "Kata sandi apa sih Kak? Cepetan!",
+        "t3",
+        "Tidak tahu kata sandi keluarga",
+      ),
+    ]),
+    t3: turn(["Kak, nyawaku taruhannya! Kirim sekarang atau terlambat!"], [
+      fatal(
+        "a",
+        "Baik, kukirim semuanya",
+        "Ancaman nyawa adalah tekanan paling kuat dan paling sering dipakai.",
+        "Terima kasih Kak!",
+      ),
+      fatal(
+        "b",
+        "Kukirim setengah saja",
+        "Setengah transfer tetap uang yang hilang.",
+        "Masih kurang Kak...",
+      ),
+      exit(
+        "c",
+        "Aku hubungi keluarga dan klinik langsung. Blokir",
+        "Kamu memverifikasi lewat jalur lain meski ditekan.",
+      ),
+    ]),
   }),
 
   /* ===== LEVEL 9 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-9",
     level: 9,
     difficulty: "Ahli",
     topic: "Investasi AI dan hubungan emosional",
     title: "Saldo Besar yang Tidak Bisa Ditarik",
-    description:
-      "Tiga minggu kamu mengobrol dengan Kevin dari aplikasi kencan. Ia mengajakmu menaruh Rp2.000.000 di platform trading AI, dan kini saldo di aplikasi tampak membengkak.",
+    description: "Tiga minggu kamu mengobrol dengan Kevin. Ia mengajakmu investasi dan kini saldomu tampak membengkak.",
     sender: { name: "Kevin", status: "kenalan dari aplikasi kencan" },
-    messages: [
-      "Udah lihat saldomu di NovaTrade AI? Sekarang Rp12.400.000 loh 🎉 Bot AI-nya lagi bagus banget minggu ini.",
-      "Biar bisa ditarik, ada pajak keuntungan 10% (Rp1.240.000) yang harus dibayar dulu ke rekening perusahaan. Setelah itu langsung cair ke rekeningmu hari ini.",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Membayar pajak Rp1.240.000 supaya saldo cair.",
-        isSafe: false,
-        feedback: "Ini jebakan biaya penarikan yang tidak ada ujungnya.",
-        explanation:
-          "Biaya 'pajak', 'verifikasi', atau 'denda' sebelum penarikan adalah pola khas. Setelah dibayar, biasanya muncul biaya baru lagi.",
-        saferAction:
-          "Berhenti membayar. Saldo di aplikasi hanyalah angka yang bisa dibuat siapa saja.",
-        reply:
-          "Bagus! Tinggal biaya verifikasi akun 2%, itu yang terakhir ya sayang 😘",
-      },
-      {
-        id: "b",
-        label: "Meminjam uang (termasuk pinjol) untuk membayar pajak karena saldonya sudah besar.",
-        isSafe: false,
-        feedback: "Berutang demi saldo palsu memperparah kerugian.",
-        explanation:
-          "Saldo di platform bukan uang nyata. Pinjaman, terutama pinjol ilegal, menambah beban dan risiko teror penagihan.",
-        saferAction:
-          "Jangan berutang. Hentikan semua transfer dan cari bantuan resmi.",
-        reply: "Pintar! Cepat cairkan pinjamannya ya, slot penarikan hari ini terbatas.",
-      },
-      {
-        id: "c",
-        label: "Meminta Kevin mengirim bukti izin usaha dan legalitas platform.",
-        isSafe: false,
-        feedback: "Dokumen dari pihak yang sama tidak bisa dipercaya.",
-        explanation:
-          "Sertifikat dan izin sangat mudah dipalsukan. Legalitas harus diperiksa dari sumber otoritas, bukan dari orang yang menawarkannya.",
-        saferAction:
-          "Periksa legalitas langsung lewat kanal resmi regulator, bukan lewat dokumen yang dikirim Kevin.",
-        reply:
-          "Ini sertifikatnya sayang 📄 Udah percaya kan? Yuk bayar pajaknya sekarang.",
-      },
-      {
-        id: "d",
-        label:
-          "Berhenti mentransfer, tidak membayar apa pun, menyimpan bukti, dan memeriksa legalitas platform lewat kanal resmi OJK.",
-        isSafe: true,
-        feedback: "Keputusan tepat dan berani!",
-        explanation:
-          "Hubungan emosional yang dibangun lama dan saldo besar adalah ciri penipuan investasi berkedok romansa. Menghentikan transfer adalah langkah paling penting.",
-        saferAction:
-          "Simpan bukti chat dan transaksi, hubungi bank secepatnya, dan laporkan lewat layanan pengaduan resmi seperti Indonesia Anti-Scam Centre (IASC).",
-      },
-    ],
+    takeaway: "Saldo di aplikasi hanyalah angka. Biaya penarikan di muka itu penipuan.",
+    t1: turn(
+      [
+        "Udah lihat saldomu di NovaTrade AI? Rp12.400.000 loh 🎉",
+        "Biar bisa ditarik, bayar pajak 10% (Rp1.240.000) dulu ke rekening perusahaan ya.",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, saya bayar pajaknya sekarang",
+          "Biaya “pajak” sebelum penarikan adalah pola khas, dan akan muncul biaya baru lagi.",
+          "Bagus! Tinggal biaya verifikasi 2% ya sayang 😘",
+        ),
+        slip(
+          "b",
+          "Saya pinjam pinjol dulu buat bayar",
+          "Pintar! Cepat cairkan ya.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Coba tarik sebagian dulu tanpa bayar",
+          "Sistem baru bisa tarik setelah pajak dibayar.",
+          "t2",
+          "Penarikan harus bayar dulu",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Sayang, percaya aku dong. Aku nggak akan menipumu ❤️ Ini sertifikat izin perusahaannya 📄"],
+      [
+        fatal(
+          "a",
+          "Aku percaya, kubayar sekarang",
+          "Kedekatan emosional dipakai untuk menutup keraguanmu.",
+          "Makasih sayang ❤️",
+        ),
+        slip(
+          "b",
+          "Kucek sertifikat dari file ini",
+          "Lihat kan, resmi! Yuk bayar.",
+          "t3",
+        ),
+        good(
+          "c",
+          "Aku cek izinnya langsung di situs OJK",
+          "Kamu nggak percaya aku? 😢",
+          "t3",
+          "Tersinggung saat dicek",
+        ),
+      ],
+    ),
+    t3: turn(["Besok saldo dibekukan dan pajaknya naik jadi 20%. Bayar hari ini ya sayang."], [
+      fatal(
+        "a",
+        "Baik, kubayar hari ini",
+        "Tenggat dan kenaikan pajak adalah tekanan buatan.",
+        "Terima kasih sayang!",
+      ),
+      fatal(
+        "b",
+        "Kupinjam dulu ke temanku",
+        "Berutang demi saldo palsu memperparah kerugian.",
+        "Cepat ya sayang!",
+      ),
+      exit(
+        "c",
+        "Aku berhenti, simpan bukti, dan lapor ke bank",
+        "Kamu menghentikan transfer dan melapor, langkah terpenting dalam penipuan investasi.",
+      ),
+    ]),
   }),
 
   /* ===== LEVEL 10 ===== */
-  defineScenario({
+  defineLevel({
     id: "trust-10",
     level: 10,
     difficulty: "Ahli",
-    topic: "Rekening aman & pemalsuan nomor telepon",
-    title: "Telepon 'Bank' yang Tahu Segalanya",
-    description:
-      "Panggilan ini sangat meyakinkan: nomor yang tampil sama dengan kontak resmi, dan penelepon tahu data pribadimu.",
-    sender: { name: "Contact Center Bank Nusantara", status: "nomor sama dengan kontak resmi" },
-    messages: [
-      "📞 Panggilan masuk. Nomor yang tampil sama dengan Contact Center Bank Nusantara di kartumu.",
-      "Selamat sore. Saya Reza, Divisi Keamanan Bank Nusantara. Kartu berakhiran 4821 milik Anda terdeteksi dipakai transaksi di luar negeri.",
-      "Dana Anda dalam bahaya. Untuk mengamankannya, pindahkan saldo ke 'rekening aman' Bank Nusantara Escrow sekarang. Dana dikembalikan setelah investigasi selesai.",
-    ],
-    choices: [
-      {
-        id: "a",
-        label: "Memindahkan dana ke 'rekening aman' agar uangmu terlindungi.",
-        isSafe: false,
-        feedback: "Rekening 'aman' itu milik penipu.",
-        explanation:
-          "Bank sungguhan tidak pernah meminta nasabah memindahkan dana ke rekening lain untuk 'diamankan'.",
-        saferAction:
-          "Jangan transfer. Tutup telepon dan hubungi bank lewat kanal yang kamu buka sendiri.",
-        reply:
-          "Baik, silakan transfer sekarang. Setelah selesai, jangan tutup telepon sampai kami konfirmasi.",
-      },
-      {
-        id: "b",
-        label: "Percaya karena penelepon menyebut namamu dan 4 digit kartumu dengan benar.",
-        isSafe: false,
-        feedback: "Data yang benar bukan bukti penelepon adalah bank.",
-        explanation:
-          "Data pribadi sering bocor atau diperjualbelikan ilegal. Penipu memakainya agar terdengar sah.",
-        saferAction:
-          "Anggap panggilan itu belum terbukti. Hubungi bank lewat nomor yang kamu cari sendiri.",
-        reply:
-          "Benar Bapak/Ibu, data kami lengkap. Mari segera amankan dananya sebelum terlambat.",
-      },
-      {
-        id: "c",
-        label: "Percaya karena nomor yang tampil sama dengan nomor resmi bank.",
-        isSafe: false,
-        feedback: "Nomor penelepon bisa dipalsukan.",
-        explanation:
-          "Teknik pemalsuan nomor (spoofing) membuat panggilan tampak berasal dari nomor resmi. Tampilan layar bukan bukti.",
-        saferAction:
-          "Tutup panggilan, lalu hubungi bank sendiri lewat aplikasi atau nomor di belakang kartu.",
-        reply: "Seperti yang Anda lihat, ini nomor resmi kami. Mohon segera ikuti prosedurnya.",
-      },
-      {
-        id: "d",
-        label:
-          "Menutup telepon, lalu menghubungi bank lewat nomor di aplikasi atau belakang kartu yang kamu buka sendiri; blokir kartu dari aplikasi bila ragu.",
-        isSafe: true,
-        feedback: "Level tertinggi, dan kamu melewatinya dengan benar!",
-        explanation:
-          "Penelepon yang membuktikan dirinya lewat data dan nomor tetap bisa palsu. Satu-satunya verifikasi andal adalah menghubungi bank sendiri lewat kanal yang kamu pilih.",
-        saferAction:
-          "Bank tidak akan meminta memindahkan dana ke 'rekening aman'. Blokir kartu lewat aplikasi bila khawatir, dan laporkan percobaan penipuan ke bank.",
-      },
-    ],
+    topic: "Salah transfer palsu (rekening perantara)",
+    title: "“Salah Transfer” yang Uangnya Benar-benar Masuk",
+    description: "Seseorang minta uang yang katanya salah transfer dikembalikan. Saat dicek, uangnya memang masuk.",
+    sender: { name: "Bu Ratna", status: "online" },
+    takeaway: "Uang salah transfer diurus lewat bank, bukan dikembalikan sendiri ke rekening lain.",
+    t1: turn(
+      [
+        "Maaf Kak, saya salah transfer Rp3.200.000 ke rekening Kakak 🙏",
+        "Tolong dikembalikan ya. Ini bukti transfernya 📸",
+      ],
+      [
+        fatal(
+          "a",
+          "Oke, kukembalikan sekarang",
+          "Uang itu bisa berasal dari korban lain. Kamu jadi perantara tanpa sadar.",
+          "Terima kasih Kak, ini rekening saya.",
+        ),
+        slip(
+          "b",
+          "Kalau memang masuk, kukembalikan ke rekeningmu",
+          "Sudah masuk kan Kak? Tolong ke rekening baru ini, yang lama bermasalah.",
+          "t2",
+        ),
+        good(
+          "c",
+          "Aku cek mutasi dan hubungi bank soal salah transfer",
+          "Tidak usah ke bank Kak, ribet. Langsung kembalikan saja!",
+          "t2",
+          "Melarang lapor ke bank",
+        ),
+      ],
+    ),
+    t2: turn(
+      ["Tolong ke rekening BARU ini (a.n. Budi), rekeningku lagi diblokir. Itu uang buat biaya rumah sakit."],
+      [
+        fatal(
+          "a",
+          "Baik, kukirim ke rekening baru itu",
+          "Rekening berbeda atas nama orang lain adalah tanda perantara penipuan.",
+          "Terima kasih Kak.",
+        ),
+        slip(
+          "b",
+          "Kukirim setengah dulu, sisanya nanti",
+          "Terima kasih, sisanya segera ya.",
+          "t3",
+        ),
+        good(
+          "c",
+          "Pengembalian resmi harus lewat bank",
+          "Bank prosesnya lama! Kasihani saya.",
+          "t3",
+          "Rekening pengembalian berbeda",
+        ),
+      ],
+    ),
+    t3: turn(["Kalau tidak dikembalikan sekarang, saya laporkan Kakak ke polisi!"], [
+      fatal(
+        "a",
+        "Baik, kukembalikan supaya tidak dilapor",
+        "Ancaman lapor dipakai agar kamu menyerah.",
+        "Nah begitu dong.",
+      ),
+      fatal(
+        "b",
+        "Kukirim ke rekening itu, tapi minta maaf",
+        "Meminta maaf tidak mengubah fakta kamu mengirim uang ke rekening perantara.",
+        "Terima kasih.",
+      ),
+      exit(
+        "c",
+        "Silakan lapor. Bank sudah kuhubungi, dana tidak kupindahkan",
+        "Kamu tidak memindahkan dana dan menyerahkannya ke jalur resmi bank.",
+      ),
+    ]),
   }),
 ];

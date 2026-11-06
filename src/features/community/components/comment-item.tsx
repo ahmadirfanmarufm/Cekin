@@ -22,7 +22,6 @@ type CommentItemProps = {
   onReply: (comment: CommunityComment) => void;
   onDelete: (comment: CommunityComment) => Promise<void>;
   onPreviewImage: (url: string) => void;
-  /** Slot untuk form balasan yang tampil tepat di bawah komentar ini. */
   children?: ReactNode;
 };
 

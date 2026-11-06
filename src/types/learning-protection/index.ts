@@ -23,6 +23,31 @@ export type SimulationChoice = {
   reply?: string;
 };
 
+export type DialogueEnding = {
+  result: "win" | "lose";
+  why: string;
+};
+
+export type DialogueOption = {
+  id: string;
+  label: string;
+  isSafe: boolean;
+  reply?: string[];
+  next?: string;
+  end?: DialogueEnding;
+  flag?: string;
+};
+
+export type DialogueTurn = {
+  lines?: string[];
+  options: DialogueOption[];
+};
+
+export type DialogueTree = {
+  start: string;
+  turns: Record<string, DialogueTurn>;
+};
+
 export type SimulationScenario = {
   id: string;
   title: string;
@@ -37,6 +62,8 @@ export type SimulationScenario = {
   sender?: ScenarioSender;
   messages?: string[];
   gamblingDetails?: GamblingScenarioData
+  dialogue?: DialogueTree;
+  takeaway?: string;
 };
 
 export type GamblingScenarioData = {

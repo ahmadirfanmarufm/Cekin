@@ -588,7 +588,6 @@ export function PhishingEmail({ simulation }: Props) {
   const isUnsafe = !!selectedChoice && !selectedChoice.isSafe;
   const isLastLevel = currentIndex >= totalCount - 1;
   const hideAddress = currentIndex >= HIDE_ADDRESS_FROM_INDEX && !showDetails;
-  const activeStep = showLearningModal ? 3 : selectedChoice ? 2 : 1;
   const avatarColor = AVATAR_COLORS[currentIndex % AVATAR_COLORS.length];
 
   return (
@@ -610,11 +609,9 @@ export function PhishingEmail({ simulation }: Props) {
               PHISHING ATTACK
             </div>
 
-            <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
-
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Naiki {totalCount} level. Makin tinggi levelnya, makin sulit membedakan aplikasi aman dan berbahaya.
-            </p>
+            <h1 className="heading heading-2 mt-4">
+              Jangan biarin orang lain ambil datamu
+            </h1>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
               <span className="inline-flex items-center gap-1">
@@ -664,7 +661,7 @@ export function PhishingEmail({ simulation }: Props) {
               <span>
                 {completedIds.length} dari {totalCount} level selesai
               </span>
-              <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+              <span className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
                 Potensi XP {potentialXp}/{PHISHING_MAX_XP}
               </span>
             </div>
@@ -713,34 +710,6 @@ export function PhishingEmail({ simulation }: Props) {
               );
             })}
           </div>
-        </div>
-
-        {/* Langkah belajar */}
-        <div className="mb-6 grid grid-cols-3 gap-2">
-          {[
-            { label: "Amati email", icon: Eye, step: 1 },
-            { label: "Pilih tindakan", icon: ShieldCheck, step: 2 },
-            { label: "Pelajari hasil", icon: Lightbulb, step: 3 },
-          ].map(({ label, icon: Icon, step }) => {
-            const isActive = step === activeStep;
-            const isDone = step < activeStep;
-
-            return (
-              <div
-                key={step}
-                className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-3 text-center ${
-                  isActive
-                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                    : isDone
-                      ? "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)]"
-                }`}
-              >
-                <Icon size={15} />
-                <span className="text-[10px] font-bold sm:text-xs">{label}</span>
-              </div>
-            );
-          })}
         </div>
 
         {/* Aplikasi email */}

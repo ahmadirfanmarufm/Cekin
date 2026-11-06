@@ -1,94 +1,83 @@
-
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
 import {
   GuidedTutorial,
   type TutorialStep,
 } from "./guided-tutorial";
 
-export const TRUST_LAB_TUTORIAL_KEY = "trust-lab-tutorial-v2";
-
-type Wait =
-  | "choice"
-  | "modal-open"
-  | "modal-closed"
-  | "choice-reset";
+// Versi dinaikkan karena alur simulasi berubah menjadi dialog.
+export const TRUST_LAB_TUTORIAL_KEY = "trust-lab-tutorial-v3";
 
 const STEPS: TutorialStep[] = [
   {
     id: "welcome",
     title: "Latihan 1 menit",
-    body: "Ada 10 level, makin tinggi makin sulit. Jawaban selama latihan tidak dihitung ke XP.",
+    body: "Kamu akan ngobrol langsung dengan penipu. Jawaban selama latihan tidak dihitung ke XP.",
     cta: "Mulai",
   },
   {
-    id: "scenarios",
+    id: "levels",
     title: "Peta level",
-    body: "Selesaikan berurutan. Makin tinggi levelnya, makin sulit penipunya.",
-    target: "scenarios",
+    body: "Ada 10 level. Makin tinggi, makin lihai penipunya.",
+    target: "levels",
   },
   {
-    id: "read",
-    title: "Baca pesan ini",
-    body: "Siapa pengirimnya? Apa yang dia minta?",
-    target: "message",
+    id: "chat",
+    title: "Penipu mulai bicara",
+    body: "Baca pesannya. Percakapan akan berlanjut beberapa kali.",
+    target: "chat",
   },
   {
-    id: "choose",
-    title: "Pilih balasanmu",
-    body: "Baca pesannya lagi, pikirkan baik-baik. Di simulasi asli, jawaban kurang aman mengurangi XP.",
-    target: "message,choices",
-    wait: "choice",
-    prompt: "Pilih salah satu",
-    delay: 700,
+    id: "reply-1",
+    title: "Balas dia",
+    body: "Pilih balasanmu. Di latihan tidak ada hukuman.",
+    target: "chat,choices",
+    wait: "replied",
+    prompt: "Balas salah satu",
+    delay: 900,
   },
   {
-    id: "feedback",
-    title: "Ini hasilnya",
-    body: "Hijau berarti level selesai. Kuning berarti ada risiko dan XP level itu berkurang.",
-    target: "feedback",
+    id: "reply-2",
+    title: "Dia menekan lagi",
+    body: "Penipu jarang menyerah. Tetap bertahan dan balas lagi.",
+    target: "chat,choices",
+    wait: "second",
+    prompt: "Balas lagi",
+    delay: 900,
   },
   {
-    id: "lesson",
-    title: "Ini pelajarannya",
-    body: "Ringkasan alasan di balik responsmu.",
-    target: "lesson",
+    id: "notes",
+    title: "Tanda bahaya",
+    body: "Cara penipu bereaksi saat kamu memeriksa akan tercatat di sini.",
+    target: "notes",
   },
   {
-    id: "learn-more",
-    title: "Mau tahu lebih dalam?",
-    body: "Buka penjelasan lengkapnya.",
-    target: "learn-more",
-    wait: "modal-open",
-    prompt: "Klik tombol ini",
+    id: "finish-chat",
+    title: "Selesaikan percakapan",
+    body: "Lanjutkan sampai akhir. Kamu bisa selamat, atau kena jebakan.",
+    target: "chat,choices",
+    wait: "ended",
+    prompt: "Balas sampai selesai",
+    delay: 900,
   },
   {
-    id: "learn-safer",
-    title: "Langkah yang lebih aman",
-    body: "Ini yang sebaiknya kamu lakukan.",
-    target: "learn-safer",
-  },
-  {
-    id: "learn-close",
-    title: "Sudah paham?",
-    body: "Tutup penjelasan untuk lanjut.",
-    target: "learn-close",
-    wait: "modal-closed",
-    prompt: "Klik Aku paham",
+    id: "result",
+    title: "Hasil percakapan",
+    body: "Di sini kamu lihat alasannya dan aturan emas yang perlu diingat.",
+    target: "result",
   },
   {
     id: "next",
     title: "Lanjut atau ulangi",
-    body: "Jawaban aman: naik level. Kurang aman: ulangi level ini.",
+    body: "Selamat: naik level. Kena jebakan: ulangi dari awal dengan urutan pilihan baru.",
     target: "next",
-    wait: "choice-reset",
+    wait: "reset",
     prompt: "Klik tombol ini",
   },
   {
     id: "progress",
     title: "Level dan XP",
-    body: "Level tinggi bernilai lebih besar. Jawaban salah mengurangi XP.",
+    body: "Level tinggi bernilai lebih besar. Langkah keliru mengurangi XP.",
     target: "progress",
   },
   {
@@ -107,68 +96,31 @@ const STEPS: TutorialStep[] = [
 
 type Props = {
   active: boolean;
-  hasSelectedChoice: boolean;
-  learnModalOpen: boolean;
+  /** Jumlah balasan yang sudah dikirim user pada percakapan ini. */
+  answerCount: number;
+  /** Percakapan sudah selesai (menang atau kalah). */
+  ended: boolean;
   onClose: (completed: boolean) => void;
 };
 
 export function TrustLabTutorial({
   active,
-  hasSelectedChoice,
-  learnModalOpen,
+  answerCount,
+  ended,
   onClose,
 }: Props) {
-  const signals = useRef({
-    hasSelectedChoice,
-    learnModalOpen,
-  });
-
-  signals.current = {
-    hasSelectedChoice,
-    learnModalOpen,
-  };
-
-  const isDone = useCallback((wait: string) => {
-    const {
-      hasSelectedChoice: chosen,
-      learnModalOpen: open,
-    } = signals.current;
-
-    switch (wait as Wait) {
-      case "choice":
-        return chosen;
-
-      case "modal-open":
-        return open;
-
-      case "modal-closed":
-        return !open;
-
-      case "choice-reset":
-        return !chosen;
-
-      default:
-        return false;
-    }
-  }, []);
-
-  // Sinkronkan status interaksi dengan GuidedTutorial.
-  const [done, setDone] = useRef<Record<string, boolean>>({}).current
-    ? [null, () => {}] as const
-    : [null, () => {}] as const;
-
-  const doneMap = {
-    choice: isDone("choice"),
-    "modal-open": isDone("modal-open"),
-    "modal-closed": isDone("modal-closed"),
-    "choice-reset": isDone("choice-reset"),
+  const done: Record<string, boolean> = {
+    replied: answerCount >= 1,
+    second: answerCount >= 2 || ended,
+    ended,
+    reset: !ended && answerCount === 0,
   };
 
   return (
     <GuidedTutorial
       steps={STEPS}
       active={active}
-      done={doneMap}
+      done={done}
       onClose={onClose}
     />
   );

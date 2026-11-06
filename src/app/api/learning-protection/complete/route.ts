@@ -6,6 +6,7 @@ import { users, simulationProgress } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth/session";
 import { isSameOrigin } from "@/lib/auth/request-security";
 import { getSimulation } from "@/features/learning-protection/data/simulations";
+import { collectDialogueWrongCounts } from "@/lib/learning-protection/dialogue";
 import {
   APPS_SCAM_MAX_XP,
   GAMBLING_MAX_XP,
@@ -80,9 +81,18 @@ const XP_SIMULATIONS: Record<string, XpConfig> = {
 function collectWrongCounts(key: XpConfig["key"], answers: unknown) {
   const simulation = getSimulation(key);
 
-  if (!simulation || typeof answers !== "object" || answers === null || Array.isArray(answers)) {
+  if (!simulation) {
     return null;
   }
+
+  if (simulation.scenarios.every((scenario) => scenario.dialogue)) {
+    return collectDialogueWrongCounts(simulation, answers);
+  }
+
+  if (typeof answers !== "object" || answers === null || Array.isArray(answers)) {
+    return null;
+  }
+
 
   const picksByScenario = answers as Record<string, unknown>;
   const scenarios = simulation.scenarios;
