@@ -41,7 +41,7 @@ const samples: Record<AnalysisCategory, string> = {
   "URL / Link": "https://hadiah-bank-verify.xyz/login",
   "Nomor Telepon": "+62 812-0000-991",
   "Cek Kebocoran Email": "test@test.com",
-  "Investasi":
+  Investasi:
     "Platform X menjamin profit 10% seminggu tanpa risiko, deposit hari ini minimal 1 juta.",
   "Informasi Lainnya": "",
 };
@@ -136,6 +136,8 @@ export function ThreatCheck() {
             apiUrl = "/api/analyze/investment";
           } else if (category === "URL / Link") {
             apiUrl = "/api/analyze/url";
+          } else if (category === "Nomor Telepon") {
+            apiUrl = "/api/analyze/phone";
           } else {
             setTimeout(() => {
               setResult(analyzeAnything(input, category));
@@ -155,7 +157,9 @@ export function ThreatCheck() {
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Gagal memproses data dari server");
+          throw new Error(
+            errorData.error || "Gagal memproses data dari server",
+          );
         }
 
         const data = await res.json();
@@ -164,7 +168,6 @@ export function ThreatCheck() {
           setResult(data);
           setStage("result");
         }, 500);
-
       } catch (err: any) {
         setError(err.message || "Terjadi kesalahan. Silakan coba lagi.");
         setStage("form");
@@ -178,7 +181,7 @@ export function ThreatCheck() {
 
   useEffect(() => {
     if (stage !== "checking") return;
-    
+
     const interval = setInterval(() => {
       setActiveTip((prev) => (prev + 1) % tipsAndFacts.length);
     }, 2500);
@@ -344,7 +347,7 @@ export function ThreatCheck() {
               <span className="tabular-nums">
                 {Math.round(
                   (Math.min(check, checkLabels.length) / checkLabels.length) *
-                    100
+                    100,
                 )}
                 %
               </span>
@@ -361,11 +364,13 @@ export function ThreatCheck() {
           </div>
 
           {/* Container Carousel dengan Efek Vignette Kiri Kanan */}
-          <div 
+          <div
             className="relative w-full h-50 flex items-center justify-center perspective-[1000px]"
             style={{
-              maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)',
-              WebkitMaskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)'
+              maskImage:
+                "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
             }}
           >
             {tipsAndFacts.map((tip, i) => {
@@ -397,22 +402,32 @@ export function ThreatCheck() {
                     opacity: isCenter ? 1 : 0.6,
                   }}
                 >
-                  <div className={`rounded-2xl border p-5 text-left shadow-xl transition-colors duration-300 ${
-                    isCenter 
-                      ? "bg-white border-[#2457a6]" 
-                      : "bg-[#f7f9fc] border-[#e6eaf0]"
-                  }`}>
+                  <div
+                    className={`rounded-2xl border p-5 text-left shadow-xl transition-colors duration-300 ${
+                      isCenter
+                        ? "bg-white border-[#2457a6]"
+                        : "bg-[#f7f9fc] border-[#e6eaf0]"
+                    }`}
+                  >
                     <div className="flex items-start gap-3">
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                        isCenter ? "bg-[#eaf1fc] text-[#2457a6]" : "bg-[#e6eaf0] text-[#98a2b3]"
-                      }`}>
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                          isCenter
+                            ? "bg-[#eaf1fc] text-[#2457a6]"
+                            : "bg-[#e6eaf0] text-[#98a2b3]"
+                        }`}
+                      >
                         <AlertTriangle size={16} />
                       </span>
                       <div>
-                        <h3 className={`text-sm font-bold ${isCenter ? "text-[#17233b]" : "text-[#667085]"}`}>
+                        <h3
+                          className={`text-sm font-bold ${isCenter ? "text-[#17233b]" : "text-[#667085]"}`}
+                        >
                           {tip.title}
                         </h3>
-                        <p className={`mt-2 text-[11px] leading-5 ${isCenter ? "text-[#667085]" : "text-[#98a2b3]"}`}>
+                        <p
+                          className={`mt-2 text-[11px] leading-5 ${isCenter ? "text-[#667085]" : "text-[#98a2b3]"}`}
+                        >
                           {tip.desc}
                         </p>
                       </div>
@@ -422,13 +437,19 @@ export function ThreatCheck() {
               );
             })}
           </div>
-        </div>  
+        </div>
       </section>
     );
   }
 
   if (stage === "result" && result) {
-    return <RiskResult result={result} reset={reset} />;
+    return (
+      <RiskResult
+        result={result}
+        reset={reset}
+        input={isFileInput(input) ? input.name : input}
+      />
+    );
   }
 
   return (
@@ -539,7 +560,9 @@ export function ThreatCheck() {
                   type="file"
                   accept="image/*"
                   className="sr-only"
-                  onChange={(event) => handleFileChange(event.target.files?.[0])}
+                  onChange={(event) =>
+                    handleFileChange(event.target.files?.[0])
+                  }
                 />
               </label>
 
@@ -591,9 +614,7 @@ export function ThreatCheck() {
                     setInput(event.target.value);
                     setError("");
                   }}
-                  placeholder={
-                    placeholderForCategory(category)
-                  }
+                  placeholder={placeholderForCategory(category)}
                   aria-label={`Masukkan ${category}`}
                   rows={6}
                   className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
@@ -654,9 +675,11 @@ export function ThreatCheck() {
 function RiskResult({
   result,
   reset,
+  input,
 }: {
   result: AnalysisResult;
   reset: () => void;
+  input: string;
 }) {
   const tone =
     result.level === "Rendah"
@@ -783,6 +806,16 @@ function RiskResult({
               Aturan transparan
             </strong>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-[#e6eaf0] bg-white p-4">
+          <span className="text-[10px] font-medium text-[#667085]">
+            Informasi yang diperiksa
+          </span>
+          <strong className="mt-2 block text-sm font-bold text-[#17233b]">
+            {" "}
+            {input}
+          </strong>
         </div>
 
         {result.findings.length > 0 ? (
