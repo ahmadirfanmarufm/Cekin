@@ -663,8 +663,7 @@ export function ThreatCheck() {
           </button>
 
           <p className="mt-3 text-center text-[10px] leading-5 text-[#98a2b3]">
-            Analisis ini merupakan pemeriksaan awal berbasis aturan, bukan
-            verifikasi resmi.
+            Data dianalisis secara otomatis menggunakan AI & pemindai heuristik. Hasil merupakan pemeriksaan awal berbasis indikator risiko.
           </p>
         </div>
       </div>
