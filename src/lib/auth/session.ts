@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { eq, lt } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -40,6 +41,8 @@ export async function createSession(userId: string) {
 }
 
 export async function getSessionUser() {
+  await connection();
+
   const cookieStore = await cookies();
 
   const token = cookieStore.get(SESSION_COOKIE)?.value;

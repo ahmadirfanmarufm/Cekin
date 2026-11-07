@@ -75,6 +75,8 @@ import { CommunityImageDialog } from "@/features/community/components/community-
 
 import { PostEngagement } from "@/features/community/components/post-engagement";
 
+import { seenQuery } from "@/features/community/lib/seen-categories";
+
 const MAX_TITLE_LENGTH = 150;
 const MAX_CONTENT_LENGTH = 10000;
 
@@ -104,7 +106,7 @@ export const CommunityCenter = () => {
     });
 
     const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
-    const [sortOption, setSortOption] = useState<SortOption>("newest");
+    const [sortOption, setSortOption] = useState<SortOption>("recommended");
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -150,7 +152,7 @@ export const CommunityCenter = () => {
         try {
             setLoading(true);
 
-            const response = await fetch("/api/community/posts", {
+            const response = await fetch(`/api/community/posts?seen=${seenQuery()}`, {
                 method: "GET",
                 cache: "no-store",
                 headers: {
@@ -241,27 +243,26 @@ export const CommunityCenter = () => {
     const filteredPosts = useMemo(() => {
         const query = deferredSearchQuery.trim().toLowerCase();
 
-        return [...posts].filter((post) => {
+        const result = posts.filter((post) => {
             const matchesSearch = !query ||
                 post.title.toLowerCase().includes(query) ||
                 post.content.toLowerCase().includes(query) ||
                 post.author.username.toLowerCase().includes(query);
 
             const matchesCategory = selectedCategory === "all" || post.category === selectedCategory;
-
             const matchesMine = feedFilter === "all" || post.isMine;
 
-            return (matchesSearch && matchesCategory && matchesMine);
-            })
-            .sort((a, b) => {
+            return matchesSearch && matchesCategory && matchesMine;
+        });
+
+        if (sortOption === "recommended") return result;
+
+        return result.sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime();
             const dateB = new Date(b.createdAt).getTime();
-
-            return sortOption === "newest"
-                ? dateB - dateA
-                : dateA - dateB;
-            });
-    }, [posts,deferredSearchQuery,selectedCategory, feedFilter, sortOption]);
+            return sortOption === "newest" ? dateB - dateA : dateA - dateB;
+        });
+    }, [posts, deferredSearchQuery, selectedCategory, feedFilter, sortOption]);
 
     const handleOpenCreatePost = () => {
         if (!viewer.isAuthenticated) {
@@ -577,6 +578,7 @@ export const CommunityCenter = () => {
                         }
                         className="h-11 flex-1 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-[var(--brand)] sm:flex-none"
                     >
+                        <option value="recommended">Untuk kamu</option>
                         <option value="newest">Terbaru</option>
                         <option value="oldest">Terlama</option>
                     </select>

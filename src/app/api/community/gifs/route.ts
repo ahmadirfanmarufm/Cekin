@@ -1,7 +1,9 @@
 import { connection, NextRequest } from "next/server";
+import { NextRequest } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth/session";
-import { fail } from "@/features/community/server/http";
+import { fail } from "@/features/community/server/http";=
 import { GifProviderError, searchGifs } from "@/features/community/server/gif-provider";
 
 export async function GET(request: NextRequest) {
@@ -22,6 +24,7 @@ export async function GET(request: NextRequest) {
       { headers: { "Cache-Control": "private, max-age=60" } },
     );
   } catch (error) {
+    unstable_rethrow(error);
     if (error instanceof GifProviderError) return fail(error.status, error.message);
 
     console.error("Community GIF search error:", error);
