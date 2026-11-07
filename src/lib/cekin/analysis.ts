@@ -15,7 +15,7 @@ export type Finding = {
   points: number;
 };
 
-export type AnalysisResult = {
+export type   AnalysisResult = {
   score: number;
   level: "Rendah" | "Sedang" | "Tinggi" | "Kritis";
   findings: Finding[];
