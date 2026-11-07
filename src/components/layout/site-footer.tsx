@@ -77,13 +77,7 @@ export function SiteFooter() {
                     </Link>
                   </li>
                 ))}
-              </ul>
-
-              {group.title === "Informasi" && (
-                <p className="mt-5 border-t border-white/10 pt-3 text-[10px] leading-relaxed text-[#b9c5d6] sm:text-[11px]">
-                  Privasi: input sensitif tidak disimpan.
-                </p>
-              )}
+                </ul>
             </div>
           ))}
 
@@ -97,16 +91,6 @@ export function SiteFooter() {
               Gunakan kanal resmi bank, platform, dan pihak berwenang untuk
               melakukan verifikasi informasi.
             </p>
-
-            <div className="mt-5 w-full max-w-[270px] rounded-sm border border-[#e9a23b]/20 bg-[#e9a23b]/[0.09] p-3">
-              <span className="mb-1 block text-[11px] font-bold text-[#e4c98d]">
-                Prototype edukasi
-              </span>
-
-              <p className="text-[11px] leading-relaxed text-[#b9c5d6]">
-                Bukan alat pembuktian penipuan.
-              </p>
-            </div>
           </div>
         </div>
 
