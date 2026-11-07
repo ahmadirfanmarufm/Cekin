@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+
+import type { Metadata, Viewport } from "next";
 
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -7,14 +7,34 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CEKIN - Jangan percaya sebelum dicekin!",
-  description:
-    "Platform edukasi keamanan digital untuk mengenali dan menghindari penipuan online.",
+  title: {
+    default: "CEKIN - Jangan langsung percaya sebelum dicekin",
+    template: "%s | CEKIN",
+  },
+  description: "CEKIN adalah platform edukasi keamanan digital untuk membantu mengenali penipuan online, memeriksa informasi mencurigakan, dan membangun kebiasaan berpikir kritis di dunia digital.",
+
+  applicationName: "CEKIN",
+
+  manifest: "/manifest.json",
+
+  appleWebApp: {
+    capable: true,
+    title: "CEKIN",
+    statusBarStyle: "default",
+  },
+
+  formatDetection: {
+    telephone: false,
+  },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#ffffff",
+};
+
+export default function RootLayout({ children }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
