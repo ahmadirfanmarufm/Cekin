@@ -803,7 +803,7 @@ function RiskResult({
               Metode
             </span>
             <strong className="mt-2 block text-sm font-bold text-[#17233b]">
-              Aturan transparan
+              AI & Pindaian Heuristik
             </strong>
           </div>
         </div>
@@ -895,7 +895,7 @@ function RiskResult({
 
             <div>
               <h3 className="text-base font-extrabold text-[#17233b]">
-                Tidak ada indikator kuat dari aturan prototype
+                Tidak terdeteksi indikator risiko yang signifikan
               </h3>
               <p className="mt-2 text-xs leading-7 text-[#667085]">
                 Tetap periksa identitas, konteks, dan kanal pengirim sebelum
