@@ -39,6 +39,15 @@ const SENSITIVE_BRANDS = [
   "google", "apple", "netflix", "pajak", "pln", "telkomsel"
 ];
 
+const GAMBLING_KEYWORDS = [
+  "slot", "gacor", "maxwin", "pragmatic", "judi", "togel", "casino", "poker",
+  "rtp", "deposit", "judol", "sbobet", "bandar", "taruhan", "jackpot", "zeus",
+  "olympus", "mahjong", "scatter", "habanero", "microgaming", "pgsoft", "slot88",
+  "depo", "withdraw", "wd", "bonus", "member", "livecasino", "bocoran", "anti-rungkad",
+  "rungkad", "freebet", "agen", "parlay", "spadegaming", "jokergaming", "link-alternatif",
+  "situs-judi", "slot-online", "domino99", "qq", "capsa", "cuan", "garansi-kekalahan"
+];
+
 interface RawSignal {
   id: string;
   label: string;
@@ -60,9 +69,36 @@ async function fetchSucuriScan(targetUrl: string) {
 
     if (!res.ok) return null;
     return await res.json();
-  } catch (err) {
-    console.warn("Sucuri API check failed or timed out:", err);
+  } catch {
     return null;
+  }
+}
+
+async function fetchPageMetadata(targetUrl: string): Promise<string> {
+  try {
+    const res = await fetch(targetUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (!res.ok) return "";
+    const html = await res.text();
+
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i);
+    const h1Matches = Array.from(html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)).map(m => m[1].replace(/<[^>]+>/g, "").trim());
+
+    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "";
+    const description = metaDescMatch ? metaDescMatch[1].trim() : "";
+    const h1Text = h1Matches.join(" ");
+
+    return `Title: ${title}\nMeta Description: ${description}\nH1 Content: ${h1Text}`.trim();
+  } catch {
+    return "";
   }
 }
 
@@ -139,6 +175,25 @@ function analyzeUrlStructure(urlObj: URL): RawSignal[] {
   return signals;
 }
 
+function analyzeGamblingContent(urlObj: URL, metadata: string): RawSignal[] {
+  const signals: RawSignal[] = [];
+  const targetText = `${urlObj.pathname} ${urlObj.search} ${metadata}`.toLowerCase();
+
+  const detectedKeywords = GAMBLING_KEYWORDS.filter(keyword => targetText.includes(keyword));
+
+  if (detectedKeywords.length > 0) {
+    const points = Math.min(50, 25 + detectedKeywords.length * 5);
+    signals.push({
+      id: "gambling-seo-poisoning",
+      label: "Indikasi Konten Judi Online / SEO Spam",
+      rawFact: `Terdeteksi kata kunci perjudian: [${detectedKeywords.slice(0, 10).join(", ")}] pada URL atau metadata halaman.`,
+      suggestedPoints: points,
+    });
+  }
+
+  return signals;
+}
+
 export async function POST(req: Request) {
   try {
     const { text } = await req.json();
@@ -164,7 +219,14 @@ export async function POST(req: Request) {
     const heuristicSignals = analyzeUrlStructure(parsedUrl);
     collectedSignals.push(...heuristicSignals);
 
-    const sucuriData = await fetchSucuriScan(rawInput);
+    const [sucuriData, pageMetadata] = await Promise.all([
+      fetchSucuriScan(rawInput),
+      fetchPageMetadata(rawInput),
+    ]);
+
+    const gamblingSignals = analyzeGamblingContent(parsedUrl, pageMetadata);
+    collectedSignals.push(...gamblingSignals);
+
     let sucuriSummary = "";
 
     if (sucuriData) {
@@ -221,6 +283,9 @@ export async function POST(req: Request) {
       Anda adalah analis keamanan siber handal.
       Kami melakukan pemindaian terhadap URL: "${rawInput}".
       
+      Informasi Metadata Halaman Target:
+      ${pageMetadata || "Metadata tidak berhasil diambil"}
+
       Informasi Teknis dari Sucuri SiteCheck:
       ${sucuriSummary || "Data Sucuri tidak tersedia (timeout/gagal)"}
 
@@ -229,6 +294,7 @@ export async function POST(req: Request) {
 
       Tugas Anda:
       Terjemahkan temuan-temuan di atas ke format JSON yang ramah, jelas, dan edukatif bagi masyarakat awam di Indonesia.
+      Jika terdapat temuan 'gambling-seo-poisoning', jelaskan bahaya situs judi online, penipuan saldo/data pribadi, serta risiko finansial secara eksplisit.
       Pastikan setiap finding memiliki:
       - 'id': ID unik temuan
       - 'label': Nama indikator yang jelas dan tidak terlalu teknis
