@@ -1,3 +1,4 @@
+import { connection, NextResponse } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_rethrow } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -7,6 +8,8 @@ import { simulationProgress } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth/session";
 
 export async function GET() {
+  await connection();
+
   try {
     const user = await getSessionUser();
 

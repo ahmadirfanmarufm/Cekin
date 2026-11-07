@@ -24,7 +24,7 @@ export function HeroSection() {
 
           <p className="mx-auto mt-5 max-w-[500px] text-sm leading-8 text-[#667085] sm:text-base lg:mx-0">
             Pesan mencurigakan? Link aneh? Telepon tidak dikenal?
-            Kenali ancamannya sebelum terlambat.
+            Cekin ancamannya sebelum terlambat.
           </p>
 
           <div className="mt-7 flex flex-col flex-wrap justify-center gap-3 sm:flex-row lg:justify-start">

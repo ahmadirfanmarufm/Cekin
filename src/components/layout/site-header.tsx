@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { AuthModal } from "@/components/auth/auth-modal";
+import Image from "next/image";
 
 type AuthUser = {
   id: string;
@@ -168,18 +169,23 @@ export function SiteHeader() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex shrink-0 items-center gap-3"
+            className="flex shrink-0 items-center gap-1"
             onClick={() => {
               setIsOpen(false);
               setIsUserMenuOpen(false);
             }}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-emerald-600 text-white shadow-md shadow-blue-600/20">
-              <ShieldCheck size={23} strokeWidth={2.2} />
-            </span>
+            <Image
+              src="/logo_cekin.webp"
+              alt="CEKIN"
+              width={140}
+              height={40}
+              priority
+              className="h-13 w-auto"
+            />
 
             <span className="flex flex-col">
-              <strong className="text-lg leading-tight font-extrabold tracking-wide text-slate-900">
+              <strong className="text-lg leading-tight font-extrabold tracking-wide text-[var(--brand)]">
                 CEKIN
               </strong>
 

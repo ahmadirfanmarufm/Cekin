@@ -13,6 +13,7 @@ import {
   BookOpen,
   Brain,
 } from "lucide-react";
+import Image from "next/image";
 
 export function HeroVisual() {
   return (
@@ -64,9 +65,14 @@ export function HeroVisual() {
               {/* App Header */}
               <div className="flex items-center justify-between px-1 pb-3 pt-2">
                 <div className="flex items-center gap-2">
-                  <div className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 text-white">
-                    <ShieldCheck size={18} />
-                  </div>
+                  <Image
+                    src="/logo_cekin.webp"
+                    alt="CEKIN"
+                    width={140}
+                    height={40}
+                    priority
+                    className="h-7 w-auto"
+                  />
 
                   <div>
                     <p className="text-[11px] font-extrabold tracking-tight text-[#17233b]">

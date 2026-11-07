@@ -1,62 +1,301 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   BatteryFull,
-  Check,
   CheckCheck,
-  CheckCircle2,
-  Eye,
-  Lightbulb,
+  CircleStar,
+  Clock3,
+  HelpCircle,
   LockKeyhole,
   MessageCircle,
   MoreVertical,
   Phone,
-  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Signal,
   Sparkles,
   Video,
   Wifi,
-  X,
 } from "lucide-react";
 import type {
-  SimulationChoice,
+  DialogueEnding,
   SimulationConfig,
+  SimulationScenario,
 } from "@/types/learning-protection";
+import {
+  TrustLabTutorial,
+  TRUST_LAB_TUTORIAL_KEY,
+} from "./trust-lab-tutorial";
+import {
+  DIFFICULTY_STYLES,
+  DialogueNotes,
+  DialogueResult,
+  LevelMap,
+  MasterReward,
+} from "./dialogue-parts";
+import {
+  TRUST_LAB_MASTER_BONUS,
+  TRUST_LAB_MAX_XP,
+  calculateTrustLabXp,
+  trustLabLevelXp,
+} from "@/lib/learning-protection/xp";
+import { mistakesOfPaths } from "@/lib/learning-protection/dialogue";
+import { useDialogue } from "@/lib/learning-protection/use-dialogue";
+import {
+  LOGIN_GATE_AFTER_LEVEL,
+  buildLoginHref,
+  useLearningProgress,
+} from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
 };
 
+const SIMULATION_ID = "trust-lab";
+
 export function TrustLabChat({ simulation }: Props) {
   const scenarios = simulation.scenarios;
+  const totalCount = scenarios.length;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedChoice, setSelectedChoice] =
-    useState<SimulationChoice | null>(null);
+  const [attempts, setAttempts] = useState<Record<string, string[][]>>({});
   const [completedIds, setCompletedIds] = useState<string[]>([]);
-  const [safeIds, setSafeIds] = useState<string[]>([]);
-  const [showLearningModal, setShowLearningModal] = useState(false);
+  const [attemptKey, setAttemptKey] = useState(0);
+  const [runSeed, setRunSeed] = useState(0);
   const [finished, setFinished] = useState(false);
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const tutorialSnapshot = useRef<{
+    currentIndex: number;
+    completedIds: string[];
+    attempts: Record<string, string[][]>;
+  } | null>(null);
+  // Kunci localStorage per akun (atau "guest") agar tutorial tidak berulang.
+  const tutorialStorageKey = useRef(`${TRUST_LAB_TUTORIAL_KEY}:guest`);
 
   const scenarioRef = useRef<HTMLElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  // Gerbang login untuk tamu dan penyimpanan progres.
+  const [gateOpen, setGateOpen] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
+
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "dialogue",
+    paused: tutorialActive,
+    snapshot: {
+      currentIndex,
+      completedIds,
+      attempts,
+      runSeed,
+      finished,
+      rewardMessage,
+      declinedLogin,
+    },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setAttempts(saved.attempts as Record<string, string[][]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setAttemptKey((previous) => previous + 1);
+    },
+  });
+  const session = learning.session;
 
   const currentScenario = scenarios[currentIndex];
-  const progress = scenarios.length
-    ? (completedIds.length / scenarios.length) * 100
+  const attemptNumber = currentScenario
+    ? (attempts[currentScenario.id]?.length ?? 0)
     : 0;
 
-  const selectedAnswer = selectedChoice;
+  function handleFinish(path: string[], ending: DialogueEnding) {
+    if (!currentScenario) return;
 
-  if (!scenarios.length) {
+    const scenarioId = currentScenario.id;
+
+    setAttempts((previous) => ({
+      ...previous,
+      [scenarioId]: [...(previous[scenarioId] ?? []), path],
+    }));
+
+    if (ending.result === "win") {
+      setCompletedIds((previous) =>
+        previous.includes(scenarioId) ? previous : [...previous, scenarioId],
+      );
+    }
+  }
+
+  const dialogue = useDialogue({
+    scenario: currentScenario,
+    startKey: attemptKey,
+    shuffleSeed: `${currentScenario?.id}:${attemptNumber}:${runSeed}`,
+    instant: tutorialActive || reduceMotion,
+    onFinish: handleFinish,
+  });
+
+  /* ---------- Hitungan level & XP ---------- */
+
+  // Jumlah langkah keliru di sebuah level, termasuk percakapan yang sedang berjalan.
+  const mistakesOf = (scenario: SimulationScenario) => {
+    if (!scenario.dialogue) return 0;
+
+    const paths = [...(attempts[scenario.id] ?? [])];
+
+    if (
+      scenario.id === currentScenario?.id &&
+      dialogue.phase !== "ended" &&
+      dialogue.path.length > 0
+    ) {
+      paths.push(dialogue.path);
+    }
+
+    return mistakesOfPaths(scenario.dialogue, paths);
+  };
+
+  const levelXpList = scenarios.map((scenario, index) =>
+    trustLabLevelXp(index + 1, mistakesOf(scenario)),
+  );
+
+  const earnedLevelXp = scenarios.reduce(
+    (sum, scenario, index) =>
+      completedIds.includes(scenario.id) ? sum + levelXpList[index] : sum,
+    0,
+  );
+
+  const potentialXp =
+    levelXpList.reduce((sum, xp) => sum + xp, 0) + TRUST_LAB_MASTER_BONUS;
+
+  const currentLevelXp = levelXpList[currentIndex] ?? 0;
+  const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
+  const isLastLevel = currentIndex >= totalCount - 1;
+
+  /* ---------- Tutorial ---------- */
+
+  const startTutorial = () => {
+    tutorialSnapshot.current = { currentIndex, completedIds, attempts };
+    setCurrentIndex(0);
+    setCompletedIds([]);
+    setAttempts({});
+    setAttemptKey((previous) => previous + 1);
+    setTutorialActive(true);
+  };
+
+  const closeTutorial = (completed: boolean) => {
+    // Kembalikan progres asli seperti sebelum tutorial.
+    const snapshot = tutorialSnapshot.current;
+    if (snapshot) {
+      setCurrentIndex(snapshot.currentIndex);
+      setCompletedIds(snapshot.completedIds);
+      setAttempts(snapshot.attempts);
+    }
+    setAttemptKey((previous) => previous + 1);
+    setTutorialActive(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    try {
+      localStorage.setItem(
+        tutorialStorageKey.current,
+        completed ? "done" : "skipped",
+      );
+    } catch {}
+  };
+
+  // Nilai terbaru untuk dipakai efek auto-start tanpa nilai usang.
+  const latest = useRef({ start: startTutorial, canAutoStart: true });
+  latest.current = {
+    start: startTutorial,
+    canAutoStart:
+      !tutorialActive &&
+      completedIds.length === 0 &&
+      Object.keys(attempts).length === 0 &&
+      dialogue.path.length === 0,
+  };
+
+  useEffect(() => {
+    setReduceMotion(
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    );
+  }, []);
+
+  /**
+   * Tutorial otomatis hanya untuk:
+   * - pengunjung baru / tamu yang belum pernah melihatnya,
+   * - user login yang BELUM menyelesaikan simulasi ini.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const decide = async () => {
+      let userId = "guest";
+      let completed = false;
+
+      try {
+        const response = await fetch(
+          `/api/learning-protection/progress?simulationId=${SIMULATION_ID}`,
+          { credentials: "same-origin", cache: "no-store" },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authenticated && data.userId) userId = data.userId;
+          completed = Boolean(data.completed);
+        }
+      } catch {
+        // Gagal cek status: anggap tamu yang belum menyelesaikan.
+      }
+
+      if (cancelled) return;
+
+      tutorialStorageKey.current = `${TRUST_LAB_TUTORIAL_KEY}:${userId}`;
+
+      if (completed) return;
+
+      try {
+        if (localStorage.getItem(tutorialStorageKey.current)) return;
+      } catch {}
+
+      timer = setTimeout(() => {
+        if (!cancelled && latest.current.canAutoStart) {
+          latest.current.start();
+        }
+      }, 600);
+    };
+
+    decide();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  // Selalu gulir chat ke pesan terbaru.
+  useEffect(() => {
+    const element = chatRef.current;
+    if (!element) return;
+
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: reduceMotion || tutorialActive ? "auto" : "smooth",
+    });
+  }, [dialogue.thread.length, dialogue.typing, reduceMotion, tutorialActive]);
+
+  if (!totalCount || !currentScenario) {
     return (
       <main className="container py-16 text-center">
         <MessageCircle className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
@@ -74,6 +313,8 @@ export function TrustLabChat({ simulation }: Props) {
     );
   }
 
+  /* ---------- Aksi ---------- */
+
   const scrollToScenario = () => {
     requestAnimationFrame(() => {
       scenarioRef.current?.scrollIntoView({
@@ -83,41 +324,8 @@ export function TrustLabChat({ simulation }: Props) {
     });
   };
 
-  const handleChoice = (choice: SimulationChoice) => {
-    if (selectedChoice) return;
-
-    setSelectedChoice(choice);
-
-    setCompletedIds((previous) =>
-      previous.includes(currentScenario.id)
-        ? previous
-        : [...previous, currentScenario.id],
-    );
-
-    // Pastikan jawaban terbaru menggantikan status jawaban sebelumnya.
-    setSafeIds((previous) => {
-      const withoutCurrent = previous.filter(
-        (id) => id !== currentScenario.id,
-      );
-
-      return choice.isSafe
-        ? [...withoutCurrent, currentScenario.id]
-        : withoutCurrent;
-    });
-  };
-
-  const handleScenarioChange = (index: number) => {
-    if (
-      index === currentIndex ||
-      index < 0 ||
-      index >= scenarios.length
-    ) {
-      return;
-    }
-
-    setCurrentIndex(index);
-    setSelectedChoice(null);
-    setShowLearningModal(false);
+  const retryLevel = () => {
+    setAttemptKey((previous) => previous + 1);
     scrollToScenario();
   };
 
@@ -129,228 +337,156 @@ export function TrustLabChat({ simulation }: Props) {
     try {
       const response = await fetch("/api/learning-protection/complete", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          simulationId: "trust-lab",
+          simulationId: SIMULATION_ID,
+          answers: attempts,
         }),
       });
 
       if (response.status === 401) {
         setRewardMessage(
-          "Simulasi selesai! Login untuk menyimpan progres dan XP ke akunmu.",
+          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
         );
         return;
       }
 
       if (!response.ok) {
         setRewardMessage(
-          "Simulasi selesai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasil belajarmu.",
+          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
         );
         return;
       }
 
       const result = await response.json();
+      const scoreXp: number = result.scoreXp ?? 0;
+      const maxXp: number = result.maxXp ?? TRUST_LAB_MAX_XP;
 
-      if (result.alreadyCompleted) {
+      if (result.xpEarned > 0) {
         setRewardMessage(
-          "Progres Trust Lab sudah pernah tersimpan di akunmu.",
+          scoreXp >= maxXp
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Trust Lab.`
+            : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi simulasi tanpa salah untuk meraih XP maksimal.`,
         );
-      } else if (result.xpEarned) {
-        setRewardMessage(
-          `Keren! Kamu mendapatkan ${result.xpEarned} XP dari Trust Lab.`,
-        );
+      } else if ((result.bestXp ?? 0) >= maxXp) {
+        setRewardMessage("Kamu sudah meraih XP maksimal di Trust Lab.");
       } else {
-        setRewardMessage("Progres Trust Lab berhasil disimpan.");
+        setRewardMessage(
+          `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
+        );
       }
 
       window.dispatchEvent(new Event("cekin-auth-change"));
     } catch {
       setRewardMessage(
-        "Simulasi selesai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.",
+        "Level maksimal tercapai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.",
       );
     } finally {
       setIsSavingReward(false);
     }
   };
 
+  function goNextLevel() {
+    setCurrentIndex((previous) => previous + 1);
+    scrollToScenario();
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
+
   const handleNext = async () => {
-    if (!selectedChoice || isSavingReward) return;
+    if (isSavingReward || dialogue.ending?.result !== "win") return;
 
-    setShowLearningModal(false);
+    if (!isLastLevel) {
+      const needsLogin =
+        session.ready &&
+        !session.authenticated &&
+        !declinedLogin &&
+        !tutorialActive &&
+        currentIndex === LOGIN_GATE_AFTER_LEVEL - 1;
 
-    // Cari skenario yang belum dikerjakan agar tidak ada materi terlewat.
-    const nextIncompleteIndex = scenarios.findIndex(
-      (scenario, index) =>
-        index > currentIndex && !completedIds.includes(scenario.id),
-    );
+      if (needsLogin) {
+        setGateOpen(true);
+        return;
+      }
 
-    const firstIncompleteIndex = scenarios.findIndex(
-      (scenario) => !completedIds.includes(scenario.id),
-    );
+      goNextLevel();
+      return;
+    }
 
-    const nextIndex =
-      nextIncompleteIndex !== -1
-        ? nextIncompleteIndex
-        : firstIncompleteIndex;
-
-    if (nextIndex !== -1) {
-      setCurrentIndex(nextIndex);
-      setSelectedChoice(null);
-      scrollToScenario();
+    if (tutorialActive) {
+      setAttemptKey((previous) => previous + 1);
       return;
     }
 
     await saveSimulationCompletion();
     setFinished(true);
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const restart = () => {
     setCurrentIndex(0);
-    setSelectedChoice(null);
+    setAttempts({});
     setCompletedIds([]);
-    setSafeIds([]);
-    setShowLearningModal(false);
+    setRunSeed((previous) => previous + 1);
+    setAttemptKey((previous) => previous + 1);
     setFinished(false);
     setRewardMessage("");
+    setDeclinedLogin(false);
 
     scrollToScenario();
   };
 
+  /* ========================================
+     LAYAR REWARD: LEVEL MAKSIMAL
+  ======================================== */
+
   if (finished) {
-    const percentage = Math.round(
-      (safeIds.length / scenarios.length) * 100,
-    );
+    const wrongCounts = scenarios.map((scenario) => mistakesOf(scenario));
+    const finalXp = calculateTrustLabXp(wrongCounts);
+    const totalMistakes = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const cleanCount = scenarios.filter(
+      (scenario, index) =>
+        completedIds.includes(scenario.id) && wrongCounts[index] === 0,
+    ).length;
 
     return (
-      <main className="container py-10 md:py-16">
-        <div className="mx-auto max-w-2xl">
-          <div className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-sm">
-            <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-10 text-center text-white md:px-10">
-              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-              <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-
-              <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15">
-                <MessageCircle className="h-10 w-10" />
-              </div>
-
-              <p className="text-xs font-bold tracking-[0.2em] text-white/70">
-                TRUST LAB COMPLETED
-              </p>
-
-              <h1 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                Lebih cermat sebelum percaya!
-              </h1>
-
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
-                Kamu sudah berlatih menghadapi percakapan yang berpotensi
-                menipu. Ingat, jangan mudah percaya hanya karena seseorang
-                terdengar meyakinkan.
-              </p>
-            </div>
-
-            <div className="p-6 md:p-9">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
-                  <p className="text-3xl font-extrabold text-[var(--brand)]">
-                    {safeIds.length}/{scenarios.length}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Respons lebih aman
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
-                  <p className="text-3xl font-extrabold text-[var(--accent)]">
-                    {percentage}%
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Tingkat kewaspadaan
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent)]" />
-                  <div>
-                    <h2 className="text-sm font-bold text-[var(--foreground)]">
-                      Prinsip utama Trust Lab
-                    </h2>
-                    <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                      Jangan mengirim uang, data pribadi, kata sandi, atau
-                      kode OTP hanya karena diminta melalui chat. Verifikasi
-                      identitas dan informasi melalui saluran resmi yang
-                      kamu cari sendiri.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl bg-[var(--brand-soft)] p-5">
-                <div className="flex items-center gap-2 text-[var(--brand)]">
-                  <Lightbulb size={17} />
-                  <h3 className="text-sm font-extrabold">
-                    Ingat sebelum membalas pesan
-                  </h3>
-                </div>
-
-                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-[var(--brand-dark)]">
-                  <li className="flex gap-2">
-                    <Check size={14} className="mt-0.5 shrink-0" />
-                    Periksa siapa yang menghubungimu.
-                  </li>
-                  <li className="flex gap-2">
-                    <Check size={14} className="mt-0.5 shrink-0" />
-                    Waspadai permintaan uang dan data rahasia.
-                  </li>
-                  <li className="flex gap-2">
-                    <Check size={14} className="mt-0.5 shrink-0" />
-                    Jangan terburu-buru mengambil keputusan.
-                  </li>
-                  <li className="flex gap-2">
-                    <Check size={14} className="mt-0.5 shrink-0" />
-                    Verifikasi melalui kanal resmi secara mandiri.
-                  </li>
-                </ul>
-              </div>
-
-              {rewardMessage && (
-                <p className="mt-4 text-center text-xs leading-relaxed text-[var(--muted)]">
-                  {rewardMessage}
-                </p>
-              )}
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={restart}
-                  className="button button-secondary flex-1"
-                >
-                  <RotateCcw size={16} />
-                  Ulangi simulasi
-                </button>
-
-                <Link
-                  href="/learning-protection"
-                  className="button button-primary flex-1"
-                >
-                  Selesai
-                  <ArrowRight size={16} />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+      <MasterReward
+        badgeName="Trust Master"
+        intro={`Kamu menamatkan ${totalCount} percakapan, dari bujukan sederhana sampai penipuan yang tampak sangat meyakinkan. Kamu kini lebih siap menghadapi modus digital masa kini.`}
+        totalCount={totalCount}
+        completedCount={completedIds.length}
+        cleanCount={cleanCount}
+        xp={finalXp}
+        maxXp={TRUST_LAB_MAX_XP}
+        totalMistakes={totalMistakes}
+        principle="Jangan mengirim uang, data pribadi, kata sandi, atau kode OTP hanya karena diminta lewat chat. Nomor, suara, centang, bahkan data yang benar tidak membuktikan identitas seseorang. Verifikasi lewat kanal resmi yang kamu cari sendiri."
+        tips={[
+          "Penipu tidak menyerah setelah satu penolakan. Tekanan akan makin kuat, jadi tetap bertahan.",
+          "Cara penipu bereaksi saat kamu memeriksa adalah petunjuk terbaik.",
+          "Hubungi orang yang bersangkutan lewat jalur lain yang sudah kamu percaya.",
+          "Jangan membayar atau membagikan kode demi “mencairkan” sesuatu.",
+        ]}
+        rewardMessage={rewardMessage}
+        onRestart={restart}
+      />
     );
   }
+
+  /* ========================================
+     TAMPILAN UTAMA
+  ======================================== */
+
+  const sender = currentScenario.sender;
+  const waiting = dialogue.phase === "revealing";
 
   return (
     <main className="container py-8 pb-16 md:py-12">
@@ -375,82 +511,57 @@ export function TrustLabChat({ simulation }: Props) {
               Jangan mudah percaya sebelum memeriksa.
             </h1>
 
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Hadapi percakapan mencurigakan, kenali tanda manipulasi, dan
-              pelajari cara merespons dengan lebih aman.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <ShieldCheck size={21} />
-            </div>
-
-            <div>
-              <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
-                {safeIds.length}
-              </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
-                Respons aman
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Learning flow */}
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-              <Eye size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                01. Amati chat
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
-                Perhatikan isi dan pengirim pesan.
-              </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+              <span className="inline-flex items-center gap-1">
+                <Clock3 size={13} />
+                {simulation.duration}
+              </span>
+              <span className="rounded-full border border-[var(--border)] px-3 py-1">
+                Simulasi fiktif
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-              <MessageCircle size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                02. Pilih respons
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
-                Tentukan tindakan yang tepat.
-              </p>
-            </div>
-          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={startTutorial} className="button button-secondary">
+              <HelpCircle size={16} />
+              Tutorial
+            </button>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <Lightbulb size={17} />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                03. Pelajari hasil
-              </p>
-              <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">
-                Pahami risiko dan langkah aman.
-              </p>
+            <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1">
+              <div className="flex w-8 items-center justify-center rounded-xl text-[var(--warning)]">
+                <CircleStar size={21} />
+              </div>
+
+              <div className="flex items-center justify-center">
+                <p className="m-2 text-xl font-extrabold leading-none text-[var(--foreground)]">
+                  {earnedLevelXp}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                  XP terkumpul
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Progress */}
-        <div className="mb-7 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div
+          data-tutorial="progress"
+          className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-[var(--foreground)]">
               Perjalananmu
             </span>
-            <span className="text-xs font-semibold tabular-nums text-[var(--muted)]">
-              {completedIds.length} dari {scenarios.length} selesai
-            </span>
+            <div className="flex items-center gap-3 text-xs font-semibold tabular-nums text-[var(--muted)]">
+              <span>
+                {completedIds.length} dari {totalCount} level selesai
+              </span>
+              <span className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+                Potensi XP {potentialXp}/{TRUST_LAB_MAX_XP}
+              </span>
+            </div>
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-[var(--surface)]">
@@ -459,38 +570,28 @@ export function TrustLabChat({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">
+              Progres sebelumnya dilanjutkan.
+            </p>
+          )}
+
+          {session.ready && !session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin
+                ? "Mode tamu: XP tidak akan dihitung."
+                : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
-        {/* Scenario selector */}
-        <div className="mb-6">
-          <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
-            Skenario percakapan
-          </p>
-
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {scenarios.map((scenario, index) => {
-              const isCurrent = index === currentIndex;
-              const isCompleted = completedIds.includes(scenario.id);
-
-              return (
-                <button
-                  key={scenario.id}
-                  onClick={() => handleScenarioChange(index)}
-                  className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold transition ${
-                    isCurrent
-                      ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--brand)]"
-                  }`}
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-black/5 text-[10px]">
-                    {isCompleted ? <Check size={13} /> : `0${index + 1}`}
-                  </span>
-                  {scenario.title}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <LevelMap
+          scenarios={scenarios}
+          currentIndex={currentIndex}
+          completedIds={completedIds}
+          tutorialName="levels"
+        />
 
         {/* Main content */}
         <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
@@ -500,14 +601,27 @@ export function TrustLabChat({ simulation }: Props) {
           >
             {/* Scenario header */}
             <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 md:px-7">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-[10px] font-extrabold tracking-[0.16em] text-[var(--brand)]">
-                  SKENARIO {currentIndex + 1} DARI {scenarios.length}
+                  LEVEL {currentIndex + 1} DARI {totalCount}
                 </span>
 
-                <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
-                  Simulasi percakapan
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {currentScenario.difficulty && (
+                    <span
+                      className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${DIFFICULTY_STYLES[currentScenario.difficulty]}`}
+                    >
+                      {currentScenario.difficulty}
+                    </span>
+                  )}
+
+                  {/* Nama modus baru terungkap setelah percakapan selesai */}
+                  {dialogue.ending && currentScenario.topic && (
+                    <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
+                      Modus: {currentScenario.topic}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <h2 className="mt-3 text-xl font-extrabold leading-snug text-[var(--foreground)] md:text-2xl">
@@ -527,25 +641,17 @@ export function TrustLabChat({ simulation }: Props) {
                 className="relative mx-auto w-full max-w-[390px]"
                 aria-label="Simulasi percakapan WhatsApp pada perangkat iPhone"
               >
-                {/* Left Side Buttons */}
                 <div className="absolute -left-[7px] top-[18%] z-0 h-5 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
                 <div className="absolute -left-[7px] top-[25%] z-0 h-8 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
                 <div className="absolute -left-[7px] top-[34%] z-0 h-8 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
-
-                {/* Right Power Button */}
                 <div className="absolute -right-[7px] top-[27%] z-0 h-14 w-[4px] rounded-r-md bg-[#64748b] shadow-sm" />
 
-                {/* iPhone Body */}
                 <div className="relative z-10 rounded-[38px] border-[5px] border-[#26364d] bg-[#26364d] p-[4px] shadow-[0_25px_65px_rgba(36,87,166,0.18)] sm:rounded-[43px] sm:border-[6px] sm:p-[5px]">
-                  {/* Screen */}
                   <div className="relative overflow-hidden rounded-[30px] bg-[#efeae2] sm:rounded-[35px]">
-                    {/* Phone Status Bar */}
+                    {/* Status bar */}
                     <div className="relative flex h-10 items-center justify-between bg-[#075e54] px-5 pt-1 text-white">
                       <span className="text-[10px] font-bold">9:41</span>
-
-                      {/* Dynamic Island */}
                       <div className="absolute left-1/2 top-2 h-[19px] w-[75px] -translate-x-1/2 rounded-full bg-[#111827] sm:w-[80px]" />
-
                       <div className="flex items-center gap-1.5">
                         <Signal size={12} />
                         <Wifi size={12} />
@@ -553,7 +659,7 @@ export function TrustLabChat({ simulation }: Props) {
                       </div>
                     </div>
 
-                    {/* WhatsApp Header */}
+                    {/* WhatsApp header */}
                     <div className="flex items-center gap-3 bg-[#075e54] px-3 py-3 text-white">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
                         <MessageCircle size={18} />
@@ -561,10 +667,12 @@ export function TrustLabChat({ simulation }: Props) {
 
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">
-                          Kontak Tidak Dikenal
+                          {sender?.name ?? "Kontak Tidak Dikenal"}
                         </p>
-                        <p className="mt-0.5 text-[10px] text-white/70">
-                          akun bisnis
+                        <p className="mt-0.5 truncate text-[10px] text-white/70">
+                          {dialogue.typing
+                            ? "sedang mengetik..."
+                            : (sender?.status ?? "online")}
                         </p>
                       </div>
 
@@ -573,92 +681,81 @@ export function TrustLabChat({ simulation }: Props) {
                       <MoreVertical size={18} className="shrink-0 text-white/90" />
                     </div>
 
-                    {/* Chat Area */}
+                    {/* Chat */}
                     <div
-                      className="space-y-3 px-3 py-5 sm:px-4"
+                      ref={chatRef}
+                      data-tutorial="chat"
+                      className="h-[400px] space-y-2.5 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4"
                       style={{
                         backgroundImage:
                           "radial-gradient(rgba(0,0,0,0.035) 1px, transparent 1px)",
                         backgroundSize: "14px 14px",
                       }}
                     >
-                      {/* Simulation Disclaimer */}
                       <div className="mx-auto w-fit rounded-lg bg-[#fff3c4] px-3 py-1.5 text-center text-[9px] font-medium leading-relaxed text-[#766b4f] shadow-sm">
-                        Pesan simulasi untuk pembelajaran.
+                        Percakapan simulasi untuk pembelajaran.
                         <br />
                         Bukan percakapan sungguhan.
                       </div>
 
-                      {/* Incoming Message */}
-                      <div className="flex justify-start">
-                        <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-3.5 py-3 shadow-sm">
-                          <p className="whitespace-pre-line text-[12px] leading-[1.7] text-[#303030]">
-                            {currentScenario.context || currentScenario.description}
-                          </p>
-
-                          <div className="mt-1 text-right text-[9px] text-[#999]">
-                            09:41
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* User Reply & Simulated Response */}
-                      {selectedAnswer && (
-                        <>
-                          {/* User Reply */}
-                          <div className="flex justify-end">
-                            <div className="max-w-[88%] rounded-2xl rounded-tr-sm bg-[#d9fdd3] px-3.5 py-3 shadow-sm">
-                              <p className="text-[12px] leading-relaxed text-[#303030]">
-                                {selectedAnswer.label}
+                      {dialogue.thread.map((bubble) =>
+                        bubble.from === "them" ? (
+                          <div key={bubble.id} className="flex justify-start">
+                            <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-3.5 py-2.5 shadow-sm">
+                              <p className="whitespace-pre-line text-[12px] leading-[1.65] text-[#303030]">
+                                {bubble.text}
                               </p>
-
-                              <div className="mt-1 flex items-center justify-end gap-1 text-[9px] text-[#6b8b7e]">
-                                09:42
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={bubble.id} className="flex justify-end">
+                            <div className="max-w-[88%] rounded-2xl rounded-tr-sm bg-[#d9fdd3] px-3.5 py-2.5 shadow-sm">
+                              <p className="text-[12px] leading-[1.65] text-[#303030]">
+                                {bubble.text}
+                              </p>
+                              <div className="mt-0.5 flex justify-end text-[#6b8b7e]">
                                 <CheckCheck size={13} />
                               </div>
                             </div>
                           </div>
+                        ),
+                      )}
 
-                          {/* Simulated Response */}
-                          <div className="flex justify-start">
-                            <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-3.5 py-3 shadow-sm">
-                              <p className="text-[12px] leading-[1.7] text-[#303030]">
-                                {selectedAnswer.isSafe
-                                  ? "Baik, silakan periksa dan pastikan informasinya terlebih dahulu. Tidak perlu terburu-buru."
-                                  : "Ayo, segera lakukan sekarang. Kesempatan ini bisa hilang kalau kamu terlalu lama berpikir!"}
-                              </p>
-
-                              <div className="mt-1 text-right text-[9px] text-[#999]">
-                                09:42
-                              </div>
-                            </div>
+                      {dialogue.typing && (
+                        <div className="flex justify-start">
+                          <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm">
+                            <span className="size-1.5 animate-pulse rounded-full bg-[#999]" />
+                            <span className="size-1.5 animate-pulse rounded-full bg-[#999] [animation-delay:150ms]" />
+                            <span className="size-1.5 animate-pulse rounded-full bg-[#999] [animation-delay:300ms]" />
                           </div>
-                        </>
+                        </div>
                       )}
                     </div>
 
-                    {/* Chat Composer */}
-                    <div className="border-t border-[#ddd7cf] bg-[#f0f0f0] p-3 sm:p-4">
-                      {!selectedChoice ? (
+                    {/* Composer */}
+                    <div
+                      data-tutorial="choices"
+                      className="min-h-[200px] border-t border-[#ddd7cf] bg-[#f0f0f0] p-3 sm:p-4"
+                    >
+                      {dialogue.phase === "choosing" ? (
                         <>
-                          <p className="mb-3 px-1 text-[10px] font-bold leading-relaxed text-[#626262]">
-                            Bagaimana kamu akan merespons pesan ini?
+                          <p className="mb-2.5 px-1 text-[10px] font-bold text-[#626262]">
+                            Balas apa?
                           </p>
 
                           <div className="space-y-2">
-                            {currentScenario.choices.map((choice, index) => (
+                            {dialogue.options.map((option, index) => (
                               <button
-                                key={choice.id}
-                                onClick={() => handleChoice(choice)}
-                                disabled={!!selectedChoice}
-                                className="group flex w-full items-center gap-3 rounded-xl border border-[#d8e0dc] bg-white p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] disabled:cursor-not-allowed"
+                                key={option.id}
+                                onClick={() => dialogue.pick(option)}
+                                className="group flex w-full items-center gap-3 rounded-xl border border-[#d8e0dc] bg-white p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
                               >
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#e9f0ed] text-[10px] font-extrabold text-[#527366] group-hover:bg-white group-hover:text-[var(--brand)]">
                                   {String.fromCharCode(65 + index)}
                                 </span>
 
                                 <span className="flex-1 text-[11px] font-semibold leading-relaxed text-[#303030]">
-                                  {choice.label}
+                                  {option.label}
                                 </span>
 
                                 <ArrowRight
@@ -670,22 +767,21 @@ export function TrustLabChat({ simulation }: Props) {
                           </div>
                         </>
                       ) : (
-                        <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3">
-                          <LockKeyhole size={15} className="text-[#84918b]" />
-
-                          <p className="flex-1 text-[10px] text-[#84918b]">
-                            Respons telah dikirim
-                          </p>
-
-                          <CheckCircle2
-                            size={16}
-                            className="text-[var(--accent)]"
-                          />
+                        <div className="flex h-full min-h-[170px] items-center justify-center">
+                          <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-3">
+                            <LockKeyhole size={15} className="text-[#84918b]" />
+                            <p className="text-[10px] text-[#84918b]">
+                              {waiting
+                                ? "Menunggu balasan..."
+                                : dialogue.phase === "ended"
+                                  ? "Percakapan selesai"
+                                  : "Menyiapkan percakapan..."}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* iPhone Home Indicator */}
                     <div className="flex justify-center bg-[#f0f0f0] pb-2.5 pt-1">
                       <div className="h-1 w-20 rounded-full bg-[#17233b]" />
                     </div>
@@ -693,78 +789,19 @@ export function TrustLabChat({ simulation }: Props) {
                 </div>
               </div>
 
-              {/* Answer feedback */}
-              {selectedAnswer && (
-                <div className="mt-6">
-                  <div
-                    className={`rounded-2xl border p-5 ${
-                      selectedAnswer.isSafe
-                        ? "border-[var(--accent)]/30 bg-[var(--accent-soft)]"
-                        : "border-[var(--warning)]/40 bg-[var(--warning)]/10"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {selectedAnswer.isSafe ? (
-                        <CheckCircle2
-                          size={20}
-                          className="text-[var(--accent)]"
-                        />
-                      ) : (
-                        <AlertTriangle
-                          size={20}
-                          className="text-[var(--warning)]"
-                        />
-                      )}
+              <DialogueNotes flags={dialogue.flags} />
 
-                      <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                        {selectedAnswer.isSafe
-                          ? "Respons yang lebih aman!"
-                          : "Ada risiko yang perlu kamu pahami."}
-                      </h3>
-                    </div>
-
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--foreground)]">
-                      {selectedAnswer.feedback}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-[var(--border)] p-5">
-                    <div className="flex items-center gap-2">
-                      <Lightbulb
-                        size={18}
-                        className="text-[var(--brand)]"
-                      />
-                      <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                        Apa yang harus kamu pelajari?
-                      </h3>
-                    </div>
-
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                      {selectedAnswer.explanation}
-                    </p>
-
-                    <button
-                      onClick={() => setShowLearningModal(true)}
-                      className="mt-4 inline-flex items-center gap-2 text-xs font-extrabold text-[var(--brand)] transition hover:text-[var(--brand-dark)]"
-                    >
-                      Pelajari penjelasan lebih lanjut
-                      <ArrowRight size={14} />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={handleNext}
-                    disabled={isSavingReward}
-                    className="button button-primary mt-5 w-full"
-                  >
-                    {isSavingReward
-                      ? "Menyimpan progres..."
-                      : completedIds.length === scenarios.length
-                        ? "Lihat hasil pembelajaran"
-                        : "Lanjut ke percakapan berikutnya"}
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
+              {dialogue.ending && (
+                <DialogueResult
+                  ending={dialogue.ending}
+                  takeaway={currentScenario.takeaway}
+                  levelNumber={currentIndex + 1}
+                  levelXp={currentLevelXp}
+                  isLastLevel={isLastLevel}
+                  isSaving={isSavingReward}
+                  onNext={handleNext}
+                  onRetry={retryLevel}
+                />
               )}
             </div>
           </section>
@@ -781,18 +818,17 @@ export function TrustLabChat({ simulation }: Props) {
               </h3>
 
               <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                Jadilah pengguna yang kritis. Jangan langsung percaya pada
-                orang yang menghubungimu, meskipun pesan mereka terlihat
-                profesional atau menjanjikan keuntungan.
+                Bertahan sampai akhir percakapan, dan keluar dengan benar.
+                Penipu tidak menyerah setelah satu penolakan.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+            <div
+              data-tutorial="red-flags"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5"
+            >
               <div className="flex items-center gap-2">
-                <ShieldAlert
-                  size={17}
-                  className="text-[var(--warning)]"
-                />
+                <ShieldAlert size={17} className="text-[var(--warning)]" />
                 <h3 className="text-sm font-extrabold text-[var(--foreground)]">
                   Tanda yang perlu diwaspadai
                 </h3>
@@ -800,10 +836,10 @@ export function TrustLabChat({ simulation }: Props) {
 
               <ul className="mt-3 space-y-3">
                 {[
-                  "Meminta biaya di awal untuk mendapatkan pekerjaan atau hadiah.",
-                  "Mendesakmu agar segera mentransfer uang.",
-                  "Menjanjikan keuntungan yang tidak masuk akal.",
-                  "Meminta kata sandi, PIN, atau kode OTP.",
+                  "Meminta biaya di muka untuk pekerjaan, hadiah, atau penarikan dana.",
+                  "Mendesak dengan hitung mundur atau ancaman.",
+                  "Meminta kode OTP atau menyuruh memasang file .apk.",
+                  "Melarangmu menelepon, mengecek, atau memberi tahu orang lain.",
                 ].map((item) => (
                   <li
                     key={item}
@@ -821,19 +857,15 @@ export function TrustLabChat({ simulation }: Props) {
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="flex items-center gap-2">
-                <ShieldCheck
-                  size={17}
-                  className="text-[var(--accent)]"
-                />
+                <ShieldCheck size={17} className="text-[var(--accent)]" />
                 <h3 className="text-sm font-extrabold text-[var(--foreground)]">
                   Prinsip aman
                 </h3>
               </div>
 
               <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-                Berhenti sejenak, periksa informasi, dan verifikasi
-                identitas melalui kanal resmi. Kamu tidak wajib mengikuti
-                permintaan seseorang hanya karena mereka mendesakmu.
+                Berhenti sejenak, periksa lewat jalur lain yang kamu percaya,
+                dan jangan ikuti tekanan.
               </p>
             </div>
 
@@ -854,144 +886,44 @@ export function TrustLabChat({ simulation }: Props) {
               </div>
 
               <p className="mt-3 text-xs text-white/70">
-                {completedIds.length} dari {scenarios.length} percakapan
-                telah kamu pelajari.
+                {completedIds.length} dari {totalCount} level telah kamu
+                selesaikan.
               </p>
+
+              <div className="mt-4 border-t border-white/15 pt-3">
+                <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">
+                  POTENSI XP
+                </p>
+                <p className="mt-1 text-lg font-extrabold">
+                  {potentialXp}
+                  <span className="text-xs font-bold text-white/60">
+                    /{TRUST_LAB_MAX_XP}
+                  </span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+                  Level tinggi bernilai lebih besar. Setiap langkah keliru
+                  mengurangi XP level itu. Selesaikan Level {totalCount} untuk
+                  bonus {TRUST_LAB_MASTER_BONUS} XP dan lencana Trust Master.
+                </p>
+              </div>
             </div>
           </aside>
         </div>
-
-        {/* Learning modal */}
-        {showLearningModal && selectedAnswer && (
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="trust-learning-title"
-            onClick={() => setShowLearningModal(false)}
-          >
-            <div
-              className="my-auto w-full max-w-lg overflow-hidden rounded-3xl bg-[var(--card)] shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="relative overflow-hidden bg-[var(--brand-dark)] p-6 text-white">
-                <button
-                  onClick={() => setShowLearningModal(false)}
-                  aria-label="Tutup penjelasan"
-                  className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
-                >
-                  <X size={18} />
-                </button>
-
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-                  <Lightbulb size={24} />
-                </div>
-
-                <p className="mt-5 text-[10px] font-extrabold tracking-[0.18em] text-white/60">
-                  TRUST LAB LEARNING
-                </p>
-
-                <h2
-                  id="trust-learning-title"
-                  className="mt-2 pr-8 text-2xl font-extrabold"
-                >
-                  Pahami sebelum mempercayai.
-                </h2>
-
-                <p className="mt-2 text-xs leading-relaxed text-white/75">
-                  Jangan hanya menghafal jawaban. Pahami alasan di balik
-                  tindakan yang lebih aman.
-                </p>
-              </div>
-
-              <div className="space-y-5 p-6">
-                <div>
-                  <div className="flex items-center gap-2">
-                    {selectedAnswer.isSafe ? (
-                      <CheckCircle2
-                        size={18}
-                        className="text-[var(--accent)]"
-                      />
-                    ) : (
-                      <AlertTriangle
-                        size={18}
-                        className="text-[var(--warning)]"
-                      />
-                    )}
-
-                    <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                      Mengapa respons ini penting?
-                    </h3>
-                  </div>
-
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    {selectedAnswer.explanation}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[var(--brand-soft)] p-4">
-                  <div className="flex items-center gap-2 text-[var(--brand)]">
-                    <ShieldCheck size={17} />
-                    <h3 className="text-xs font-extrabold">
-                      Langkah yang lebih aman
-                    </h3>
-                  </div>
-
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--brand-dark)]">
-                    {selectedAnswer.saferAction}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-[var(--border)] p-4">
-                  <h3 className="text-xs font-extrabold text-[var(--foreground)]">
-                    Checklist sebelum membalas pesan
-                  </h3>
-
-                  <ul className="mt-3 space-y-2.5">
-                    {[
-                      "Apakah saya mengenal dan dapat memverifikasi pengirimnya?",
-                      "Apakah pesan meminta uang atau informasi rahasia?",
-                      "Apakah saya sedang didesak untuk mengambil keputusan?",
-                      "Bisakah informasi ini diperiksa melalui kanal resmi?",
-                    ].map((item) => (
-                      <li
-                        key={item}
-                        className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted)]"
-                      >
-                        <Check
-                          size={14}
-                          className="mt-0.5 shrink-0 text-[var(--accent)]"
-                        />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface)] p-4">
-                  <LockKeyhole
-                    size={18}
-                    className="mt-0.5 shrink-0 text-[var(--brand)]"
-                  />
-                  <p className="text-xs leading-relaxed text-[var(--muted)]">
-                    Jangan pernah membagikan PIN, kata sandi, atau kode OTP
-                    kepada orang lain. Pihak resmi tidak seharusnya meminta
-                    kode rahasia tersebut melalui percakapan.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setShowLearningModal(false)}
-                  className="button button-primary w-full"
-                >
-                  Aku paham
-                  <Check size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
+
+      <TrustLabTutorial
+        active={tutorialActive}
+        answerCount={dialogue.path.length}
+        ended={dialogue.phase === "ended"}
+        onClose={closeTutorial}
+      />
     </main>
   );
 }

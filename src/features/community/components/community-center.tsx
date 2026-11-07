@@ -955,7 +955,7 @@ export const CommunityCenter = () => {
                             </button>
                             </div>
                         )}
-                        </div>
+                    </div>
                     </div>
                 </article>
                 )})

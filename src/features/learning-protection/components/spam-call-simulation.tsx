@@ -6,392 +6,441 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  Brain,
-  Check,
-  CheckCircle2,
+  CircleStar,
   Clock3,
-  Eye,
-  Info,
-  Lightbulb,
-  Phone,
+  HelpCircle,
+  LockKeyhole,
   PhoneCall,
-  PhoneOff,
-  RotateCcw,
+  PhoneIncoming,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Mic,
+  Grid3X3,
+  UserPlus,
+  Pause,
+  Bluetooth,
+  Signal,
+  Wifi,
+  BatteryFull,
   UserRound,
   Volume2,
-  X,
-  XCircle,
+  Video,
+  Lock,
 } from "lucide-react";
-
 import type {
-  SimulationChoice,
+  DialogueEnding,
   SimulationConfig,
+  SimulationScenario,
 } from "@/types/learning-protection";
+import { SpamCallTutorial, SPAM_CALL_TUTORIAL_KEY } from "./spam-call-tutorial";
+import {
+  DIFFICULTY_STYLES,
+  DialogueNotes,
+  DialogueResult,
+  LevelMap,
+  MasterReward,
+} from "./dialogue-parts";
+import {
+  SPAM_CALL_MASTER_BONUS,
+  SPAM_CALL_MAX_XP,
+  calculateSpamCallXp,
+  spamCallLevelXp,
+} from "@/lib/learning-protection/xp";
+import { mistakesOfPaths } from "@/lib/learning-protection/dialogue";
+import { useDialogue } from "@/lib/learning-protection/use-dialogue";
+import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
 };
 
 const SIMULATION_ID = "spam-call";
-const DECLINED = "__declined__";
 
 export function SpamCallSimulation({ simulation }: Props) {
   const scenarios = simulation.scenarios;
-  const totalScenarios = scenarios.length;
+  const totalCount = scenarios.length;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [callState, setCallState] = useState<"ringing" | "talking">(
-    "ringing",
-  );
-  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
-  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [attempts, setAttempts] = useState<Record<string, string[][]>>({});
   const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [safeIds, setSafeIds] = useState<string[]>([]);
+  const [attemptKey, setAttemptKey] = useState(0);
+  const [runSeed, setRunSeed] = useState(0);
+  const [answered, setAnswered] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [showLearningModal, setShowLearningModal] = useState(false);
-  const [rewardMessage, setRewardMessage] = useState("");
   const [isSavingReward, setIsSavingReward] = useState(false);
+  const [rewardMessage, setRewardMessage] = useState("");
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
+
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const tutorialSnapshot = useRef<{
+    currentIndex: number;
+    completedIds: string[];
+    attempts: Record<string, string[][]>;
+  } | null>(null);
+  const tutorialStorageKey = useRef(`${SPAM_CALL_TUTORIAL_KEY}:guest`);
 
   const scenarioRef = useRef<HTMLElement>(null);
-  const phoneScreenRef = useRef<HTMLDivElement>(null);
-  const resultRef = useRef<HTMLElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
 
   const currentScenario = scenarios[currentIndex];
+  const attemptNumber = currentScenario
+    ? (attempts[currentScenario.id]?.length ?? 0)
+    : 0;
 
-  const selectedAnswer = currentScenario?.choices.find(
-    (choice) => choice.id === selectedChoice,
+  function handleFinish(path: string[], ending: DialogueEnding) {
+    if (!currentScenario) return;
+
+    const scenarioId = currentScenario.id;
+
+    setAttempts((previous) => ({
+      ...previous,
+      [scenarioId]: [...(previous[scenarioId] ?? []), path],
+    }));
+
+    if (ending.result === "win") {
+      setCompletedIds((previous) =>
+        previous.includes(scenarioId) ? previous : [...previous, scenarioId],
+      );
+    }
+  }
+
+  const dialogue = useDialogue({
+    scenario: currentScenario,
+    enabled: answered,
+    startKey: attemptKey,
+    shuffleSeed: `${currentScenario?.id}:${attemptNumber}:${runSeed}`,
+    instant: tutorialActive || reduceMotion,
+    onFinish: handleFinish,
+  });
+
+  /* ---------- XP ---------- */
+
+  const mistakesOf = (scenario: SimulationScenario) => {
+    if (!scenario.dialogue) return 0;
+
+    const paths = [...(attempts[scenario.id] ?? [])];
+
+    if (
+      scenario.id === currentScenario?.id &&
+      dialogue.phase !== "ended" &&
+      dialogue.path.length > 0
+    ) {
+      paths.push(dialogue.path);
+    }
+
+    return mistakesOfPaths(scenario.dialogue, paths);
+  };
+
+  const levelXpList = scenarios.map((scenario, index) =>
+    spamCallLevelXp(index + 1, mistakesOf(scenario)),
   );
 
-  const isDeclined = selectedChoice === DECLINED;
-  const isSafeAnswer = isDeclined || Boolean(selectedAnswer?.isSafe);
+  const earnedLevelXp = scenarios.reduce(
+    (sum, scenario, index) =>
+      completedIds.includes(scenario.id) ? sum + levelXpList[index] : sum,
+    0,
+  );
 
-  const progress = totalScenarios
-    ? (completedIds.length / totalScenarios) * 100
-    : 0;
+  const potentialXp =
+    levelXpList.reduce((sum, xp) => sum + xp, 0) + SPAM_CALL_MASTER_BONUS;
 
-  const percentage = totalScenarios
-    ? Math.round((correctAnswers / totalScenarios) * 100)
-    : 0;
+  const currentLevelXp = levelXpList[currentIndex] ?? 0;
+  const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
+  const isLastLevel = currentIndex >= totalCount - 1;
 
-  const callerNumber = `+62 800-0000-${String(
-    currentIndex + 1,
-  ).padStart(4, "0")}`;
+  /* ---------- Tutorial ---------- */
 
-  // Scroll ke bagian simulasi ketika jawaban atau skenario berubah.
-  useEffect(() => {
-    if (!selectedChoice) return;
+  const startTutorial = () => {
+    tutorialSnapshot.current = { currentIndex, completedIds, attempts };
+    setCurrentIndex(0);
+    setCompletedIds([]);
+    setAttempts({});
+    setAnswered(false);
+    setAttemptKey((previous) => previous + 1);
+    setTutorialActive(true);
+  };
 
-    const frameId = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
+  const closeTutorial = (completed: boolean) => {
+    const snapshot = tutorialSnapshot.current;
+    if (snapshot) {
+      setCurrentIndex(snapshot.currentIndex);
+      setCompletedIds(snapshot.completedIds);
+      setAttempts(snapshot.attempts);
+    }
+    setAnswered(false);
+    setAttemptKey((previous) => previous + 1);
+    setTutorialActive(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
 
-      scenarioRef.current?.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "start",
-      });
+    try {
+      localStorage.setItem(tutorialStorageKey.current, completed ? "done" : "skipped");
+    } catch {}
+  };
 
-      phoneScreenRef.current?.scrollTo({
-        top: 0,
-        behavior: reduceMotion ? "auto" : "smooth",
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [selectedChoice]);
-
-  useEffect(() => {
-    if (currentIndex === 0 || finished) return;
-
-    const frameId = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-
-      scenarioRef.current?.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "start",
-      });
-
-      phoneScreenRef.current?.scrollTo({
-        top: 0,
-        behavior: reduceMotion ? "auto" : "smooth",
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [currentIndex, finished]);
+  const latest = useRef({ start: startTutorial, canAutoStart: true });
+  latest.current = {
+    start: startTutorial,
+    canAutoStart:
+      !tutorialActive &&
+      !answered &&
+      completedIds.length === 0 &&
+      Object.keys(attempts).length === 0,
+  };
 
   useEffect(() => {
-    if (!finished) return;
+    setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
 
-    const frameId = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-
-      resultRef.current?.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "start",
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [finished]);
-
-  // Tutup modal dengan tombol Escape.
   useEffect(() => {
-    if (!showLearningModal) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowLearningModal(false);
+    const decide = async () => {
+      let userId = "guest";
+      let completed = false;
+
+      try {
+        const response = await fetch(
+          `/api/learning-protection/progress?simulationId=${SIMULATION_ID}`,
+          { credentials: "same-origin", cache: "no-store" },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authenticated && data.userId) userId = data.userId;
+          completed = Boolean(data.completed);
+        }
+      } catch {
+        // Gagal cek status: anggap tamu yang belum menyelesaikan.
       }
+
+      if (cancelled) return;
+
+      tutorialStorageKey.current = `${SPAM_CALL_TUTORIAL_KEY}:${userId}`;
+
+      if (completed) return;
+
+      try {
+        if (localStorage.getItem(tutorialStorageKey.current)) return;
+      } catch {}
+
+      timer = setTimeout(() => {
+        if (!cancelled && latest.current.canAutoStart) latest.current.start();
+      }, 600);
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    void decide();
 
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showLearningModal]);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
-  async function saveSimulationCompletion() {
+  useEffect(() => {
+    const element = chatRef.current;
+    if (!element) return;
+
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: reduceMotion || tutorialActive ? "auto" : "smooth",
+    });
+  }, [dialogue.thread.length, dialogue.typing, reduceMotion, tutorialActive]);
+
+  if (!totalCount || !currentScenario) {
+    return (
+      <main className="container py-16 text-center">
+        <PhoneCall className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
+        <h1 className="heading heading-2">Skenario belum tersedia</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Konten Spam Call sedang disiapkan.
+        </p>
+        <Link href="/learning-protection" className="button button-primary mt-6">
+          Kembali ke Learning &amp; Protection
+        </Link>
+      </main>
+    );
+  }
+
+  /* ---------- Aksi ---------- */
+
+  const scrollToScenario = () => {
+    requestAnimationFrame(() => {
+      scenarioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const retryLevel = () => {
+    setAnswered(false);
+    setAttemptKey((previous) => previous + 1);
+    scrollToScenario();
+  };
+
+  const saveSimulationCompletion = async () => {
+    if (isSavingReward) return;
+
+    setIsSavingReward(true);
+
     try {
       const response = await fetch("/api/learning-protection/complete", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          simulationId: SIMULATION_ID,
-        }),
+        body: JSON.stringify({ simulationId: SIMULATION_ID, answers: attempts }),
       });
-
-      const result = await response.json();
 
       if (response.status === 401) {
         setRewardMessage(
-          "Login untuk menyimpan progres dan mendapatkan XP.",
+          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
         );
         return;
       }
 
       if (!response.ok) {
         setRewardMessage(
-          result.message ?? "Simulasi selesai, tetapi progres gagal disimpan.",
+          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
         );
         return;
       }
 
-      if (result.alreadyCompleted) {
+      const result = await response.json();
+      const scoreXp: number = result.scoreXp ?? 0;
+      const maxXp: number = result.maxXp ?? SPAM_CALL_MAX_XP;
+
+      if (result.xpEarned > 0) {
         setRewardMessage(
-          "Simulasi ini sudah pernah kamu selesaikan. XP tidak diberikan dua kali.",
+          scoreXp >= maxXp
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Spam Call.`
+            : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi tanpa salah untuk XP maksimal.`,
         );
-        return;
+      } else if ((result.bestXp ?? 0) >= maxXp) {
+        setRewardMessage("Kamu sudah meraih XP maksimal di Spam Call.");
+      } else {
+        setRewardMessage(
+          `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
+        );
       }
-
-      setRewardMessage(
-        result.xpEarned
-          ? `Selamat! Kamu mendapatkan +${result.xpEarned} XP.`
-          : "Progres simulasi berhasil disimpan.",
-      );
 
       window.dispatchEvent(new Event("cekin-auth-change"));
     } catch {
       setRewardMessage(
-        "Tidak dapat menyimpan progres. Silakan coba lagi.",
+        "Level maksimal tercapai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.",
       );
+    } finally {
+      setIsSavingReward(false);
     }
-  }
+  };
 
-  function handleAnswerCall() {
-    setCallState("talking");
-  }
+  const handleNext = async () => {
+    if (isSavingReward || dialogue.ending?.result !== "win") return;
 
-  function handleDeclineCall() {
-    if (selectedChoice) return;
-
-    setSelectedChoice(DECLINED);
-    setCorrectAnswers((previous) => previous + 1);
-    setCompletedIds((previous) =>
-      previous.includes(currentScenario.id)
-        ? previous
-        : [...previous, currentScenario.id],
-    );
-  }
-
-  function handleChoice(choiceId: string) {
-    if (selectedChoice) return;
-
-    const choice = currentScenario.choices.find(
-      (item) => item.id === choiceId,
-    );
-
-    if (!choice) return;
-
-    setSelectedChoice(choiceId);
-
-    setCompletedIds((previous) =>
-      previous.includes(currentScenario.id)
-        ? previous
-        : [...previous, currentScenario.id],
-    );
-
-    if (choice.isSafe) {
-      setCorrectAnswers((previous) => previous + 1);
-    }
-  }
-
-  async function handleNext() {
-    if (!selectedChoice || isSavingReward) return;
-
-    setShowLearningModal(false);
-
-    if (currentIndex < totalScenarios - 1) {
+    if (!isLastLevel) {
+      setAnswered(false);
       setCurrentIndex((previous) => previous + 1);
-      setSelectedChoice(null);
-      setCallState("talking");
+      scrollToScenario();
       return;
     }
 
-    setIsSavingReward(true);
+    if (tutorialActive) {
+      setAnswered(false);
+      setAttemptKey((previous) => previous + 1);
+      return;
+    }
+
     await saveSimulationCompletion();
-    setIsSavingReward(false);
     setFinished(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "dialogue",
+    paused: tutorialActive,
+    snapshot: { currentIndex, completedIds, safeIds, attempts, runSeed, finished, rewardMessage, declinedLogin },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setSafeIds(saved.safeIds ?? []);
+      setAttempts(saved.attempts as Record<string, string[][]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setAnswered(false);
+    },
+  });
+
+  function goNextLevel() {
+    setAnswered(false);
+    setCurrentIndex((previous) => previous + 1);
+    scrollToScenario();
   }
 
-  function handleRestart() {
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
+
+  const restart = () => {
     setCurrentIndex(0);
-    setCallState("ringing");
-    setSelectedChoice(null);
-    setCorrectAnswers(0);
+    setAttempts({});
     setCompletedIds([]);
+    setAnswered(false);
+    setRunSeed((previous) => previous + 1);
+    setAttemptKey((previous) => previous + 1);
     setFinished(false);
-    setShowLearningModal(false);
     setRewardMessage("");
-    setIsSavingReward(false);
-  }
+    scrollToScenario();
+  };
 
-  if (!totalScenarios || !currentScenario) {
-    return (
-      <main className="container py-16 text-center">
-        <PhoneCall className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
-        <h1 className="heading heading-2">Skenario belum tersedia</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Konten Scam Call sedang disiapkan.
-        </p>
-        <Link
-          href="/learning-protection"
-          className="button button-primary mt-6"
-        >
-          Kembali ke Learning & Protection
-        </Link>
-      </main>
-    );
-  }
+  /* ---------- Layar reward ---------- */
 
-  // Halaman hasil.
   if (finished) {
+    const wrongCounts = scenarios.map((scenario) => mistakesOf(scenario));
+    const finalXp = calculateSpamCallXp(wrongCounts);
+    const totalMistakes = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const cleanCount = scenarios.filter(
+      (scenario, index) =>
+        completedIds.includes(scenario.id) && wrongCounts[index] === 0,
+    ).length;
+
     return (
-      <main
-        ref={resultRef}
-        className="container scroll-mt-24 py-10 md:py-16"
-      >
-        <div className="mx-auto max-w-2xl">
-          <div className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-sm">
-            <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-10 text-center text-white md:px-10">
-              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-
-              <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15">
-                <PhoneCall className="h-10 w-10" />
-              </div>
-
-              <p className="text-xs font-bold tracking-[0.2em] text-white/70">
-                SCAM CALL COMPLETED
-              </p>
-
-              <h1 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                Kamu lebih siap menghadapi panggilan mencurigakan!
-              </h1>
-
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
-                Kamu telah berlatih mengenali manipulasi melalui telepon dan
-                menentukan respons yang lebih aman.
-              </p>
-            </div>
-
-            <div className="p-6 md:p-9">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
-                  <p className="text-3xl font-extrabold text-[var(--brand)]">
-                    {correctAnswers}/{totalScenarios}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Pilihan aman
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
-                  <p className="text-3xl font-extrabold text-[var(--accent)]">
-                    {percentage}%
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Tingkat kewaspadaan
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
-                <div className="flex items-start gap-3">
-                  <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
-                  <div>
-                    <h2 className="text-sm font-bold text-[var(--foreground)]">
-                      Hal penting yang perlu diingat
-                    </h2>
-                    <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                      Jangan pernah memberikan OTP, PIN, password, atau data
-                      pribadi melalui telepon. Jika penelepon mengaku dari
-                      institusi resmi, tutup panggilan dan hubungi institusi
-                      melalui nomor resmi yang kamu cari sendiri.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {rewardMessage && (
-                <div
-                  role="status"
-                  className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center text-xs font-semibold text-[var(--muted)]"
-                >
-                  {rewardMessage}
-                </div>
-              )}
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleRestart}
-                  className="button button-secondary flex-1"
-                >
-                  <RotateCcw size={16} />
-                  Ulangi simulasi
-                </button>
-
-                <Link
-                  href="/learning-protection"
-                  className="button button-primary flex-1"
-                >
-                  Selesai
-                  <ArrowRight size={16} />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+      <MasterReward
+        badgeName="Call Shield"
+        intro={`Kamu menamatkan ${totalCount} panggilan, dari rekaman otomatis sampai video call deepfake dan penipuan pemulihan dana. Kamu kini lebih siap menghadapi telepon penipu.`}
+        totalCount={totalCount}
+        completedCount={completedIds.length}
+        cleanCount={cleanCount}
+        xp={finalXp}
+        maxXp={SPAM_CALL_MAX_XP}
+        totalMistakes={totalMistakes}
+        principle="Penelepon yang menghubungimu lebih dulu tidak terbukti siapa pun. Nomor, nama, bahkan data yang benar bisa dipalsukan. Tutup, lalu hubungi lembaga itu lewat kanal resmi yang kamu cari sendiri."
+        tips={[
+          "Penelepon penipu menyuruhmu tetap di telepon. Menutupnya adalah langkah terkuat.",
+          "Bank, polisi, pajak, dan operator tidak pernah meminta OTP, PIN, atau memindahkan uangmu.",
+          "Larangan memberi tahu keluarga atau mengecek ke kantor resmi adalah tanda penipuan.",
+          "Untuk uang, selalu verifikasi lewat jalur lain, bahkan bila wajah dan suaranya meyakinkan.",
+        ]}
+        rewardMessage={rewardMessage}
+        onRestart={restart}
+      />
     );
   }
+
+  /* ---------- Tampilan utama ---------- */
+
+  const sender = currentScenario.sender;
+  const waiting = dialogue.phase === "revealing";
 
   return (
     <main className="container py-8 pb-16 md:py-12">
@@ -401,10 +450,9 @@ export function SpamCallSimulation({ simulation }: Props) {
           className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
         >
           <ArrowLeft size={16} />
-          Learning & Protection
+          Learning &amp; Protection
         </Link>
 
-        {/* Header */}
         <div className="mb-7 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <div className="badge">
@@ -413,56 +461,56 @@ export function SpamCallSimulation({ simulation }: Props) {
             </div>
 
             <h1 className="heading heading-2 mt-4">
-              Kenali manipulasi melalui panggilan telepon.
+              Telepon dari nomor asing? Jangan langsung percaya.
             </h1>
 
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-              Hadapi panggilan simulasi, kenali tanda bahayanya, dan pilih
-              respons yang lebih aman.
-            </p>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]">
-                <Clock3 size={12} />
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+              <span className="inline-flex items-center gap-1">
+                <Clock3 size={13} />
                 {simulation.duration}
               </span>
-
-              <span className="rounded-full bg-[var(--surface)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]">
-                {simulation.difficulty}
-              </span>
-
-              <span className="rounded-full bg-[var(--warning)]/10 px-3 py-1.5 text-[10px] font-bold text-[var(--warning)]">
-                SIMULASI FIKTIF
+              <span className="rounded-full border border-[var(--border)] px-3 py-1">
+                Simulasi fiktif
               </span>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <ShieldCheck size={21} />
-            </div>
+          <div className="flex items-center gap-3">
+            <button onClick={startTutorial} className="button button-secondary">
+              <HelpCircle size={16} />
+              Tutorial
+            </button>
 
-            <div>
-              <p className="text-2xl font-extrabold leading-none text-[var(--foreground)]">
-                {correctAnswers}
-              </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
-                Pilihan aman
-              </p>
+            <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1">
+              <div className="flex w-8 items-center justify-center rounded-xl text-[var(--warning)]">
+                <CircleStar size={21} />
+              </div>
+              <div className="flex items-center justify-center">
+                <p className="m-2 text-xl font-extrabold leading-none text-[var(--foreground)]">
+                  {earnedLevelXp}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                  XP terkumpul
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Progress */}
-        <div className="mb-7 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-xs font-bold text-[var(--foreground)]">
-              Perjalananmu
-            </span>
-
-            <span className="text-xs font-semibold tabular-nums text-[var(--muted)]">
-              {completedIds.length} dari {totalScenarios} selesai
-            </span>
+        <div
+          data-tutorial="progress"
+          className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-[var(--foreground)]">Perjalananmu</span>
+            <div className="flex items-center gap-3 text-xs font-semibold tabular-nums text-[var(--muted)]">
+              <span>
+                {completedIds.length} dari {totalCount} level selesai
+              </span>
+              <span className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1 font-extrabold text-[var(--accent)]">
+                Potensi XP {potentialXp}/{SPAM_CALL_MAX_XP}
+              </span>
+            </div>
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-[var(--surface)]">
@@ -471,384 +519,395 @@ export function SpamCallSimulation({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">Progres sebelumnya dilanjutkan.</p>
+          )}
+          {learning.session.ready && !learning.session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin ? "Mode tamu: XP tidak akan dihitung." : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
-        {/* Simulation layout */}
-        <div className="grid items-start gap-5 lg:grid-cols-[1fr_280px]">
-          {/* Phone simulation */}
+        <LevelMap
+          scenarios={scenarios}
+          currentIndex={currentIndex}
+          completedIds={completedIds}
+          tutorialName="levels"
+        />
+
+        <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
           <section
             ref={scenarioRef}
-            className="min-w-0 scroll-mt-24"
+            className="min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--card)] shadow-sm"
           >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
-                Simulasi panggilan
-              </p>
+            <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 md:px-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-[10px] font-extrabold tracking-[0.16em] text-[var(--brand)]">
+                  LEVEL {currentIndex + 1} DARI {totalCount}
+                </span>
 
-              <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
-                Skenario {currentIndex + 1} / {totalScenarios}
-              </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {currentScenario.difficulty && (
+                    <span
+                      className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${DIFFICULTY_STYLES[currentScenario.difficulty]}`}
+                    >
+                      {currentScenario.difficulty}
+                    </span>
+                  )}
+
+                  {dialogue.ending && currentScenario.topic && (
+                    <span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[10px] font-bold text-[var(--brand)]">
+                      Modus: {currentScenario.topic}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <h2 className="mt-3 text-xl font-extrabold leading-snug text-[var(--foreground)] md:text-2xl">
+                {currentScenario.title}
+              </h2>
+
+              {currentScenario.description && (
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                  {currentScenario.description}
+                </p>
+              )}
             </div>
 
-            <div className="mx-auto w-full max-w-[390px] rounded-[2.8rem] border-[7px] border-[#263247] bg-[#263247] p-2 shadow-xl">
-              {/* Phone notch */}
-              <div className="relative z-20 mx-auto -mb-3 h-6 w-28 rounded-b-2xl bg-[#263247]" />
-
-              {/* Phone screen */}
+            <div className="p-4 md:p-6">
+              {/* iPhone Mockup */}
               <div
-                ref={phoneScreenRef}
-                className="relative max-h-[760px] min-h-[650px] overflow-y-auto rounded-[2.2rem] bg-[var(--card)] text-[var(--foreground)]"
+                className="relative mx-auto w-full min-w-0 max-w-[390px]"
+                aria-label="Simulasi panggilan telepon pada perangkat iPhone"
               >
-                {/* Status bar */}
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card)]/95 px-6 pb-3 pt-4 text-[10px] font-semibold text-[var(--muted)] backdrop-blur">
-                  <span>09:41</span>
+                {/* iPhone Side Buttons */}
+                <div className="absolute -left-[7px] top-[18%] z-0 h-5 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
+                <div className="absolute -left-[7px] top-[25%] z-0 h-8 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
+                <div className="absolute -left-[7px] top-[34%] z-0 h-8 w-[4px] rounded-l-md bg-[#64748b] shadow-sm" />
+                <div className="absolute -right-[7px] top-[27%] z-0 h-14 w-[4px] rounded-r-md bg-[#64748b] shadow-sm" />
 
-                  <div className="flex items-center gap-1.5">
-                    <Volume2 size={12} />
-                    <span className="h-2 w-5 rounded-sm border border-[var(--muted)]">
-                      <span className="block h-full w-3/4 rounded-sm bg-[var(--muted)]" />
-                    </span>
+                {/* iPhone Frame */}
+                <div className="relative z-10 rounded-[38px] border-[5px] border-[#26364d] bg-[#26364d] p-[4px] shadow-[0_25px_65px_rgba(36,87,166,0.18)] sm:rounded-[43px] sm:border-[6px] sm:p-[5px]">
+                  <div className="relative overflow-hidden rounded-[30px] bg-white sm:rounded-[35px]">
+
+                    {/* Status Bar */}
+                    <div className="relative flex h-10 items-center justify-between bg-white px-5 pt-1 text-[#202124]">
+                      <span className="text-[10px] font-bold">9:41</span>
+
+                      <div className="absolute left-1/2 top-2 h-[19px] w-[75px] -translate-x-1/2 rounded-full bg-[#111827] sm:w-[80px]" />
+
+                      <div className="flex items-center gap-1.5">
+                        <Signal size={12} />
+                        <Wifi size={12} />
+                        <BatteryFull size={14} />
+                      </div>
+                    </div>
+
+                    {!answered ? (
+                      /* ==========================================
+                        INCOMING CALL
+                      ========================================== */
+                      <div className="relative flex min-h-[560px] flex-col items-center justify-between overflow-hidden bg-gradient-to-b from-[#f8fafc] via-white to-[#eef2f7] px-5 py-8 text-center text-[#202124] sm:min-h-[620px] sm:px-7 sm:py-10">
+
+                        {/* Incoming Header */}
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-center gap-2 text-[#8a8f98]">
+                            <PhoneIncoming size={13} />
+                            <p className="text-[11px] font-semibold tracking-wide">
+                              Panggilan Masuk
+                            </p>
+                          </div>
+
+                          <h3 className="mt-7 text-2xl font-semibold tracking-tight">
+                            {sender?.name ?? "Tidak Dikenal"}
+                          </h3>
+
+                          <p className="mt-2 text-xs text-[#8a8f98]">
+                            {sender?.status ?? "Nomor tidak dikenal"}
+                          </p>
+                        </div>
+
+                        {/* Caller Avatar */}
+                        <div className="relative z-10 flex flex-col items-center">
+                          <div className="relative flex size-32 items-center justify-center rounded-full border border-[#e5e7eb] bg-white shadow-lg shadow-black/5">
+                            <UserRound
+                              size={58}
+                              strokeWidth={1.3}
+                              className="text-[#64748b]"
+                            />
+                          </div>
+
+                          <p className="mt-5 text-[10px] font-medium tracking-wider text-[#a1a1aa]">
+                            PANGGILAN SIMULASI
+                          </p>
+                        </div>
+
+                        {/* Incoming Call Actions */}
+                        <div className="relative z-10 w-full">
+                          <div className="mb-8 flex items-center justify-center gap-2 text-[10px] text-[#9298a2]">
+                            <PhoneIncoming size={13} />
+                            Kamu sedang menerima panggilan dari nomor tidak dikenal.
+                          </div>
+
+                          <button
+                            type="button"
+                            data-tutorial="answer"
+                            onClick={() => setAnswered(true)}
+                            className="mx-auto flex w-full max-w-[230px] items-center justify-center gap-3 rounded-full bg-[#22c55e] py-4 text-sm font-bold text-white shadow-lg shadow-green-900/10 transition hover:bg-[#16a34a] active:scale-95"
+                          >
+                            <PhoneCall size={19} />
+                            Angkat Panggilan
+                          </button>
+
+                          <p className="mt-5 text-[10px] leading-relaxed text-[#a1a1aa]">
+                            Menolak panggilan dari nomor asing juga merupakan pilihan
+                            yang aman. Dalam simulasi ini, kamu berlatih jika sudah
+                            terlanjur mengangkatnya.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ==========================================
+                        ACTIVE CALL
+                      ========================================== */
+                      <div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-white to-slate-50">
+
+                        {/* Call Information */}
+                        <div className="shrink-0 px-4 pt-5 pb-3 sm:px-6">
+                          <div className="flex items-center justify-center gap-2 text-[#16a34a]">
+                            <span className="size-1.5 animate-pulse rounded-full bg-[#22c55e]" />
+                            <span className="text-[10px] font-semibold tracking-wide">
+                              {dialogue.phase === "ended"
+                                ? "Panggilan Berakhir"
+                                : "Panggilan Berlangsung"}
+                            </span>
+                          </div>
+
+                          <h3 className="mt-3 truncate text-xl font-semibold">
+                            {sender?.name ?? "Tidak Dikenal"}
+                          </h3>
+
+                          <p className="mt-1 text-[10px] text-[#9298a2]">
+                            {sender?.status ?? "Nomor tidak dikenal"}
+                          </p>
+                        </div>
+
+                        {/* Caller Avatar */}
+                        <div className="flex shrink-0 flex-col items-center py-4">
+                          <div className="flex size-[92px] items-center justify-center rounded-full border border-[#e5e7eb] bg-white shadow-md shadow-black/5">
+                            <UserRound
+                              size={43}
+                              strokeWidth={1.3}
+                              className="text-[#64748b]"
+                            />
+                          </div>
+
+                          <p className="mt-3 text-[9px] font-medium tracking-[0.18em] text-[#a1a1aa]">
+                            {dialogue.typing
+                              ? "PENELEPON SEDANG BICARA"
+                              : dialogue.phase === "ended"
+                                ? "SELESAI"
+                                : "TERHUBUNG"}
+                          </p>
+                        </div>
+
+                        {/* Call Controls */}
+                        <div className="mx-auto grid w-full max-w-[290px] grid-cols-3 gap-x-5 gap-y-4 px-5 py-3">
+                          {[
+                            { icon: Mic, label: "Bisukan" },
+                            { icon: Grid3X3, label: "Keypad" },
+                            { icon: Volume2, label: "Speaker" },
+                            { icon: UserPlus, label: "Tambah" },
+                            { icon: Pause, label: "Tahan" },
+                            { icon: Video, label: "FaceTime" },
+                          ].map(({ icon: Icon, label }) => (
+                            <div
+                              key={label}
+                              className="flex flex-col items-center gap-1.5"
+                            >
+                              <div className="flex size-[48px] items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[#475569] shadow-sm">
+                                <Icon size={19} strokeWidth={1.7} />
+                              </div>
+
+                              <span className="text-[9px] font-medium text-[#8a8f98]">
+                                {label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Call Transcript */}
+                        <div
+                          ref={chatRef}
+                          data-tutorial="chat"
+                          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6"
+                        >
+                          <div className="mx-auto mb-2 w-fit rounded-lg bg-[#fff3c4] px-3 py-1.5 text-center text-[9px] leading-relaxed text-[#766b4f]">
+                            Transkrip percakapan simulasi.
+                            <br />
+                            Ucapan ditampilkan dalam bentuk teks.
+                          </div>
+
+                          {dialogue.thread.map((bubble) => (
+                            <div
+                              key={bubble.id}
+                              className={`flex ${
+                                bubble.from === "them" ? "justify-start" : "justify-end"
+                              }`}
+                            >
+                              <div
+                                className={`max-w-[90%] rounded-xl m-1 px-3 py-2 ${
+                                  bubble.from === "them"
+                                    ? "rounded-tl-sm border border-[#e5e7eb] bg-white shadow-sm"
+                                    : "rounded-tr-sm bg-[#dbeafe]"
+                                }`}
+                              >
+                                <p
+                                  className={`mb-1 text-[9px] font-bold ${
+                                    bubble.from === "them"
+                                      ? "text-[#64748b]"
+                                      : "text-[#2563eb]"
+                                  }`}
+                                >
+                                  {bubble.from === "them"
+                                    ? sender?.name ?? "Penelepon"
+                                    : "Kamu"}
+                                </p>
+
+                                <p className="whitespace-pre-line text-[11px] leading-relaxed text-[#303030]">
+                                  {bubble.text}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+
+                          {dialogue.typing && (
+                            <div className="flex justify-start">
+                              <div className="flex items-center gap-1 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
+                                <span className="size-1.5 animate-pulse rounded-full bg-[#999]" />
+                                <span className="size-1.5 animate-pulse rounded-full bg-[#999] [animation-delay:150ms]" />
+                                <span className="size-1.5 animate-pulse rounded-full bg-[#999] [animation-delay:300ms]" />
+                              </div>
+                            </div>
+                          )}
+
+                          {dialogue.phase === "ended" && (
+                            <p className="mx-auto mt-3 w-fit rounded-lg bg-[#e5e7eb] px-3 py-1.5 text-[9px] text-[#64748b]">
+                              Percakapan telah selesai.
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Dialogue Choices */}
+                        {dialogue.phase === "choosing" && (
+                          <div
+                            data-tutorial="choices"
+                            className="shrink-0 border-t border-slate-200 bg-white p-3 sm:p-4"
+                          >
+                            <p className="mb-3 text-sm font-semibold text-slate-700">
+                              Apa yang akan kamu katakan?
+                            </p>
+
+                            <div className="flex max-h-[180px] flex-col gap-2 overflow-y-auto overscroll-contain">
+                              {dialogue.options.map((option) => (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => dialogue.pick(option)}
+                                  disabled={waiting}
+                                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-medium leading-relaxed text-slate-700 transition hover:border-green-500 hover:bg-green-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
+                                >
+                                  <span className="text-xs">{option.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* iPhone Home Indicator */}
+                    <div className="flex justify-center bg-white pb-2.5 pt-2">
+                      <div className="h-1 w-20 rounded-full bg-[#26364d]" />
+                    </div>
                   </div>
                 </div>
-
-                {/* Incoming call */}
-                {callState === "ringing" && !selectedChoice && (
-                  <div className="flex min-h-[610px] flex-col items-center px-5 pb-8 pt-12 text-center">
-                    <span className="mb-3 text-[10px] font-bold tracking-[0.2em] text-[var(--warning)]">
-                      PANGGILAN MASUK
-                    </span>
-
-                    <span className="mb-10 inline-flex items-center gap-1.5 rounded-full border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-3 py-1.5 text-[10px] font-semibold text-[var(--warning)]">
-                      <span className="size-1.5 animate-pulse rounded-full bg-[var(--warning)]" />
-                      SIMULASI PANGGILAN MENCURIGAKAN
-                    </span>
-
-                    <div className="relative mb-7">
-                      <div className="absolute inset-0 animate-ping rounded-full bg-[var(--brand-soft)]" />
-
-                      <div className="relative flex size-28 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] shadow-sm">
-                        <UserRound size={48} className="text-[var(--muted)]" />
-                      </div>
-
-                      <span className="absolute bottom-1 right-1 flex size-7 items-center justify-center rounded-full border-4 border-[var(--card)] bg-[var(--warning)] text-white">
-                        <Phone size={12} />
-                      </span>
-                    </div>
-
-                    <h2 className="text-2xl font-bold text-[var(--foreground)]">
-                      Nomor Tidak Dikenal
-                    </h2>
-
-                    <p className="mt-2 text-sm text-[var(--muted)]">
-                      {callerNumber}
-                    </p>
-
-                    <div className="mt-7 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-                      <p className="text-xs leading-5 text-[var(--muted)]">
-                        Seseorang sedang mencoba menghubungimu. Apakah kamu
-                        akan menjawab panggilan ini?
-                      </p>
-                    </div>
-
-                    <div className="mt-auto grid w-full grid-cols-2 gap-8 pt-8">
-                        <button
-                            type="button"
-                            onClick={handleDeclineCall}
-                            className="group flex flex-col items-center gap-2.5"
-                        >
-                            <span className="flex size-14 items-center justify-center rounded-full bg-[var(--danger)] text-white shadow-lg transition group-hover:scale-105">
-                            <PhoneOff size={23} />
-                            </span>
-
-                            <span className="text-xs font-semibold text-[#17233b]">
-                            Tolak
-                            </span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={handleAnswerCall}
-                            className="group flex flex-col items-center gap-2.5"
-                        >
-                            <span className="flex size-14 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-lg transition group-hover:scale-105">
-                            <Phone size={23} />
-                            </span>
-
-                            <span className="text-xs font-semibold text-[#17233b]">
-                            Jawab
-                            </span>
-                        </button>
-                    </div>
-
-                    <p className="mt-8 text-[10px] text-[var(--muted)]">
-                      Tidak ada panggilan sungguhan yang dilakukan.
-                    </p>
-                  </div>
-                )}
-
-                {/* Active call */}
-                {callState === "talking" && !selectedChoice && (
-                  <div className="flex min-h-[490px] flex-col px-4 pb-4 pt-5">
-                    <div className="flex flex-col items-center border-b border-[#e6eaf0] pb-3 text-center">
-                        <div className="mb-2 flex size-11 items-center justify-center rounded-full bg-[#eaf1fc]">
-                            <UserRound size={23} className="text-[var(--brand)]" />
-                        </div>
-
-                        <h2 className="text-sm font-bold text-[#17233b]">
-                            Nomor Tidak Dikenal
-                        </h2>
-
-                        <p className="mt-0.5 text-[11px] text-[#667085]">
-                            {callerNumber}
-                        </p>
-
-                        <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#e9f7ef] px-3 py-1 text-[9px] font-semibold text-[#26a269]">
-                            <span className="size-1.5 rounded-full bg-[#26a269]" />
-                            PANGGILAN SIMULASI
-                        </span>
-                    </div>
-
-                    {/* Caller dialogue */}
-                    <div className="py-4">
-                        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#667085]">
-                            <Volume2 size={12} />
-                            Suara penelepon
-                        </div>
-
-                        <div className="rounded-2xl rounded-tl-sm border border-[#e6eaf0] bg-white p-3.5">
-                            <div className="max-h-[105px] overflow-y-auto overscroll-contain">
-                            <p className="whitespace-pre-line text-xs leading-6 text-[#17233b]">
-                                {currentScenario.context}
-                            </p>
-                            </div>
-
-                            <p className="mt-2 text-right text-[9px] text-[#98a2b3]">
-                            Penelepon · Simulasi
-                            </p>
-                        </div>
-
-                        <div className="mt-2 flex items-start gap-2 rounded-xl bg-[#fff7e8] px-3 py-2.5">
-                            <AlertTriangle
-                            size={13}
-                            className="mt-0.5 shrink-0 text-[#e9a23b]"
-                            />
-
-                            <p className="text-[10px] leading-4 text-[#667085]">
-                            Jangan terburu-buru mengikuti instruksi. Kamu berhak
-                            menghentikan panggilan kapan saja.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* User decisions */}
-                    <div className="mt-auto border-t border-[#e6eaf0] pt-3">
-                        <h3 className="text-xs font-extrabold text-[#17233b]">
-                            Bagaimana kamu merespons?
-                        </h3>
-
-                        <p className="mb-2 mt-1 text-[10px] text-[#667085]">
-                            Pilih tindakan yang akan kamu lakukan.
-                        </p>
-
-                        <div className="space-y-2">
-                            {currentScenario.choices.map((choice, index) => (
-                            <button
-                                key={choice.id}
-                                type="button"
-                                onClick={() => handleChoice(choice.id)}
-                                disabled={!!selectedChoice}
-                                className="group flex w-full items-center gap-2.5 rounded-xl border border-[#e6eaf0] bg-white p-2.5 text-left transition hover:border-[#2457a6] hover:bg-[#eaf1fc]"
-                            >
-                                <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#f5f8fc] text-[10px] font-bold text-[#667085] group-hover:bg-white group-hover:text-[#2457a6]">
-                                {String.fromCharCode(65 + index)}
-                                </span>
-
-                                <span className="min-w-0 flex-1 text-[11px] font-medium leading-5 text-[#17233b]">
-                                {choice.label}
-                                </span>
-
-                                <ArrowRight
-                                size={13}
-                                className="shrink-0 text-[#98a2b3] group-hover:text-[#2457a6]"
-                                />
-                            </button>
-                            ))}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleDeclineCall}
-                            className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#dc5555]/10 py-2.5 text-[11px] font-bold text-[#dc5555] transition hover:bg-[#dc5555]/15"
-                        >
-                            <PhoneOff size={13} />
-                            Akhiri Panggilan
-                        </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Answer feedback */}
-                {selectedChoice && (
-                  <div className="flex min-h-[490px] flex-col px-4 py-5">
-                    <div className="flex flex-1 flex-col items-center justify-center text-center">
-                        <div
-                            className={`mb-3 flex size-16 items-center justify-center rounded-2xl ${
-                            isSafeAnswer
-                                ? "bg-[#e9f7ef] text-[#26a269]"
-                                : "bg-[#dc5555]/10 text-[#dc5555]"
-                            }`}
-                        >
-                            {isSafeAnswer ? (
-                            <ShieldCheck size={30} />
-                            ) : (
-                            <AlertTriangle size={30} />
-                            )}
-                        </div>
-
-                            <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-[#98a2b3]">
-                                PANGGILAN BERAKHIR
-                            </p>
-
-                            <h2 className="mt-2 text-lg font-extrabold text-[#17233b]">
-                                {isDeclined
-                                ? "Panggilan berhasil ditolak."
-                                : selectedAnswer?.isSafe
-                                    ? "Respons yang lebih aman!"
-                                    : "Kamu perlu lebih berhati-hati."}
-                            </h2>
-
-                            <p className="mt-2 max-w-[270px] text-[11px] leading-5 text-[#667085]">
-                                {isDeclined
-                                ? "Kamu memilih untuk tidak meladeni nomor yang tidak dikenal."
-                                : selectedAnswer?.feedback}
-                            </p>
-
-                            <div
-                                className={`mt-4 w-full rounded-xl border p-3 text-left ${
-                                isSafeAnswer
-                                    ? "border-[#26a269]/25 bg-[#e9f7ef]"
-                                    : "border-[#e9a23b]/30 bg-[#e9a23b]/10"
-                                }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                {isSafeAnswer ? (
-                                    <CheckCircle2 size={14} className="text-[#26a269]" />
-                                ) : (
-                                    <Info size={14} className="text-[#e9a23b]" />
-                                )}
-
-                                <p className="text-[11px] font-bold text-[#17233b]">
-                                    {isSafeAnswer
-                                    ? "Keputusan yang lebih aman"
-                                    : "Hal yang perlu diperhatikan"}
-                                </p>
-                                </div>
-
-                                <p className="mt-1.5 text-[10px] leading-4 text-[#667085]">
-                                {isDeclined
-                                    ? "Kamu tidak memberikan informasi apa pun kepada penelepon."
-                                    : selectedAnswer?.isSafe
-                                    ? "Kamu berhasil mengambil keputusan yang lebih aman."
-                                    : "Pelajari kembali tanda manipulasi yang digunakan penelepon."}
-                                </p>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() => setShowLearningModal(true)}
-                                className="button button-secondary mt-3 w-full text-xs"
-                            >
-                                <Lightbulb size={14} />
-                                Pelajari alasan & tindakan aman
-                            </button>
-                            </div>
-
-                            <div className="mt-4 border-t border-[#e6eaf0] pt-3">
-                            <button
-                                type="button"
-                                onClick={handleNext}
-                                disabled={isSavingReward}
-                                className="button button-primary w-full text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {isSavingReward
-                                ? "Menyimpan progres..."
-                                : currentIndex === totalScenarios - 1
-                                    ? "Lihat hasil simulasi"
-                                    : "Lanjut ke skenario berikutnya"}
-
-                                {!isSavingReward && <ArrowRight size={15} />}
-                            </button>
-
-                            <p className="mt-2 text-center text-[9px] text-[#98a2b3]">
-                                CEKIN · Scam Call Simulation
-                            </p>
-                        </div>
-                  </div>
-                )}
               </div>
+
+              {answered && <DialogueNotes flags={dialogue.flags} />}
+
+              {dialogue.ending && (
+                <DialogueResult
+                  ending={dialogue.ending}
+                  takeaway={currentScenario.takeaway}
+                  levelNumber={currentIndex + 1}
+                  levelXp={currentLevelXp}
+                  isLastLevel={isLastLevel}
+                  isSaving={isSavingReward}
+                  onNext={handleNext}
+                  onRetry={retryLevel}
+                />
+              )}
             </div>
           </section>
 
-          {/* Learning side panel */}
           <aside className="space-y-4">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
                 <Sparkles size={20} />
               </div>
 
-              <h3 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">
-                Misi kamu
-              </h3>
+              <h3 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">Misi kamu</h3>
 
               <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                Latih kemampuan mengenali penyamaran identitas, tekanan,
-                dan permintaan informasi pribadi melalui telepon.
+                Bertahan sampai panggilan berakhir, dan akhiri dengan benar. Penelepon penipu tidak
+                menyerah setelah satu penolakan.
               </p>
             </div>
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="flex items-center gap-2">
-                <ShieldCheck size={17} className="text-[var(--accent)]" />
+                <ShieldAlert size={17} className="text-[var(--warning)]" />
                 <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                  Ingat ini
+                  Tanda yang perlu diwaspadai
                 </h3>
               </div>
 
-              <ul className="mt-3 space-y-3 text-xs leading-relaxed text-[var(--muted)]">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2
-                    size={14}
-                    className="mt-0.5 shrink-0 text-[var(--accent)]"
-                  />
-                  Jangan berikan OTP, PIN, atau password.
-                </li>
-
-                <li className="flex items-start gap-2">
-                  <CheckCircle2
-                    size={14}
-                    className="mt-0.5 shrink-0 text-[var(--accent)]"
-                  />
-                  Jangan langsung percaya pada pengakuan penelepon.
-                </li>
-
-                <li className="flex items-start gap-2">
-                  <CheckCircle2
-                    size={14}
-                    className="mt-0.5 shrink-0 text-[var(--accent)]"
-                  />
-                  Verifikasi melalui nomor resmi yang kamu cari sendiri.
-                </li>
+              <ul className="mt-3 space-y-3">
+                {[
+                  "Mengancam: blokir, denda, penangkapan, atau listrik diputus.",
+                  "Meminta OTP, PIN, atau pemasangan aplikasi.",
+                  "Menyuruhmu tetap di telepon dan merahasiakannya.",
+                  "Menyebut datamu dengan benar sebagai “bukti”.",
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted)]"
+                  >
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0 text-[var(--warning)]" />
+                    {item}
+                  </li>
+                ))}
               </ul>
             </div>
 
-            <div className="rounded-2xl bg-[var(--brand-dark)] p-5 text-white">
-              <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">
-                PROGRESS
-              </p>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={17} className="text-[var(--accent)]" />
+                <h3 className="text-sm font-extrabold text-[var(--foreground)]">Prinsip aman</h3>
+              </div>
 
-              <p className="mt-2 text-3xl font-extrabold">
-                {Math.round(progress)}%
+              <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+                Tutup telepon, lalu hubungi lembaga itu lewat aplikasi atau nomor resmi yang kamu
+                cari sendiri.
               </p>
+            </div>
+
+            <div className="rounded-2xl bg-[var(--brand-dark)] p-5 text-white">
+              <p className="text-[10px] font-extrabold tracking-[0.15em] text-white/60">PROGRESS</p>
+              <p className="mt-2 text-3xl font-extrabold">{Math.round(progress)}%</p>
 
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20">
                 <div
@@ -858,161 +917,33 @@ export function SpamCallSimulation({ simulation }: Props) {
               </div>
 
               <p className="mt-3 text-xs text-white/70">
-                Satu langkah lebih waspada.
+                {completedIds.length} dari {totalCount} level telah kamu selesaikan.
+              </p>
+
+              <p className="mt-3 border-t border-white/15 pt-3 text-[11px] leading-relaxed text-white/60">
+                Potensi XP {potentialXp}/{SPAM_CALL_MAX_XP}. Setiap langkah keliru mengurangi XP level
+                itu. Selesaikan Level {totalCount} untuk bonus {SPAM_CALL_MASTER_BONUS} XP dan
+                lencana Call Shield.
               </p>
             </div>
           </aside>
         </div>
-
-        <p className="mt-8 text-center text-xs leading-6 text-[var(--muted)]">
-          CEKIN Learning & Protection · Semua nomor dan percakapan merupakan
-          simulasi fiktif.
-        </p>
       </div>
 
-      {/* Learning modal */}
-      {showLearningModal && selectedChoice && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowLearningModal(false);
-            }
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="call-learning-title"
-            className="w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
-          >
-            <div className="relative overflow-hidden bg-[var(--brand-dark)] p-6 text-white">
-              <button
-                type="button"
-                onClick={() => setShowLearningModal(false)}
-                aria-label="Tutup penjelasan"
-                className="absolute right-5 top-5 flex size-9 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
-              >
-                <X size={18} />
-              </button>
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
 
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15">
-                <Brain size={24} />
-              </div>
-
-              <p className="mt-5 text-[10px] font-extrabold tracking-[0.18em] text-white/60">
-                PELAJARI SITUASINYA
-              </p>
-
-              <h2
-                id="call-learning-title"
-                className="mt-2 pr-8 text-2xl font-extrabold"
-              >
-                {isDeclined
-                  ? "Mengapa menolak panggilan bisa menjadi pilihan aman?"
-                  : "Pahami risiko dari responsmu."}
-              </h2>
-
-              <p className="mt-2 text-xs leading-relaxed text-white/70">
-                {currentScenario.title}
-              </p>
-            </div>
-
-            <div className="max-h-[60vh] space-y-4 overflow-y-auto p-6">
-              {!isDeclined && selectedAnswer && (
-                <div>
-                  <div className="flex items-center gap-2">
-                    {selectedAnswer.isSafe ? (
-                      <CheckCircle2
-                        size={18}
-                        className="text-[var(--accent)]"
-                      />
-                    ) : (
-                      <AlertTriangle
-                        size={18}
-                        className="text-[var(--warning)]"
-                      />
-                    )}
-
-                    <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                      Mengapa respons ini penting?
-                    </h3>
-                  </div>
-
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    {selectedAnswer.explanation}
-                  </p>
-                </div>
-              )}
-
-              {isDeclined && (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck
-                      size={18}
-                      className="text-[var(--accent)]"
-                    />
-                    <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                      Mengapa menolak bisa membantu?
-                    </h3>
-                  </div>
-
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    Menolak panggilan dari nomor yang tidak dikenal dapat
-                    mengurangi kesempatan pelaku untuk menekan atau
-                    memanipulasimu. Namun, nomor tidak dikenal tidak selalu
-                    berarti penipuan. Jika panggilan tersebut penting, kamu
-                    dapat memeriksa identitas penelepon melalui kanal resmi.
-                  </p>
-                </div>
-              )}
-
-              <div className="rounded-2xl border border-[var(--accent)]/25 bg-[var(--accent-soft)] p-4">
-                <div className="flex items-center gap-2">
-                  <Lightbulb
-                    size={17}
-                    className="text-[var(--accent)]"
-                  />
-                  <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                    Tindakan yang lebih aman
-                  </h3>
-                </div>
-
-                <p className="mt-2 text-sm leading-relaxed text-[var(--foreground)]">
-                  {isDeclined
-                    ? "Jika penelepon mengaku dari bank, instansi, atau layanan tertentu, cari sendiri nomor kontak resminya. Hubungi mereka untuk memastikan kebenaran informasi."
-                    : selectedAnswer?.saferAction}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-[var(--border)] p-4">
-                <div className="flex items-center gap-2">
-                  <Info size={17} className="text-[var(--brand)]" />
-                  <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                    Pastikan
-                  </h3>
-                </div>
-
-                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                  Jangan pernah membagikan OTP, PIN, password, atau kode
-                  verifikasi kepada penelepon. Akhiri panggilan jika merasa
-                  tertekan, lalu lakukan verifikasi secara mandiri.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowLearningModal(false)}
-                className="button button-primary w-full"
-              >
-                Mengerti
-                <Check size={16} />
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      <SpamCallTutorial
+        active={tutorialActive}
+        answered={answered}
+        answerCount={dialogue.path.length}
+        ended={dialogue.phase === "ended"}
+        onClose={closeTutorial}
+      />
     </main>
   );
 }

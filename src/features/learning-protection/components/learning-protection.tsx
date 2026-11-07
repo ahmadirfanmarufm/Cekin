@@ -20,6 +20,7 @@ import {
   Trophy,
   Zap,
   UserRound,
+  CircleStar,
 } from "lucide-react";
 
 import { getLevelInfo } from "@/features/auth/utils/level";
@@ -277,8 +278,8 @@ export function LearningProtection() {
                       TOTAL XP
                     </p>
 
-                    <p className="mt-1 flex items-center gap-1 text-xl font-extrabold text-[#2457a6]">
-                      <Zap size={17} />
+                    <p className="mt-1 flex items-center gap-1 text-xl font-extrabold text-[var(--warning)]">
+                      <CircleStar size={17} />
                       {user.totalXp}
                     </p>
                   </div>

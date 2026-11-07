@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+import Image from "next/image";
 
 const footerNavigation = [
   {
@@ -30,9 +31,15 @@ export function SiteFooter() {
               href="/"
               className="inline-flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
-              <span className="grid size-[46px] shrink-0 place-items-center rounded-[13px] bg-white text-[#2457a6]">
-                <ShieldCheck size={23} />
-              </span>
+              <Image
+                src="/logo_cekin_white.webp"
+                alt="CEKIN"
+                width={140}
+                height={40}
+                priority
+                className="h-13 w-auto"
+              />
+              
 
               <span className="flex flex-col gap-1">
                 <strong className="text-lg font-extrabold tracking-tight text-white">
@@ -40,7 +47,7 @@ export function SiteFooter() {
                 </strong>
 
                 <small className="text-[10px] font-medium text-[#b9c5d6]">
-                  Jangan langsung percaya, sebelum diCekin!
+                  Jangan asal percaya, sebelum dicekin!
                 </small>
               </span>
             </Link>

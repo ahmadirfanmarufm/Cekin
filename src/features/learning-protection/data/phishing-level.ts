@@ -1,0 +1,603 @@
+import type {
+  EmailScenarioData,
+  SimulationScenario,
+} from "@/types/learning-protection/index";
+
+function defineEmail(
+  scenario: Omit<SimulationScenario, "context"> & { emailDetails: EmailScenarioData },
+): SimulationScenario {
+  return { ...scenario, context: scenario.emailDetails.body.join("\n\n") };
+}
+
+export const phishingScenarios: SimulationScenario[] = [
+  /* ===== LEVEL 1 ===== */
+  defineEmail({
+    id: "phishing-1",
+    level: 1,
+    difficulty: "Mudah",
+    topic: "Pencurian kata sandi",
+    title: "Akun Akan Dinonaktifkan",
+    description: "Email mendadak mengancam akunmu akan diblokir.",
+    emailDetails: {
+      senderName: "Layanan Keamanan Akun",
+      senderEmail: "security-alert@akun-verifikasi-layanan.example",
+      subject: "Akun Anda Akan Dinonaktifkan dalam 30 Menit!",
+      body: [
+        "Kepada Pelanggan,",
+        "Kami mendeteksi aktivitas mencurigakan pada akun Anda. Segera verifikasi melalui tombol di bawah dalam 30 menit atau akun akan DIBLOKIR permanen.",
+      ],
+      links: [{ text: "Verifikasi Akun Sekarang", url: "http://akun-verifikasi-layanan.example/login" }],
+      checks: [
+        { label: "Sapaan", value: "“Kepada Pelanggan”, tidak menyebut namamu", suspicious: true },
+        { label: "Protokol tautan", value: "http:// (tidak terenkripsi)", suspicious: true },
+        { label: "Tekanan waktu", value: "Ancaman blokir dalam 30 menit", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Klik tombol lalu masukkan email dan kata sandi agar akun selamat.",
+        isSafe: false,
+        feedback: "Kamu baru saja menyerahkan kata sandimu ke penipu.",
+        explanation: "Halaman tujuannya palsu dan dirancang untuk menyalin kredensialmu.",
+        saferAction: "Jangan klik. Buka situs atau aplikasi resmi yang kamu ketik sendiri.",
+      },
+      {
+        id: "b",
+        label: "Membalas email untuk menanyakan apakah benar akunmu bermasalah.",
+        isSafe: false,
+        feedback: "Membalas membuktikan alamat emailmu aktif.",
+        explanation: "Balasan hanya sampai ke penipu, yang akan menjawab dengan meyakinkan.",
+        saferAction: "Jangan membalas. Cek status akun lewat kanal resmi.",
+      },
+      {
+        id: "c",
+        label: "Tidak klik apa pun, buka aplikasi atau situs resmi yang diketik sendiri untuk cek status akun, lalu laporkan email sebagai phishing.",
+        isSafe: true,
+        feedback: "Tepat! Kamu memeriksa lewat jalur yang kamu pilih sendiri.",
+        explanation: "Peringatan akun asli selalu bisa dilihat di dalam aplikasi atau situs resminya.",
+        saferAction: "Gunakan tombol “Laporkan phishing” di aplikasi emailmu, lalu hapus emailnya.",
+      },
+      {
+        id: "d",
+        label: "Klik tautan hanya untuk melihat, tanpa memasukkan apa pun.",
+        isSafe: false,
+        feedback: "Risikonya sudah dimulai saat tautan dibuka.",
+        explanation: "Halaman berbahaya bisa melacak perangkatmu atau memicu unduhan.",
+        saferAction: "Jangan buka tautan dari email yang mencurigakan, bahkan untuk sekadar melihat.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 2 ===== */
+  defineEmail({
+    id: "phishing-2",
+    level: 2,
+    difficulty: "Mudah",
+    topic: "Hadiah palsu",
+    title: "Kamu Menang Undian!",
+    description: "Email menyatakan kamu memenangkan hadiah yang tidak pernah kamu ikuti.",
+    emailDetails: {
+      senderName: "Reward Center",
+      senderEmail: "winner@undian-hadiah-nasional.example",
+      subject: "SELAMAT! Anda Terpilih Memenangkan Smartphone Terbaru",
+      body: [
+        "Alamat email Anda terpilih dalam undian tahunan tanpa perlu mendaftar.",
+        "Untuk mengirim hadiah, isi data diri lengkap dan bayar ongkos kirim Rp49.000 lewat tombol di bawah. Hadiah hangus dalam 24 jam.",
+      ],
+      links: [{ text: "KLAIM HADIAH", url: "https://klaim-hadiah-nasional.example/form" }],
+      checks: [
+        { label: "Pendaftaran undian", value: "Kamu tidak pernah ikut undian apa pun", suspicious: true },
+        { label: "Biaya", value: "Hadiah “gratis” tetapi minta pembayaran", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Mengisi data diri dan membayar ongkos kirim Rp49.000.",
+        isSafe: false,
+        feedback: "Kamu kehilangan uang dan data sekaligus.",
+        explanation: "Biaya kecil dipakai untuk menarik data kartu atau rekeningmu.",
+        saferAction: "Jangan bayar apa pun untuk menerima hadiah.",
+      },
+      {
+        id: "b",
+        label: "Mengisi data diri saja, tetapi tidak membayar.",
+        isSafe: false,
+        feedback: "Data pribadimu tetap terkumpul.",
+        explanation: "Nama, alamat, dan nomor ponsel dipakai untuk penipuan lanjutan.",
+        saferAction: "Jangan isi formulir dari email yang tidak kamu minta.",
+      },
+      {
+        id: "c",
+        label: "Mengecek di situs resmi penyelenggara yang kamu cari sendiri. Karena tidak ada undian itu, hapus dan laporkan emailnya.",
+        isSafe: true,
+        feedback: "Tepat! Hadiah yang tidak pernah kamu ikuti pasti palsu.",
+        explanation: "Undian sungguhan mengumumkan pemenang lewat kanal resmi, bukan email acak yang meminta uang.",
+        saferAction: "Laporkan sebagai phishing dan jangan membuka tautannya.",
+      },
+      {
+        id: "d",
+        label: "Meneruskan email ke teman agar mereka ikut mengklaim.",
+        isSafe: false,
+        feedback: "Kamu justru menyebarkan penipuan.",
+        explanation: "Temanmu bisa kehilangan uang karena percaya pada kamu.",
+        saferAction: "Jangan teruskan. Peringatkan teman bahwa itu penipuan.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 3 ===== */
+  defineEmail({
+    id: "phishing-3",
+    level: 3,
+    difficulty: "Mudah",
+    topic: "Lampiran berbahaya",
+    title: "Resi Paket Gagal Kirim",
+    description: "Email kurir meminta kamu membuka lampiran untuk melihat resi.",
+    emailDetails: {
+      senderName: "Kurir Ekspres",
+      senderEmail: "no-reply@resi-ekspres-kirim.example",
+      subject: "Paket Anda Gagal Dikirim: Lihat Resi",
+      body: ["Paket atas nama Anda gagal diantar. Unduh dan buka lampiran untuk melihat resi dan menjadwalkan ulang pengiriman."],
+      attachments: [{ name: "Resi_Paket_88213.pdf.exe", size: "2,1 MB" }],
+      checks: [
+        { label: "Ekstensi lampiran", value: ".pdf.exe: sebenarnya program, bukan PDF", suspicious: true },
+        { label: "Nomor resi", value: "Tidak ada nomor resi di isi email", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Membuka lampiran untuk melihat resinya.",
+        isSafe: false,
+        feedback: "Lampiran itu adalah program yang bisa menginfeksi perangkatmu.",
+        explanation: "File berakhiran .exe dijalankan sebagai program, bukan dibaca sebagai dokumen.",
+        saferAction: "Jangan buka lampiran dengan ekstensi ganda atau .exe.",
+      },
+      {
+        id: "b",
+        label: "Membuka lampiran, tetapi tidak menekan izin atau “Enable” apa pun.",
+        isSafe: false,
+        feedback: "Program berbahaya sering langsung bekerja saat dibuka.",
+        explanation: "Tidak semua file jahat meminta izin tambahan sebelum menjalankan kodenya.",
+        saferAction: "Jangan membuka lampirannya sama sekali.",
+      },
+      {
+        id: "c",
+        label: "Tidak membuka lampiran. Cek paket lewat aplikasi kurir dengan nomor resi dari pesananmu. Jika sedang tidak menunggu paket, hapus emailnya.",
+        isSafe: true,
+        feedback: "Tepat! Kamu memeriksa lewat kanal resmi.",
+        explanation: "Kurir sungguhan mencantumkan nomor resi dan tidak mengirim program sebagai resi.",
+        saferAction: "Laporkan emailnya sebagai phishing.",
+      },
+      {
+        id: "d",
+        label: "Mengunduh dulu, memindai dengan antivirus, lalu membukanya jika bersih.",
+        isSafe: false,
+        feedback: "Antivirus bukan jaminan.",
+        explanation: "Program baru sering belum dikenali antivirus. Lampiran yang tidak kamu minta tetap jangan dibuka.",
+        saferAction: "Hapus emailnya tanpa mengunduh lampiran.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 4 ===== */
+  defineEmail({
+    id: "phishing-4",
+    level: 4,
+    difficulty: "Menengah",
+    topic: "Domain mirip",
+    title: "Pesanan yang Tidak Pernah Kamu Buat",
+    description: "Email dari “marketplace” menyebut ada pesanan mahal atas namamu.",
+    emailDetails: {
+      senderName: "BelanjaKu Notifikasi",
+      senderEmail: "no-reply@belanjaku-id.example",
+      subject: "Pesanan #BK-77120 Senilai Rp4.299.000 Telah Dibayar",
+      body: [
+        "Terima kasih telah berbelanja! Pesanan 1 unit laptop gaming sudah dibayar dan segera dikirim ke alamat Anda.",
+        "Bukan Anda yang memesan? Batalkan dalam 1 jam dengan masuk ke akun Anda melalui tombol berikut.",
+      ],
+      links: [{ text: "Batalkan Pesanan", url: "https://belanjaku-id.example/batalkan" }],
+      checks: [
+        { label: "Domain pengirim", value: "belanjaku-id.example (domain resmi: belanjaku.example)", suspicious: true },
+        { label: "Sapaan", value: "Tidak menyebut namamu", suspicious: true },
+        { label: "Rincian pesanan", value: "Tanpa alamat atau metode bayar", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Klik “Batalkan Pesanan” dan login agar tidak ditagih.",
+        isSafe: false,
+        feedback: "Halaman login itu milik penipu.",
+        explanation: "Rasa panik karena nominal besar dipakai agar kamu tidak sempat memeriksa domain.",
+        saferAction: "Jangan klik. Buka aplikasi resmi sendiri untuk melihat riwayat pesanan.",
+      },
+      {
+        id: "b",
+        label: "Membalas email dan meminta refund segera.",
+        isSafe: false,
+        feedback: "Balasanmu hanya sampai ke penipu.",
+        explanation: "Tidak ada pesanan asli yang perlu di-refund.",
+        saferAction: "Jangan membalas. Periksa pesanan di aplikasi resmi.",
+      },
+      {
+        id: "c",
+        label: "Membuka aplikasi atau situs resmi BelanjaKu sendiri untuk cek riwayat pesanan. Jika tidak ada, abaikan dan laporkan emailnya.",
+        isSafe: true,
+        feedback: "Tepat! Domain mirip adalah trik klasik.",
+        explanation: "Satu huruf atau tambahan kata pada domain cukup untuk menipu mata yang terburu-buru.",
+        saferAction: "Jika ada transaksi tak dikenal di akun asli, segera ganti kata sandi dan hubungi layanan resmi.",
+      },
+      {
+        id: "d",
+        label: "Percaya karena logo dan tampilannya sama persis dengan aslinya.",
+        isSafe: false,
+        feedback: "Logo dan desain mudah disalin.",
+        explanation: "Penipu menyalin tampilan resmi, tetapi tidak bisa memakai domain resminya.",
+        saferAction: "Selalu periksa domain pengirim dan tujuan tautan.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 5 ===== */
+  defineEmail({
+    id: "phishing-5",
+    level: 5,
+    difficulty: "Menengah",
+    topic: "Berbagi dokumen palsu",
+    title: "Dokumen “Slip Gaji” dari Rekan Kantor",
+    description: "Nama rekan kerja yang kamu kenal membagikan dokumen penting.",
+    emailDetails: {
+      senderName: "Rina (Keuangan)",
+      senderEmail: "rina.keuangan@dokumen-bersama-kantor.example",
+      subject: "Rina membagikan “Slip_Gaji_Nov_2026” kepada Anda",
+      body: ["Rina membagikan sebuah dokumen dengan Anda. Masuk dengan akun kantor Anda untuk membukanya."],
+      links: [{ text: "Buka Dokumen", url: "https://masuk-dokumen-kantor.example/login?doc=slip" }],
+      checks: [
+        { label: "Alamat pengirim", value: "Domain luar, bukan domain kantor", suspicious: true },
+        { label: "Halaman tujuan", value: "Meminta kata sandi akun kantor, bukan membuka dokumen", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Klik “Buka Dokumen” dan login dengan akun kantor.",
+        isSafe: false,
+        feedback: "Akun kantormu bisa langsung diambil alih.",
+        explanation: "Penyerang memakai nama rekan yang kamu kenal agar kamu tidak curiga pada halaman loginnya.",
+        saferAction: "Jangan login lewat tautan email. Buka dokumen dari layanan kantor yang kamu akses sendiri.",
+      },
+      {
+        id: "b",
+        label: "Karena “Rina” dikenal, teruskan ke rekan lain agar ikut melihat.",
+        isSafe: false,
+        feedback: "Kamu menyebarkan serangan ke rekan lain.",
+        explanation: "Nama tampilan bisa dipalsukan oleh siapa saja.",
+        saferAction: "Jangan teruskan. Beri tahu tim IT.",
+      },
+      {
+        id: "c",
+        label: "Tidak klik. Hubungi Rina lewat chat atau telepon kantor untuk menanyakan apakah ia mengirim dokumen itu, dan laporkan ke tim IT.",
+        isSafe: true,
+        feedback: "Tepat! Kamu memverifikasi lewat saluran lain.",
+        explanation: "Alamat pengirim ada di luar domain kantor, dan halaman tujuannya meminta kata sandi.",
+        saferAction: "Simpan emailnya untuk bukti dan serahkan ke tim IT.",
+      },
+      {
+        id: "d",
+        label: "Membukanya di ponsel pribadi karena dianggap lebih aman dari laptop kantor.",
+        isSafe: false,
+        feedback: "Mengganti perangkat tidak mengubah jebakannya.",
+        explanation: "Jika kamu login, kata sandi tetap sampai ke penipu.",
+        saferAction: "Jangan login ke halaman dari email yang tidak kamu minta.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 6 ===== */
+  defineEmail({
+    id: "phishing-6",
+    level: 6,
+    difficulty: "Menengah",
+    topic: "Kode QR (quishing)",
+    title: "Aktifkan Ulang Verifikasi Dua Langkah",
+    description: "Email dari “tim IT” menyuruhmu memindai kode QR, bukan mengklik tautan.",
+    emailDetails: {
+      senderName: "Tim Keamanan TI",
+      senderEmail: "it-security@sso-karyawan-verif.example",
+      subject: "Wajib: Aktifkan Ulang Verifikasi Dua Langkah Sebelum Jumat",
+      body: [
+        "Mulai Jumat, akun yang belum mengaktifkan ulang verifikasi dua langkah akan dikunci.",
+        "Untuk mengaktifkan, pindai kode QR berikut dengan ponselmu: [ KODE QR ]",
+        "Jangan klik tautan apa pun. Cukup pindai kode QR agar aman.",
+      ],
+      links: [{ text: "Tujuan kode QR", url: "https://sso-karyawan-verif.example/2fa-aktivasi" }],
+      checks: [
+        { label: "Alamat pengirim", value: "Domain luar, bukan domain kantor", suspicious: true },
+        { label: "Instruksi", value: "“Jangan klik tautan, pindai QR”: menghindari filter keamanan email", suspicious: true },
+        { label: "Tekanan waktu", value: "Akun dikunci hari Jumat", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Memindai kode QR dan mengikuti langkah di ponsel.",
+        isSafe: false,
+        feedback: "Ponselmu tidak punya perlindungan tautan seperti emailmu.",
+        explanation: "Kode QR menyembunyikan tujuan tautan sehingga lolos dari filter dan dari matamu.",
+        saferAction: "Jangan pindai QR dari email yang tidak kamu minta.",
+      },
+      {
+        id: "b",
+        label: "Memindai hanya untuk melihat tujuannya, tanpa mengisi data.",
+        isSafe: false,
+        feedback: "Membuka tujuannya sudah berisiko.",
+        explanation: "Halaman bisa menyalin informasi perangkat atau memancing unduhan.",
+        saferAction: "Jangan pindai. Tanyakan ke tim IT lewat kanal resmi.",
+      },
+      {
+        id: "c",
+        label: "Tidak memindai. Cek lewat portal resmi kantor atau tanyakan ke tim IT lewat kanal internal, lalu laporkan emailnya.",
+        isSafe: true,
+        feedback: "Tepat! Kamu tidak mempercayai QR dari email.",
+        explanation: "Pengaturan verifikasi dua langkah yang sah dilakukan di portal resmi, bukan lewat QR dalam email.",
+        saferAction: "Laporkan ke tim IT agar karyawan lain diperingatkan.",
+      },
+      {
+        id: "d",
+        label: "Meneruskan email ke seluruh tim agar semua mengaktifkan sebelum Jumat.",
+        isSafe: false,
+        feedback: "Kamu menyebarkan serangan ke seluruh tim.",
+        explanation: "Semakin banyak yang memindai, semakin banyak akun yang jatuh.",
+        saferAction: "Laporkan ke tim IT, jangan diteruskan.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 7 ===== */
+  defineEmail({
+    id: "phishing-7",
+    level: 7,
+    difficulty: "Sulit",
+    topic: "Pembajakan percakapan (BEC)",
+    title: "Vendor Mengganti Rekening Pembayaran",
+    description: "Balasan di thread invoice yang nyata, tetapi dengan rekening berbeda.",
+    emailDetails: {
+      senderName: "Maya (CV Mitra Jaya)",
+      senderEmail: "maya@mitrajaya-co.example",
+      replyTo: "pembayaran@mitrajaya-co.example",
+      subject: "Re: Invoice INV-2291, Perubahan Rekening Pembayaran",
+      body: [
+        "Selamat siang, melanjutkan email kita minggu lalu soal invoice INV-2291 sebesar Rp86.500.000.",
+        "Mulai periode ini rekening kami berpindah karena audit bank. Mohon pembayaran dialihkan ke: Bank Nusantara 7712-0098-331 a.n. PT Mitra Jaya Abadi.",
+        "Mohon konfirmasi sebelum sore agar tidak terkena denda keterlambatan.",
+      ],
+      checks: [
+        { label: "Domain pengirim", value: "mitrajaya-co.example (percakapan sebelumnya dari mitrajaya.example)", suspicious: true },
+        { label: "Reply-To", value: "Berbeda dari alamat pengirim", suspicious: true },
+        { label: "Nama penerima", value: "PT Mitra Jaya Abadi (invoice atas nama CV Mitra Jaya)", suspicious: true },
+        { label: "Isi thread", value: "Mengutip percakapan asli dengan benar", suspicious: false },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Memperbarui rekening dan membayar, karena isinya cocok dengan percakapan sebelumnya.",
+        isSafe: false,
+        feedback: "Detail yang benar tidak membuktikan pengirimnya asli.",
+        explanation: "Penyerang membaca percakapan asli dari akun yang diretas atau disadap, lalu menyisipkan rekening baru.",
+        saferAction: "Jangan ubah rekening sebelum diverifikasi lewat jalur lain.",
+      },
+      {
+        id: "b",
+        label: "Membalas email dan meminta Maya mengonfirmasi rekening baru.",
+        isSafe: false,
+        feedback: "Balasanmu sampai ke penyerang.",
+        explanation: "Konfirmasi lewat saluran yang sama dijawab oleh pihak yang sama.",
+        saferAction: "Verifikasi lewat telepon ke nomor yang sudah tersimpan di data vendor.",
+      },
+      {
+        id: "c",
+        label: "Menelepon vendor lewat nomor di kontrak atau data lama (bukan nomor di email), dan mengikuti prosedur persetujuan dua orang sebelum mengubah rekening.",
+        isSafe: true,
+        feedback: "Tepat! Perubahan rekening wajib diverifikasi di luar email.",
+        explanation: "Penipuan ini menyebabkan kerugian besar karena tampak sangat sah, dan uang yang terkirim sulit ditarik.",
+        saferAction: "Laporkan ke tim keuangan dan IT, dan simpan emailnya sebagai bukti.",
+      },
+      {
+        id: "d",
+        label: "Membayar setengah ke rekening baru dan setengah ke rekening lama.",
+        isSafe: false,
+        feedback: "Setengah dari Rp86,5 juta tetap kerugian besar.",
+        explanation: "Membagi risiko tidak memverifikasi apa pun.",
+        saferAction: "Tahan pembayaran sampai verifikasi selesai.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 8 ===== */
+  defineEmail({
+    id: "phishing-8",
+    level: 8,
+    difficulty: "Sulit",
+    topic: "Penyamaran atasan",
+    title: "Permintaan Mendesak dari Direktur",
+    description: "“Atasan” meminta bantuan rahasia dan tidak bisa dihubungi.",
+    emailDetails: {
+      senderName: "Budi Santoso (Direktur Utama)",
+      senderEmail: "b.santoso.office@kantor-pribadi-mail.example",
+      subject: "Mendesak & Rahasia: Bantu Saya Sekarang",
+      body: [
+        "Saya sedang rapat tertutup di luar kota dan tidak bisa ditelepon. Ada tugas mendesak yang bersifat rahasia.",
+        "Tolong belikan 5 voucher belanja digital @Rp1.000.000 dan kirim kodenya lewat balasan email ini. Akan saya ganti hari ini. Jangan beri tahu siapa pun dulu.",
+      ],
+      checks: [
+        { label: "Alamat pengirim", value: "Domain pribadi, bukan domain perusahaan", suspicious: true },
+        { label: "Nama tampilan", value: "Memakai jabatan Direktur Utama", suspicious: true },
+        { label: "Permintaan", value: "Rahasia, mendesak, minta kode voucher", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Membeli voucher dan mengirim kodenya, karena ini perintah atasan.",
+        isSafe: false,
+        feedback: "Kode voucher yang terkirim tidak bisa ditarik kembali.",
+        explanation: "Penipu memakai wibawa jabatan dan rasa takut menolak atasan untuk menekanmu.",
+        saferAction: "Konfirmasi permintaan lewat kanal lain sebelum mengeluarkan uang.",
+      },
+      {
+        id: "b",
+        label: "Membalas dengan menanyakan “Pak, apakah benar ini Bapak?”",
+        isSafe: false,
+        feedback: "Yang menjawab tetap penipu.",
+        explanation: "Penipu akan menjawab dengan meyakinkan dan menaikkan tekanan.",
+        saferAction: "Hubungi atasan lewat telepon atau kanal resmi yang sudah kamu kenal.",
+      },
+      {
+        id: "c",
+        label: "Tidak membeli. Konfirmasi langsung ke atasan lewat telepon atau kanal resmi kantor, dan laporkan ke tim IT atau keamanan.",
+        isSafe: true,
+        feedback: "Tepat! Permintaan rahasia dan mendesak patut dicurigai.",
+        explanation: "Permintaan uang atau voucher yang melewati prosedur normal adalah ciri utama penipuan penyamaran atasan.",
+        saferAction: "Beri tahu rekan lain karena penipu biasanya mengirim ke banyak karyawan.",
+      },
+      {
+        id: "d",
+        label: "Membeli satu voucher dulu sebagai uji.",
+        isSafe: false,
+        feedback: "Satu voucher tetap kerugian, dan permintaan berikutnya akan menyusul.",
+        explanation: "Penipu meningkatkan permintaan setelah satu kali berhasil.",
+        saferAction: "Verifikasi dulu sebelum mengeluarkan uang sedikit pun.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 9 ===== */
+  defineEmail({
+    id: "phishing-9",
+    level: 9,
+    difficulty: "Ahli",
+    topic: "Email asli yang mirip peringatan phishing",
+    title: "Login Baru Terdeteksi (Kali Ini Asli)",
+    description: "Kamu baru saja masuk ke aplikasi bank di ponsel baru 10 menit lalu. Lalu masuk email ini.",
+    emailDetails: {
+      senderName: "Bank Nusantara",
+      senderEmail: "notifikasi@banknusantara.example",
+      subject: "Login Baru Terdeteksi pada Akun Anda",
+      body: [
+        "Halo Rina, kami mendeteksi login ke aplikasi Bank Nusantara dari perangkat baru: Samsung Galaxy A55, Jakarta, hari ini pukul 09:38.",
+        "Jika ini Anda, tidak perlu tindakan apa pun. Jika bukan, buka aplikasi Bank Nusantara dan pilih Keamanan > Perangkat Terhubung untuk mencabut akses. Kami tidak pernah meminta PIN, OTP, atau kata sandi lewat email.",
+      ],
+      links: [{ text: "Pusat Bantuan Keamanan", url: "https://banknusantara.example/bantuan/keamanan" }],
+      checks: [
+        { label: "Domain pengirim", value: "banknusantara.example, sesuai situs resmi", suspicious: false },
+        { label: "SPF/DKIM/DMARC", value: "Lolos", suspicious: false },
+        { label: "Rincian", value: "Menyebut namamu, perangkat, dan waktu yang cocok dengan aktivitasmu", suspicious: false },
+        { label: "Permintaan", value: "Tidak meminta data, mengarahkan ke aplikasi resmi", suspicious: false },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Menandainya sebagai phishing dan memblokir pengirim selamanya.",
+        isSafe: false,
+        feedback: "Terlalu waspada juga bukan keputusan yang tepat.",
+        explanation: "Memblokir notifikasi bank asli bisa membuatmu melewatkan peringatan sungguhan kelak.",
+        saferAction: "Periksa tanda-tandanya dulu. Di sini semuanya sesuai dan cocok dengan aktivitasmu.",
+      },
+      {
+        id: "b",
+        label: "Klik tautan di email lalu login di halaman itu untuk memeriksa akun.",
+        isSafe: false,
+        feedback: "Domain tautannya benar, tetapi kebiasaannya berbahaya.",
+        explanation: "Terbiasa login lewat tautan email membuatmu mudah tertipu pada email palsu yang mirip.",
+        saferAction: "Selalu buka aplikasi atau situs resmi sendiri untuk memeriksa akun.",
+      },
+      {
+        id: "c",
+        label: "Mencocokkan dengan aktivitasmu (kamu memang baru login di ponsel baru), lalu membuka aplikasi resmi sendiri untuk memastikan daftar perangkat. Tidak perlu panik atau mengirim data apa pun.",
+        isSafe: true,
+        feedback: "Tepat! Kamu bisa membedakan email asli dari phishing.",
+        explanation: "Domain sesuai, rincian cocok, dan email tidak meminta data. Tidak semua peringatan keamanan adalah penipuan.",
+        saferAction: "Jika perangkatnya tidak kamu kenal, cabut akses di aplikasi dan ganti kata sandi.",
+      },
+      {
+        id: "d",
+        label: "Menghapus email tanpa membacanya karena takut phishing.",
+        isSafe: false,
+        feedback: "Mengabaikan peringatan bisa berbahaya jika loginnya bukan kamu.",
+        explanation: "Kalau bukan kamu yang login, penundaan memberi waktu bagi pelaku.",
+        saferAction: "Baca, cocokkan dengan aktivitasmu, lalu verifikasi di aplikasi resmi.",
+      },
+    ],
+  }),
+
+  /* ===== LEVEL 10 ===== */
+  defineEmail({
+    id: "phishing-10",
+    level: 10,
+    difficulty: "Ahli",
+    topic: "Persetujuan izin aplikasi (consent phishing)",
+    title: "Proposal yang Menyebut Rapat Nyata",
+    description: "Email sangat personal, lolos pemeriksaan teknis, dan halaman loginnya benar-benar asli.",
+    emailDetails: {
+      senderName: "Dimas (Mitra Proyek Dermaga)",
+      senderEmail: "dimas@signflow-docs.example",
+      subject: "Proposal Proyek Dermaga Tahap 2: Mohon Tanda Tangan Digital",
+      body: [
+        "Halo, mengikuti rapat Selasa kemarin soal Proyek Dermaga Tahap 2, berikut proposal revisinya untuk ditandatangani secara digital.",
+        "Buka dokumen melalui SignFlow Viewer. Kamu akan masuk lewat halaman login resmi akunmu dan diminta menyetujui izin akses agar dokumen bisa dimuat.",
+      ],
+      links: [
+        {
+          text: "Tinjau & Tanda Tangani Dokumen",
+          url: "https://masuk.akun-resmi.example/oauth/authorize?app=SignFlowViewer&scope=baca-email+baca-kontak+kelola-file",
+        },
+      ],
+      checks: [
+        { label: "SPF/DKIM/DMARC", value: "Lolos: pengirim memang pemilik domain signflow-docs.example", suspicious: false },
+        { label: "Usia domain pengirim", value: "Didaftarkan 6 hari lalu", suspicious: true },
+        { label: "Halaman login", value: "Memang halaman login resmi (bukan palsu)", suspicious: false },
+        { label: "Izin yang diminta aplikasi", value: "Baca seluruh email, baca kontak, kelola semua file", suspicious: true },
+        { label: "Isi email", value: "Menyebut rapat nyata dan ditulis sangat personal", suspicious: true },
+      ],
+    },
+    choices: [
+      {
+        id: "a",
+        label: "Lanjut login dan menyetujui izin karena halaman loginnya resmi dan verifikasi dua langkahku aktif.",
+        isSafe: false,
+        feedback: "Verifikasi dua langkah tidak melindungi dari izin yang kamu setujui sendiri.",
+        explanation: "Setelah kamu menyetujui, aplikasi mendapat akses ke emailmu tanpa perlu kata sandi lagi.",
+        saferAction: "Jangan menyetujui izin untuk aplikasi yang tidak kamu kenal.",
+      },
+      {
+        id: "b",
+        label: "Menyetujui izin untuk membuka dokumen, lalu mencabut aksesnya setelah selesai.",
+        isSafe: false,
+        feedback: "Sekali disetujui, akses bisa langsung disalin.",
+        explanation: "Dalam beberapa detik aplikasi bisa membaca email dan kontakmu, dan akses sering tetap aktif.",
+        saferAction: "Jangan setujui sejak awal.",
+      },
+      {
+        id: "c",
+        label: "Percaya karena email lolos SPF/DKIM/DMARC dan menyebut rapat yang benar-benar terjadi.",
+        isSafe: false,
+        feedback: "“Lolos” hanya berarti pengirim memang pemilik domainnya.",
+        explanation: "Penyerang bisa mendaftarkan domain baru yang lolos pemeriksaan. Rincian rapat bisa didapat dari informasi publik atau kebocoran.",
+        saferAction: "Periksa juga usia domain, izin yang diminta, dan verifikasi pengirim lewat jalur lain.",
+      },
+      {
+        id: "d",
+        label: "Tidak menyetujui izin apa pun. Konfirmasi ke Dimas lewat telepon atau kanal lain yang sudah kamu kenal, dan laporkan ke tim IT. Jika sudah terlanjur setuju, cabut akses aplikasi di pengaturan keamanan akun dan ganti kata sandi.",
+        isSafe: true,
+        feedback: "Level tertinggi, dan kamu melewatinya dengan benar!",
+        explanation: "Serangan ini tidak mencuri kata sandi. Ia meminta izin lewat halaman login asli, dan izin itu memberi akses ke email dan file.",
+        saferAction: "Biasakan memeriksa nama aplikasi, penerbit, dan izin sebelum menekan “Izinkan”.",
+      },
+    ],
+  }),
+];
