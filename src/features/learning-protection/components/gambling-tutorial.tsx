@@ -2,51 +2,34 @@
 
 import { GuidedTutorial, type TutorialStep } from "./guided-tutorial";
 
-export const GAMBLING_TUTORIAL_KEY = "gambling-tutorial-v1";
+export const GAMBLING_TUTORIAL_KEY = "gambling-tutorial-v2";
 
 const STEPS: TutorialStep[] = [
   {
     id: "welcome",
     title: "Latihan 1 menit",
-    body: "Ada 10 level, makin tinggi makin halus jebakannya. Jawaban selama latihan tidak dihitung ke XP.",
+    body: "Di sini kamu langsung mencoba, bukan membaca. Hasil latihan tidak dihitung ke XP.",
     cta: "Mulai",
   },
   {
     id: "levels",
     title: "Peta level",
-    body: "Selesaikan berurutan. Level tinggi bukan lagi soal iklan, tetapi soal dorongan dan orang terdekat.",
+    body: "Ada 10 level, dari rasa penasaran sampai rencana berhenti.",
     target: "levels",
   },
   {
-    id: "situation",
-    title: "Baca situasinya",
-    body: "Perhatikan di mana kamu menemukan promosi atau situasi ini, dan siapa yang diuntungkan.",
-    target: "situation",
-  },
-  {
-    id: "promo",
-    title: "Lihat tampilannya",
-    body: "Ini contoh promosi atau pesan yang bisa kamu temui. Semuanya fiktif.",
-    target: "promo",
-  },
-  {
-    id: "inspect",
-    title: "Periksa petunjuknya",
-    body: "Buka petunjuk untuk melihat tanda-tanda manipulasi di balik tampilannya.",
-    target: "inspect",
-    wait: "details-open",
-    prompt: "Klik tombol ini",
-  },
-  {
-    id: "details",
-    title: "Tanda-tandanya",
-    body: "Tanda “Periksa” menandai hal yang patut dicurigai. Tanda “Wajar” berarti tidak bermasalah.",
-    target: "details",
+    id: "activity",
+    title: "Coba sendiri",
+    body: "Tiap level punya simulasi. Mainkan dulu, hasilnya akan bicara.",
+    target: "activity",
+    wait: "used",
+    prompt: "Coba mainkan",
+    delay: 700,
   },
   {
     id: "choose",
-    title: "Pilih responsmu",
-    body: "Pikirkan baik-baik. Di simulasi asli, jawaban kurang aman mengurangi XP level itu.",
+    title: "Lalu simpulkan",
+    body: "Pilih kesimpulan yang sesuai dengan yang kamu lihat.",
     target: "choices",
     wait: "choice",
     prompt: "Pilih salah satu",
@@ -55,13 +38,13 @@ const STEPS: TutorialStep[] = [
   {
     id: "feedback",
     title: "Ini hasilnya",
-    body: "Hijau berarti level selesai. Kuning berarti ada risiko, dan kamu bisa mengulang level itu.",
+    body: "Hijau berarti level selesai. Kuning berarti kamu bisa mengulang.",
     target: "feedback",
   },
   {
     id: "next",
     title: "Lanjut atau ulangi",
-    body: "Jawaban aman: naik level. Kurang aman: ulangi dengan urutan pilihan baru.",
+    body: "Jawaban tepat naik level. Kurang tepat, ulangi dengan urutan baru.",
     target: "next",
     wait: "choice-reset",
     prompt: "Klik tombol ini",
@@ -69,33 +52,33 @@ const STEPS: TutorialStep[] = [
   {
     id: "progress",
     title: "Level dan XP",
-    body: "Level tinggi bernilai lebih besar. Selesaikan Level 10 untuk bonus XP dan lencana Gambling Guardian.",
+    body: "Selesaikan Level 10 untuk bonus XP dan lencana Gambling Guardian.",
     target: "progress",
   },
   {
     id: "support",
     title: "Kamu tidak sendirian",
-    body: "Sulit berhenti bukan tanda lemah. Bila judi mulai mengganggumu, bicaralah dengan orang tepercaya atau profesional.",
+    body: "Sulit berhenti bukan tanda lemah. Bantuan selalu ada.",
     target: "support",
   },
   {
     id: "finish",
     title: "Kamu siap!",
-    body: "Mulai sekarang XP dihitung dari jawabanmu. Ingat: tidak ada strategi yang menjamin menang.",
+    body: "Ingat: tidak ada strategi yang menjamin menang.",
     cta: "Mulai berlatih",
   },
 ];
 
 type Props = {
   active: boolean;
-  detailsOpen: boolean;
+  activityDone: boolean;
   hasSelectedChoice: boolean;
   onClose: (completed: boolean) => void;
 };
 
 export function GamblingTutorial({
   active,
-  detailsOpen,
+  activityDone,
   hasSelectedChoice,
   onClose,
 }: Props) {
@@ -105,7 +88,7 @@ export function GamblingTutorial({
       active={active}
       onClose={onClose}
       done={{
-        "details-open": detailsOpen,
+        used: activityDone,
         choice: hasSelectedChoice,
         "choice-reset": !hasSelectedChoice,
       }}

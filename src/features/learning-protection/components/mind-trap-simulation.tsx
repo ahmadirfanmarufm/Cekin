@@ -42,6 +42,9 @@ import {
   mindTrapLevelXp,
 } from "@/lib/learning-protection/xp";
 import { seededShuffle } from "@/lib/learning-protection/shuffle";
+import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
@@ -93,6 +96,7 @@ export function MindTrapSimulation({ simulation }: Props) {
   const [finished, setFinished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [declinedLogin, setDeclinedLogin] = useState(false);
 
   const [tutorialActive, setTutorialActive] = useState(false);
   const tutorialSnapshot = useRef<{
@@ -246,7 +250,6 @@ export function MindTrapSimulation({ simulation }: Props) {
     };
   }, []);
 
-  // Tampilkan hasil jawaban (kecuali saat tutorial, yang mengatur scroll sendiri).
   useEffect(() => {
     if (!selectedChoice || tutorialActive) return;
 
@@ -306,7 +309,6 @@ export function MindTrapSimulation({ simulation }: Props) {
       [scenarioId]: [...(previous[scenarioId] ?? []), choice.id],
     }));
 
-    // Level hanya selesai jika jawabannya aman.
     if (choice.isSafe) {
       setCompletedIds((previous) =>
         previous.includes(scenarioId) ? previous : [...previous, scenarioId],
@@ -320,7 +322,6 @@ export function MindTrapSimulation({ simulation }: Props) {
     }
   };
 
-  // Salah menjawab: ulangi level yang sama dengan urutan pilihan baru.
   const retryLevel = () => {
     setSelectedChoice(null);
     scrollToScenario();
@@ -387,20 +388,17 @@ export function MindTrapSimulation({ simulation }: Props) {
   const handleNext = async () => {
     if (!selectedChoice || saving) return;
 
-    // Jawaban kurang aman: level belum selesai, ulangi.
     if (!selectedChoice.isSafe) {
       retryLevel();
       return;
     }
 
     if (currentIndex < totalCount - 1) {
-      setCurrentIndex((previous) => previous + 1);
-      setSelectedChoice(null);
+      if (gate.request()) return;
+      goNextLevel();
       scrollToScenario();
       return;
     }
-
-    // Saat tutorial: tidak membuka hasil dan tidak menyimpan XP.
     if (tutorialActive) {
       setSelectedChoice(null);
       return;
@@ -411,6 +409,40 @@ export function MindTrapSimulation({ simulation }: Props) {
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "choices",
+    paused: tutorialActive,
+    snapshot: { currentIndex, completedIds, safeIds, attempts, runSeed, finished, rewardMessage: saveMessage, declinedLogin },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setSafeIds(saved.safeIds ?? []);
+      setAttempts(saved.attempts as Record<string, string[]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setSaveMessage(saved.rewardMessage ?? "")
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setSelectedChoice(null);
+    },
+  });
+
+  function goNextLevel() {
+    setCurrentIndex((previous) => previous + 1);
+    setSelectedChoice(null);
+    scrollToScenario();
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
 
   const restart = () => {
     setCurrentIndex(0);
@@ -726,6 +758,15 @@ export function MindTrapSimulation({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">Progres sebelumnya dilanjutkan.</p>
+          )}
+          {learning.session.ready && !learning.session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin ? "Mode tamu: XP tidak akan dihitung." : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
         {/* Peta level */}
@@ -1153,6 +1194,13 @@ export function MindTrapSimulation({ simulation }: Props) {
           </aside>
         </div>
       </div>
+
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
 
       <MindTrapTutorial
         active={tutorialActive}

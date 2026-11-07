@@ -46,6 +46,9 @@ import {
   phishingLevelXp,
 } from "@/lib/learning-protection/xp";
 import { PhishingTutorial, PHISHING_TUTORIAL_KEY } from "./phishing-tutorial";
+import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
@@ -106,6 +109,7 @@ export function PhishingEmail({ simulation }: Props) {
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
   const [isSavingReward, setIsSavingReward] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
 
   const emailDetailRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLElement>(null);
@@ -391,7 +395,6 @@ export function PhishingEmail({ simulation }: Props) {
 
     setShowLearningModal(false);
 
-    // Pilihan kurang aman: ulangi level yang sama dengan urutan pilihan baru.
     if (!selectedChoice.isSafe) {
       setSelectedChoice(null);
       scrollToEmail();
@@ -399,13 +402,11 @@ export function PhishingEmail({ simulation }: Props) {
     }
 
     if (currentIndex < totalCount - 1) {
-      setCurrentIndex((previous) => previous + 1);
-      setSelectedChoice(null);
-      setShowDetails(false);
+      if (gate.request()) return;
+      goNextLevel();
       return;
     }
 
-    // Saat tutorial: jangan membuka hasil dan jangan menyimpan XP.
     if (tutorialActive) {
       setSelectedChoice(null);
       return;
@@ -420,6 +421,41 @@ export function PhishingEmail({ simulation }: Props) {
       setIsSavingReward(false);
     }
   };
+
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "choices",
+    paused: tutorialActive,
+    snapshot: { currentIndex, completedIds, safeIds, attempts, runSeed, finished, rewardMessage, declinedLogin },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setSafeIds(saved.safeIds ?? []);
+      setAttempts(saved.attempts as Record<string, string[]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setSelectedChoice(null);
+      setShowDetails(false);
+    },
+  });
+
+  function goNextLevel() {
+    setCurrentIndex((previous) => previous + 1);
+    setSelectedChoice(null);
+    setShowDetails(false);
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
 
   const handleRestart = () => {
     setCurrentIndex(0);
@@ -673,6 +709,15 @@ export function PhishingEmail({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">Progres sebelumnya dilanjutkan.</p>
+          )}
+          {learning.session.ready && !learning.session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin ? "Mode tamu: XP tidak akan dihitung." : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
         {/* Peta level */}
@@ -1278,6 +1323,13 @@ export function PhishingEmail({ simulation }: Props) {
           </div>
         </div>
       )}
+
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
 
       <PhishingTutorial
         active={tutorialActive}

@@ -1,10 +1,12 @@
-import { NextRequest } from "next/server";
+import { connection, NextRequest } from "next/server";
 
 import { getSessionUser } from "@/lib/auth/session";
 import { fail } from "@/features/community/server/http";
 import { GifProviderError, searchGifs } from "@/features/community/server/gif-provider";
 
 export async function GET(request: NextRequest) {
+  await connection();
+
   try {
     const user = await getSessionUser();
     if (!user) return fail(401, "Silakan login terlebih dahulu.");

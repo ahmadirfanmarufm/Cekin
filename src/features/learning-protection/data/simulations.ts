@@ -66,7 +66,7 @@ export const simulations: SimulationConfig[] = [
     title: "Online Gambling Awareness",
     subtitle: "Don't Get Trapped",
     description:
-      "Naiki 10 level, dari banner bonus dan komentar bot sampai dorongan kambuh dan membantu teman yang terjerat.",
+      "Praktik langsung: hitung uang yang hilang, bongkar mitos “jam gacor”, dan susun rencana berhenti.",
     difficulty: "Penting",
     duration: "10 menit",
     icon: "dice-5",

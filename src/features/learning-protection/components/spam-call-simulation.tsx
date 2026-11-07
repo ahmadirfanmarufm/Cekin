@@ -49,6 +49,9 @@ import {
 } from "@/lib/learning-protection/xp";
 import { mistakesOfPaths } from "@/lib/learning-protection/dialogue";
 import { useDialogue } from "@/lib/learning-protection/use-dialogue";
+import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
@@ -63,6 +66,7 @@ export function SpamCallSimulation({ simulation }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [attempts, setAttempts] = useState<Record<string, string[][]>>({});
   const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [safeIds, setSafeIds] = useState<string[]>([]);
   const [attemptKey, setAttemptKey] = useState(0);
   const [runSeed, setRunSeed] = useState(0);
   const [answered, setAnswered] = useState(false);
@@ -70,6 +74,7 @@ export function SpamCallSimulation({ simulation }: Props) {
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
 
   const [tutorialActive, setTutorialActive] = useState(false);
   const tutorialSnapshot = useRef<{
@@ -352,6 +357,40 @@ export function SpamCallSimulation({ simulation }: Props) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "dialogue",
+    paused: tutorialActive,
+    snapshot: { currentIndex, completedIds, safeIds, attempts, runSeed, finished, rewardMessage, declinedLogin },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setSafeIds(saved.safeIds ?? []);
+      setAttempts(saved.attempts as Record<string, string[][]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setAnswered(false);
+    },
+  });
+
+  function goNextLevel() {
+    setAnswered(false);
+    setCurrentIndex((previous) => previous + 1);
+    scrollToScenario();
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
+
   const restart = () => {
     setCurrentIndex(0);
     setAttempts({});
@@ -480,6 +519,15 @@ export function SpamCallSimulation({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">Progres sebelumnya dilanjutkan.</p>
+          )}
+          {learning.session.ready && !learning.session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin ? "Mode tamu: XP tidak akan dihitung." : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
         <LevelMap
@@ -881,6 +929,13 @@ export function SpamCallSimulation({ simulation }: Props) {
           </aside>
         </div>
       </div>
+
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
 
       <SpamCallTutorial
         active={tutorialActive}

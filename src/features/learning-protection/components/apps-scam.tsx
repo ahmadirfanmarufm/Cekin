@@ -47,6 +47,13 @@ import {
   calculateAppsScamXp,
 } from "@/lib/learning-protection/xp";
 import { AppsScamTutorial, APPS_SCAM_TUTORIAL_KEY } from "./apps-scam-tutorial";
+import {
+  LOGIN_GATE_AFTER_LEVEL,
+  buildLoginHref,
+  useLearningProgress,
+} from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
@@ -98,6 +105,8 @@ export function AppsScam({ simulation }: Props) {
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [isEducationOpen, setIsEducationOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
 
   const mainContentRef = useRef<HTMLElement | null>(null);
   const phoneContentRef = useRef<HTMLDivElement | null>(null);
@@ -108,7 +117,6 @@ export function AppsScam({ simulation }: Props) {
 
   const attemptNumber = currentScenario ? (attempts[currentScenario.id]?.length ?? 0) : 0;
 
-  // Urutan pilihan diacak, dan berubah tiap level diulang.
   const displayChoices = useMemo(
     () =>
       currentScenario
@@ -238,6 +246,29 @@ export function AppsScam({ simulation }: Props) {
       Object.keys(attempts).length === 0,
   };
 
+  const learning = useLearningProgress({
+    simulationId: "apps-scam",
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "choices",
+    paused: tutorialActive,
+    snapshot: {
+      currentIndex, completedIds, safeIds, attempts,
+      runSeed, finished, rewardMessage, declinedLogin,
+    },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setView("store");
+      setCompletedIds(saved.completedIds);
+      setSafeIds(saved.safeIds ?? []);
+      setAttempts(saved.attempts as Record<string, string[]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+    },
+  });
+  const session = learning.session;
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -258,7 +289,6 @@ export function AppsScam({ simulation }: Props) {
           completed = Boolean(data.completed);
         }
       } catch {
-        // Gagal cek status: anggap tamu yang belum menyelesaikan.
       }
 
       if (cancelled) return;
@@ -384,10 +414,24 @@ export function AppsScam({ simulation }: Props) {
     setView("result");
   };
 
+  function goNextLevel() {
+    setCurrentIndex((previous) => previous + 1);
+    setSelectedChoice(null);
+    setView("store");
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
+
   const handleNext = async () => {
     if (!selectedChoice || isSavingReward) return;
 
-    // Pilihan kurang aman: ulangi level dari halaman detail.
     if (!selectedChoice.isSafe) {
       setSelectedChoice(null);
       setView("detail");
@@ -395,9 +439,20 @@ export function AppsScam({ simulation }: Props) {
     }
 
     if (currentIndex < totalCount - 1) {
-      setCurrentIndex((previous) => previous + 1);
-      setSelectedChoice(null);
-      setView("store");
+      if (!isLastLevel) {
+        if (gate.request()) return;
+        goNextLevel();
+        return;
+      }
+
+      const needsLogin = session.ready && !session.authenticated && !declinedLogin && !tutorialActive && currentIndex === LOGIN_GATE_AFTER_LEVEL - 1;
+
+      if (needsLogin) {
+        setGateOpen(true);
+        return;
+      }
+
+      goNextLevel();
       return;
     }
 
@@ -424,6 +479,7 @@ export function AppsScam({ simulation }: Props) {
     setIsSavingReward(false);
     setIsEducationOpen(false);
     setShowGuide(false);
+    setDeclinedLogin(false);
   };
   
   /* ---------- Modal ---------- */
@@ -725,6 +781,7 @@ export function AppsScam({ simulation }: Props) {
 
   const isUnsafe = !!selectedChoice && !selectedChoice.isSafe;
   const isLastLevel = currentIndex >= totalCount - 1;
+
   const redFlagTitle =
     app.risk === "Rendah" ? "Sinyal yang menenangkan" : "Tanda yang perlu diperhatikan";
 
@@ -806,6 +863,20 @@ export function AppsScam({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">
+              Progres sebelumnya dilanjutkan.
+            </p>
+          )}
+
+          {session.ready && !session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin
+                ? "Mode tamu: XP tidak akan dihitung."
+                : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
         {/* Peta level */}
@@ -1505,6 +1576,13 @@ export function AppsScam({ simulation }: Props) {
 
       {isEducationOpen && educationModal}
       {showGuide && guideModal}
+
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
 
       <AppsScamTutorial
         active={tutorialActive}

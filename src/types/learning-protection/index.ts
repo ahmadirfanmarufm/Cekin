@@ -6,6 +6,16 @@ export type SimulationId =
   | "gambling"
   | "mind";
 
+export type GamblingActivityKind =
+  | "slot"
+  | "budget"
+  | "gacor"
+  | "ledger"
+  | "martingale"
+  | "debt"
+  | "triggers"
+  | "none";
+
 export type ScenarioDifficulty = "Mudah" | "Menengah" | "Sulit" | "Ahli";
 
 export type ScenarioSender = {
@@ -64,6 +74,7 @@ export type SimulationScenario = {
   gamblingDetails?: GamblingScenarioData
   dialogue?: DialogueTree;
   takeaway?: string;
+  gamblingActivity?: GamblingActivityKind;
 };
 
 export type GamblingScenarioData = {

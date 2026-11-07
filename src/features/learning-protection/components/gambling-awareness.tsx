@@ -16,9 +16,7 @@ import {
   Info,
   Lightbulb,
   Lock,
-  Megaphone,
   RotateCcw,
-  Search,
   ShieldCheck,
   Sparkles,
   Star,
@@ -40,12 +38,24 @@ import {
 } from "@/lib/learning-protection/xp";
 import { GamblingTutorial, GAMBLING_TUTORIAL_KEY } from "./gambling-tutorial";
 import { GamblingBanner, type BannerVariant } from "./gambling-banner";
+import { GamblingActivity } from "./gambling-activities";
+import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
 };
 
 const SIMULATION_ID = "online-gambling";
+
+const BANNER_BY_ID: Record<string, BannerVariant> = {
+  "gambling-1": "popup",
+  "gambling-3": "demo",
+  "gambling-8": "chat",
+  "gambling-9": "chat",
+  "gambling-10": "notif",
+};
 
 const DIFFICULTY_STYLES: Record<ScenarioDifficulty, string> = {
   Mudah: "bg-[var(--accent-soft)] text-[var(--accent)]",
@@ -65,22 +75,9 @@ const CONFETTI = [
   { left: "92%", top: "58%", size: 10, color: "bg-sky-300", delay: "0.8s" },
 ];
 
-const BANNER_VARIANTS: BannerVariant[] = [
-  "popup",
-  "comment",
-  "chat",
-  "stream",
-  "demo",
-  "chat",
-  "notif",
-  "chat",
-  "chat",
-  "notif",
-];
-
 export function GamblingAwareness({ simulation }: Props) {
   const scenarios = useMemo(
-    () => simulation.scenarios.filter((scenario) => scenario.gamblingDetails),
+    () => simulation.scenarios.filter((scenario) => scenario.gamblingActivity),
     [simulation.scenarios],
   );
   const totalCount = scenarios.length;
@@ -91,16 +88,19 @@ export function GamblingAwareness({ simulation }: Props) {
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [safeIds, setSafeIds] = useState<string[]>([]);
   const [runSeed, setRunSeed] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
+  const [activityDone, setActivityDone] = useState(false);
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
 
   const scenarioRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLElement>(null);
 
   const currentScenario = scenarios[currentIndex];
   const promo = currentScenario?.gamblingDetails;
+  const kind = currentScenario?.gamblingActivity ?? "none";
+  const ready = kind === "none" || activityDone;
 
   const attemptNumber = currentScenario ? (attempts[currentScenario.id]?.length ?? 0) : 0;
 
@@ -148,6 +148,7 @@ export function GamblingAwareness({ simulation }: Props) {
     return () => window.cancelAnimationFrame(frame);
   }, [finished]);
 
+  /* ---------- Tutorial ---------- */
 
   const [tutorialActive, setTutorialActive] = useState(false);
   const tutorialSnapshot = useRef<{
@@ -165,7 +166,7 @@ export function GamblingAwareness({ simulation }: Props) {
     setSafeIds([]);
     setAttempts({});
     setSelectedChoice(null);
-    setShowDetails(false);
+    setActivityDone(false);
     setTutorialActive(true);
   };
 
@@ -178,7 +179,7 @@ export function GamblingAwareness({ simulation }: Props) {
       setAttempts(snapshot.attempts);
     }
     setSelectedChoice(null);
-    setShowDetails(false);
+    setActivityDone(false);
     setTutorialActive(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -217,6 +218,7 @@ export function GamblingAwareness({ simulation }: Props) {
           completed = Boolean(data.completed);
         }
       } catch {
+        // Gagal cek status: anggap tamu yang belum menyelesaikan.
       }
 
       if (cancelled) return;
@@ -242,18 +244,23 @@ export function GamblingAwareness({ simulation }: Props) {
     };
   }, []);
 
-  if (!currentScenario || !promo || totalCount === 0) {
+  if (!currentScenario || totalCount === 0) {
     return (
       <main className="container py-16 text-center">
         <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-[var(--warning)]" />
         <h1 className="heading heading-2">Skenario belum tersedia</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">Belum ada skenario untuk simulasi ini.</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Belum ada skenario ({simulation.scenarios.length} data, 0 valid).
+        </p>
         <Link href="/learning-protection" className="button button-primary mt-6">
           Kembali ke Learning &amp; Protection
         </Link>
       </main>
     );
   }
+
+  /* ---------- Aksi ---------- */
+
   const scrollToScenario = () => {
     requestAnimationFrame(() => {
       scenarioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -310,7 +317,7 @@ export function GamblingAwareness({ simulation }: Props) {
   };
 
   const handleChoice = (choice: SimulationChoice) => {
-    if (selectedChoice) return;
+    if (selectedChoice || !ready) return;
 
     const scenarioId = currentScenario.id;
     const isFirstTry = (attempts[scenarioId] ?? []).length === 0;
@@ -337,7 +344,6 @@ export function GamblingAwareness({ simulation }: Props) {
   const handleNext = async () => {
     if (!selectedChoice || isSaving) return;
 
-    // Pilihan kurang aman: ulangi level yang sama dengan urutan pilihan baru.
     if (!selectedChoice.isSafe) {
       setSelectedChoice(null);
       scrollToScenario();
@@ -345,14 +351,12 @@ export function GamblingAwareness({ simulation }: Props) {
     }
 
     if (currentIndex < totalCount - 1) {
-      setCurrentIndex((previous) => previous + 1);
-      setSelectedChoice(null);
-      setShowDetails(false);
+      if (gate.request()) return;
+      goNextLevel();
       scrollToScenario();
       return;
     }
 
-    // Saat tutorial: jangan membuka hasil dan jangan menyimpan XP.
     if (tutorialActive) {
       setSelectedChoice(null);
       return;
@@ -368,6 +372,42 @@ export function GamblingAwareness({ simulation }: Props) {
     }
   };
 
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "choices",
+    paused: tutorialActive,
+    snapshot: { currentIndex, completedIds, safeIds, attempts, runSeed, finished, rewardMessage, declinedLogin },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setSafeIds(saved.safeIds ?? []);
+      setAttempts(saved.attempts as Record<string, string[]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setSelectedChoice(null);
+      setActivityDone(false);
+    },
+  });
+
+  function goNextLevel() {
+    setCurrentIndex((previous) => previous + 1);
+    setSelectedChoice(null);
+    setActivityDone(false);
+    scrollToScenario();
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
+
   const handleRestart = () => {
     setCurrentIndex(0);
     setSelectedChoice(null);
@@ -375,7 +415,7 @@ export function GamblingAwareness({ simulation }: Props) {
     setCompletedIds([]);
     setSafeIds([]);
     setRunSeed((previous) => previous + 1);
-    setShowDetails(false);
+    setActivityDone(false);
     setFinished(false);
     setRewardMessage("");
     setIsSaving(false);
@@ -383,7 +423,7 @@ export function GamblingAwareness({ simulation }: Props) {
   };
 
   /* ========================================
-     LAYAR REWARD: LEVEL MAKSIMAL
+     LAYAR REWARD
   ======================================== */
 
   if (finished) {
@@ -397,9 +437,6 @@ export function GamblingAwareness({ simulation }: Props) {
         <div className="mx-auto max-w-2xl">
           <div className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-sm">
             <div className="relative overflow-hidden bg-[var(--brand-dark)] px-6 py-12 text-center text-white md:px-10">
-              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-              <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-
               {CONFETTI.map((piece, index) => (
                 <span
                   key={index}
@@ -429,8 +466,8 @@ export function GamblingAwareness({ simulation }: Props) {
               </h1>
 
               <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
-                Kamu menamatkan seluruh {totalCount} level, dari banner bonus sampai dorongan kambuh
-                dan cara membantu teman yang terjerat.
+                Kamu sudah menghitung, menguji, dan menyusun rencana. Itu lebih dari cukup untuk
+                tidak terjebak, dan untuk membantu orang lain keluar.
               </p>
 
               <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
@@ -453,9 +490,7 @@ export function GamblingAwareness({ simulation }: Props) {
                   <p className="text-3xl font-extrabold text-[var(--accent)]">
                     {safeIds.length}/{totalCount}
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-                    Benar di percobaan pertama
-                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--muted)]">Tepat di percobaan pertama</p>
                 </div>
 
                 <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
@@ -486,30 +521,30 @@ export function GamblingAwareness({ simulation }: Props) {
 
                 <p className="mt-3 border-t border-[var(--border)] pt-3 text-xs leading-relaxed text-[var(--muted)]">
                   {isPerfect
-                    ? "Tanpa satu pun keputusan kurang aman. Luar biasa!"
-                    : `Kamu sempat ${totalWrong} kali memilih keputusan kurang aman. Ulangi tanpa salah untuk XP maksimal (${GAMBLING_MAX_XP} XP).`}
+                    ? "Tanpa satu pun kesimpulan keliru. Luar biasa!"
+                    : `Kamu sempat ${totalWrong} kali keliru. Ulangi untuk XP maksimal (${GAMBLING_MAX_XP} XP).`}
                 </p>
               </div>
 
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[var(--border)] p-5">
-                <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
-                <div>
-                  <h2 className="text-sm font-bold text-[var(--foreground)]">Prinsip utama</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-                    Tidak ada strategi, pola, atau jam yang menjamin menang. Bonus adalah umpan, kekalahan
-                    tidak bisa “dikejar”, dan berutang untuk bermain hanya memperbesar masalah. Satu-satunya
-                    cara pasti menghindari kerugian judi adalah tidak memulai.
-                  </p>
+              <div className="mt-4 rounded-2xl bg-[var(--brand-soft)] p-5">
+                <div className="flex items-center gap-2 text-[var(--brand)]">
+                  <HeartHandshake size={17} />
+                  <h3 className="text-sm font-extrabold">Kalau kamu atau orang dekatmu sulit berhenti</h3>
                 </div>
-              </div>
 
-              <div className="mt-4 flex items-start gap-3 rounded-2xl bg-[var(--brand-soft)] p-5">
-                <HeartHandshake className="mt-0.5 h-5 w-5 shrink-0 text-[var(--brand)]" />
-                <p className="text-xs leading-relaxed text-[var(--brand-dark)]">
-                  Jika kamu atau orang terdekat kesulitan berhenti, hentikan transaksi, jauhkan pemicunya,
-                  dan bicarakan dengan orang tepercaya atau tenaga profesional kesehatan jiwa. Meminta
-                  bantuan bukan tanda lemah.
-                </p>
+                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-[var(--brand-dark)]">
+                  {[
+                    "Hapus aplikasi, blokir kontak, keluar dari grup.",
+                    "Titipkan kartu atau batasi transfer lewat bank.",
+                    "Bicara dengan satu orang tepercaya hari ini.",
+                    "Temui psikolog atau puskesmas terdekat. Kambuh bukan berarti gagal.",
+                  ].map((tip) => (
+                    <li key={tip} className="flex gap-2">
+                      <Check size={14} className="mt-0.5 shrink-0" />
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               {rewardMessage && (
@@ -542,6 +577,7 @@ export function GamblingAwareness({ simulation }: Props) {
 
   const isUnsafe = !!selectedChoice && !selectedChoice.isSafe;
   const isLastLevel = currentIndex >= totalCount - 1;
+  const bannerVariant = BANNER_BY_ID[currentScenario.id];
 
   return (
     <main className="container py-8 pb-16 md:py-12">
@@ -554,7 +590,6 @@ export function GamblingAwareness({ simulation }: Props) {
           Learning &amp; Protection
         </Link>
 
-        {/* Header */}
         <div className="mb-7 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <div className="badge">
@@ -562,24 +597,21 @@ export function GamblingAwareness({ simulation }: Props) {
               GAMBLING AWARENESS
             </div>
 
-            <h1 className="heading heading-2 mt-4">Kenalin jebakan di balik judi online.</h1>
-            
+            <h1 className="heading heading-2 mt-4">Hitung sendiri, jangan percaya iklan.</h1>
+
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
               <span className="inline-flex items-center gap-1">
                 <Clock3 size={13} />
                 {simulation.duration}
               </span>
               <span className="rounded-full border border-[var(--border)] px-3 py-1">
-                Simulasi fiktif
+                Simulasi fiktif, tanpa uang sungguhan
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={startTutorial}
-              className="button button-secondary"
-            >
+            <button onClick={startTutorial} className="button button-secondary">
               <HelpCircle size={16} />
               Tutorial
             </button>
@@ -588,9 +620,8 @@ export function GamblingAwareness({ simulation }: Props) {
               <div className="flex w-8 items-center justify-center rounded-xl text-[var(--warning)]">
                 <CircleStar size={21} />
               </div>
-
-              <div className="flex justify-center items-center">
-                <p className="text-xl m-2 font-extrabold leading-none text-[var(--foreground)]">
+              <div className="flex items-center justify-center">
+                <p className="m-2 text-xl font-extrabold leading-none text-[var(--foreground)]">
                   {earnedLevelXp}
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
@@ -601,7 +632,6 @@ export function GamblingAwareness({ simulation }: Props) {
           </div>
         </div>
 
-        {/* Progress */}
         <section
           data-tutorial="progress"
           className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4"
@@ -624,15 +654,23 @@ export function GamblingAwareness({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">Progres sebelumnya dilanjutkan.</p>
+          )}
+          {learning.session.ready && !learning.session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin ? "Mode tamu: XP tidak akan dihitung." : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </section>
 
-        {/* Peta level */}
         <section data-tutorial="levels" className="mb-6">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
               Peta level
             </p>
-            <p className="text-[10px] font-bold text-[var(--muted)]">Makin tinggi, makin sulit</p>
+            <p className="text-[10px] font-bold text-[var(--muted)]">Dari penasaran sampai rencana berhenti</p>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2">
@@ -663,7 +701,6 @@ export function GamblingAwareness({ simulation }: Props) {
           </div>
         </section>
 
-        {/* Skenario */}
         <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
           <section
             ref={scenarioRef}
@@ -697,109 +734,52 @@ export function GamblingAwareness({ simulation }: Props) {
             </div>
 
             <div className="p-5 md:p-7">
-              {/* Situasi */}
               <div
                 data-tutorial="situation"
-                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"
+                className="flex items-start gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
               >
-                <div className="mb-3 flex items-center gap-2 text-[var(--muted)]">
-                  <Info size={16} />
-                  <span className="text-[10px] font-extrabold tracking-wider">BAYANGKAN SITUASI INI</span>
-                </div>
-
+                <Info size={16} className="mt-0.5 shrink-0 text-[var(--muted)]" />
                 <p className="text-sm leading-relaxed text-[var(--foreground)]">
                   {currentScenario.description}
                 </p>
-                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">{currentScenario.context}</p>
               </div>
 
-              {/* Tampilan promosi atau pesan */}
-              <div
-                data-tutorial="promo"
-                className="mt-5 overflow-hidden rounded-2xl border border-[var(--border)]"
-              >
-                <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-extrabold text-[var(--foreground)]">
-                      {promo.channel}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-[var(--muted)]">Tampilan fiktif untuk edukasi</p>
+              {promo && bannerVariant && (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)]">
+                  <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2.5">
+                    <p className="truncate text-xs font-extrabold text-[var(--foreground)]">{promo.channel}</p>
+                    <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-extrabold text-red-700">
+                      FIKSI
+                    </span>
                   </div>
-
-                  <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-extrabold text-red-700">
-                    FIKSI
-                  </span>
+                  <GamblingBanner variant={bannerVariant} promo={promo} />
                 </div>
+              )}
 
-                <GamblingBanner
-                  variant={BANNER_VARIANTS[currentIndex] ?? "popup"}
-                  promo={promo}
-                />
+              {kind !== "none" && (
+                <div data-tutorial="activity" className="mt-4">
+                  <p className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--brand)]">
+                    <Sparkles size={13} />
+                    Coba sendiri
+                  </p>
+                  <GamblingActivity
+                    key={`${currentScenario.id}:${runSeed}`}
+                    kind={kind}
+                    onDone={() => setActivityDone(true)}
+                  />
+                </div>
+              )}
 
-                <p className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-[10px] text-[var(--muted)]">
-                  Tidak ada permainan, deposit, atau transaksi sungguhan.
-                </p>
-              </div>
-
-              {/* Periksa petunjuk */}
-              <div className="mt-5">
-                <button
-                  type="button"
-                  data-tutorial="inspect"
-                  onClick={() => setShowDetails((open) => !open)}
-                  aria-expanded={showDetails}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--brand)]/25 bg-[var(--brand-soft)] px-4 py-2.5 text-xs font-bold text-[var(--brand)] transition hover:border-[var(--brand)]"
-                >
-                  <Search size={15} />
-                  {showDetails ? "Tutup petunjuk" : "Periksa petunjuk"}
-                </button>
-
-                {showDetails && (
-                  <div
-                    data-tutorial="details"
-                    className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
-                  >
-                    <p className="text-[10px] font-extrabold tracking-wider text-[var(--muted)]">
-                      PETUNJUK DI BALIK TAMPILANNYA
-                    </p>
-
-                    <ul className="mt-3 space-y-3">
-                      {promo.signals.map((signal) => (
-                        <li key={signal.label} className="flex items-start gap-2 text-xs leading-5">
-                          {signal.suspicious ? (
-                            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-[var(--warning)]" />
-                          ) : (
-                            <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[var(--accent)]" />
-                          )}
-                          <span>
-                            <span className="font-bold text-[var(--foreground)]">{signal.label}: </span>
-                            <span className="text-[var(--muted)]">{signal.value}</span>
-                            <span
-                              className={`ml-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                                signal.suspicious
-                                  ? "bg-[var(--warning)]/10 text-[#9a6700]"
-                                  : "bg-[var(--accent-soft)] text-[var(--accent)]"
-                              }`}
-                            >
-                              {signal.suspicious ? "Periksa" : "Wajar"}
-                            </span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              <div className="mb-3 mt-6">
+                <p className="text-sm font-extrabold text-[var(--foreground)]">{currentScenario.context}</p>
+                {!ready && (
+                  <p className="mt-1 text-xs font-semibold text-[var(--warning)]">
+                    Mainkan dulu simulasinya di atas.
+                  </p>
                 )}
               </div>
 
-              {/* Keputusan */}
-              <div className="mb-4 mt-7">
-                <p className="text-sm font-extrabold text-[var(--foreground)]">Apa yang akan kamu lakukan?</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Pilih respons yang menurutmu paling tepat.
-                </p>
-              </div>
-
-              <div data-tutorial="choices" className="space-y-3">
+              <div data-tutorial="choices" className="space-y-2.5">
                 {displayChoices.map((choice, index) => {
                   const isSelected = selectedChoice?.id === choice.id;
 
@@ -807,15 +787,15 @@ export function GamblingAwareness({ simulation }: Props) {
                     <button
                       key={choice.id}
                       type="button"
-                      disabled={!!selectedChoice}
+                      disabled={!ready || !!selectedChoice}
                       onClick={() => handleChoice(choice)}
-                      className={`group flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                      className={`group flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed ${
                         isSelected
                           ? choice.isSafe
                             ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                             : "border-[var(--danger)] bg-[var(--danger)]/5"
-                          : selectedChoice
-                            ? "cursor-default border-[var(--border)] opacity-50"
+                          : selectedChoice || !ready
+                            ? "border-[var(--border)] opacity-50"
                             : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
                       }`}
                     >
@@ -825,7 +805,7 @@ export function GamblingAwareness({ simulation }: Props) {
                             ? choice.isSafe
                               ? "bg-[var(--accent)] text-white"
                               : "bg-[var(--danger)] text-white"
-                            : "bg-[var(--surface)] text-[var(--muted)] group-hover:bg-white group-hover:text-[var(--brand)]"
+                            : "bg-[var(--surface)] text-[var(--muted)]"
                         }`}
                       >
                         {isSelected ? (
@@ -838,87 +818,53 @@ export function GamblingAwareness({ simulation }: Props) {
                       <span className="flex-1 text-sm font-semibold leading-relaxed text-[var(--foreground)]">
                         {choice.label}
                       </span>
-
-                      {!selectedChoice && (
-                        <ArrowRight
-                          size={16}
-                          className="shrink-0 text-[var(--muted)] transition group-hover:translate-x-1 group-hover:text-[var(--brand)]"
-                        />
-                      )}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Umpan balik */}
               {selectedChoice && (
                 <div className="mt-6">
-                  <div data-tutorial="feedback">
-                    <div
-                      className={`rounded-2xl border p-5 ${
-                        selectedChoice.isSafe
-                          ? "border-[var(--accent)]/30 bg-[var(--accent-soft)]"
-                          : "border-[var(--warning)]/40 bg-[var(--warning)]/10"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        {selectedChoice.isSafe ? (
-                          <CheckCircle2 size={20} className="text-[var(--accent)]" />
-                        ) : (
-                          <AlertTriangle size={20} className="text-[var(--warning)]" />
-                        )}
-
-                        <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                          {selectedChoice.isSafe
-                            ? `Level ${currentIndex + 1} selesai!`
-                            : "Ada risiko yang perlu kamu sadari."}
-                        </h3>
-
-                        <span
-                          className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold text-white ${
-                            selectedChoice.isSafe ? "bg-[var(--accent)]" : "bg-[var(--warning)]"
-                          }`}
-                        >
-                          {selectedChoice.isSafe
-                            ? `+${currentLevelXp} XP`
-                            : `XP level ini turun ke ${currentLevelXp}`}
-                        </span>
-                      </div>
-
-                      <p className="mt-2 text-sm leading-relaxed text-[var(--foreground)]">
-                        {selectedChoice.feedback}
-                      </p>
-
-                      {isUnsafe && (
-                        <p className="mt-3 text-xs font-bold leading-relaxed text-[var(--warning)]">
-                          Level ini belum selesai. Pelajari alasannya, lalu coba lagi dengan pilihan yang
-                          lebih aman.
-                        </p>
+                  <div
+                    data-tutorial="feedback"
+                    className={`rounded-2xl border p-5 ${
+                      selectedChoice.isSafe
+                        ? "border-[var(--accent)]/30 bg-[var(--accent-soft)]"
+                        : "border-[var(--warning)]/40 bg-[var(--warning)]/10"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedChoice.isSafe ? (
+                        <CheckCircle2 size={20} className="text-[var(--accent)]" />
+                      ) : (
+                        <AlertTriangle size={20} className="text-[var(--warning)]" />
                       )}
+
+                      <h3 className="text-sm font-extrabold text-[var(--foreground)]">
+                        {selectedChoice.isSafe ? `Level ${currentIndex + 1} selesai!` : "Belum tepat."}
+                      </h3>
+
+                      <span
+                        className={`ml-auto shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold text-white ${
+                          selectedChoice.isSafe ? "bg-[var(--accent)]" : "bg-[var(--warning)]"
+                        }`}
+                      >
+                        {selectedChoice.isSafe ? `+${currentLevelXp} XP` : `XP level ini turun ke ${currentLevelXp}`}
+                      </span>
                     </div>
 
-                    <div className="mt-4 rounded-2xl border border-[var(--border)] p-5">
-                      <div className="flex items-center gap-2">
-                        <Info size={18} className="text-[var(--brand)]" />
-                        <h3 className="text-sm font-extrabold text-[var(--foreground)]">
-                          Mengapa ini berisiko?
-                        </h3>
-                      </div>
+                    <p className="mt-2 text-sm font-semibold leading-relaxed text-[var(--foreground)]">
+                      {selectedChoice.feedback}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+                      {selectedChoice.explanation}
+                    </p>
 
-                      <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                        {selectedChoice.explanation}
+                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--card)]/70 p-3">
+                      <Lightbulb size={14} className="mt-0.5 shrink-0 text-[var(--brand)]" />
+                      <p className="text-xs leading-relaxed text-[var(--foreground)]">
+                        {selectedChoice.saferAction}
                       </p>
-
-                      <div className="mt-4 rounded-xl bg-[var(--brand-soft)] p-4">
-                        <div className="flex items-center gap-2 text-[var(--brand)]">
-                          <Lightbulb size={16} />
-                          <span className="text-xs font-extrabold">Langkah yang lebih aman</span>
-                        </div>
-
-                        <p className="mt-2 text-sm leading-relaxed text-[var(--brand-dark)]">
-                          {selectedChoice.saferAction}
-                        </p>
-                      </div>
                     </div>
                   </div>
 
@@ -927,7 +873,7 @@ export function GamblingAwareness({ simulation }: Props) {
                     data-tutorial="next"
                     onClick={handleNext}
                     disabled={isSaving}
-                    className={`button mt-5 w-full disabled:cursor-wait disabled:opacity-60 ${
+                    className={`button mt-4 w-full disabled:cursor-wait disabled:opacity-60 ${
                       isUnsafe ? "button-secondary" : "button-primary"
                     }`}
                   >
@@ -955,21 +901,7 @@ export function GamblingAwareness({ simulation }: Props) {
             </div>
           </section>
 
-          {/* Panel samping */}
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-                <Sparkles size={20} />
-              </div>
-
-              <h3 className="mt-4 text-sm font-extrabold text-[var(--foreground)]">Misi kamu</h3>
-
-              <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-                Capai Level {totalCount}. Di level tinggi, jebakannya bukan lagi iklan yang jelas, tetapi
-                tekanan dari orang terdekat, utang, dan dorongan dari dalam diri sendiri.
-              </p>
-            </div>
-
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={17} className="text-[var(--accent)]" />
@@ -978,10 +910,10 @@ export function GamblingAwareness({ simulation }: Props) {
 
               <ul className="mt-3 space-y-2">
                 {[
-                  "Tidak ada strategi atau “jam gacor” yang menjamin menang.",
-                  "Bonus adalah umpan agar kamu deposit.",
+                  "Judi bukan penghasilan. Uangnya diambil dari kebutuhanmu.",
+                  "Tidak ada jam atau pola yang menjamin menang.",
                   "Kekalahan tidak bisa “dikejar”.",
-                  "Jangan berutang atau menyewakan rekening untuk judi.",
+                  "Jangan berutang atau menyewakan rekening.",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-xs leading-relaxed text-[var(--muted)]">
                     <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[var(--accent)]" />
@@ -1000,18 +932,17 @@ export function GamblingAwareness({ simulation }: Props) {
               </div>
 
               <p className="mt-3 text-xs text-white/70">
-                {completedIds.length} dari {totalCount} level telah kamu selesaikan.
+                {completedIds.length} dari {totalCount} level selesai.
               </p>
 
               <p className="mt-3 border-t border-white/15 pt-3 text-[11px] leading-relaxed text-white/60">
-                Potensi XP {potentialXp}/{GAMBLING_MAX_XP}. Jawaban salah mengurangi XP level itu. Selesaikan
-                Level {totalCount} untuk bonus {GAMBLING_MASTER_BONUS} XP dan lencana Gambling Guardian.
+                Potensi XP {potentialXp}/{GAMBLING_MAX_XP}. Selesaikan Level {totalCount} untuk bonus{" "}
+                {GAMBLING_MASTER_BONUS} XP dan lencana Gambling Guardian.
               </p>
             </div>
           </aside>
         </div>
 
-        {/* Pengingat dukungan */}
         <section
           data-tutorial="support"
           className="mt-7 flex items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"
@@ -1026,16 +957,23 @@ export function GamblingAwareness({ simulation }: Props) {
             </h3>
 
             <p className="mt-1 text-xs leading-6 text-[var(--muted)]">
-              Jika judi online mulai mengganggu kehidupanmu, hentikan transaksi, kurangi paparan promosi,
-              dan bicarakan situasimu dengan orang tepercaya atau tenaga profesional kesehatan jiwa.
+              Hapus aplikasi, jauhkan pemicu, dan ceritakan ke satu orang tepercaya. Psikolog atau
+              puskesmas terdekat bisa membantu.
             </p>
           </div>
         </section>
       </div>
 
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
+
       <GamblingTutorial
         active={tutorialActive}
-        detailsOpen={showDetails}
+        activityDone={activityDone}
         hasSelectedChoice={!!selectedChoice}
         onClose={closeTutorial}
       />

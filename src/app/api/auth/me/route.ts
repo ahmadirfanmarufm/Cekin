@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -6,6 +6,8 @@ import { simulationProgress } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth/session";
 
 export async function GET() {
+  await connection();
+
   try {
     const user = await getSessionUser();
 

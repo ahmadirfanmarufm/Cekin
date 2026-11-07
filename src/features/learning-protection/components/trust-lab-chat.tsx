@@ -46,6 +46,13 @@ import {
 } from "@/lib/learning-protection/xp";
 import { mistakesOfPaths } from "@/lib/learning-protection/dialogue";
 import { useDialogue } from "@/lib/learning-protection/use-dialogue";
+import {
+  LOGIN_GATE_AFTER_LEVEL,
+  buildLoginHref,
+  useLearningProgress,
+} from "@/lib/learning-protection/use-learning-progress";
+import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
+import { LoginGate } from "./login-gate";
 
 type Props = {
   simulation: SimulationConfig;
@@ -58,10 +65,8 @@ export function TrustLabChat({ simulation }: Props) {
   const totalCount = scenarios.length;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  // Riwayat percobaan per level: tiap percobaan adalah jalur id pilihan.
   const [attempts, setAttempts] = useState<Record<string, string[][]>>({});
   const [completedIds, setCompletedIds] = useState<string[]>([]);
-  // Berubah = percakapan level ini diulang dari awal.
   const [attemptKey, setAttemptKey] = useState(0);
   const [runSeed, setRunSeed] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -80,6 +85,37 @@ export function TrustLabChat({ simulation }: Props) {
 
   const scenarioRef = useRef<HTMLElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+
+  // Gerbang login untuk tamu dan penyimpanan progres.
+  const [gateOpen, setGateOpen] = useState(false);
+  const [declinedLogin, setDeclinedLogin] = useState(false);
+
+  const learning = useLearningProgress({
+    simulationId: SIMULATION_ID,
+    scenarioIds: scenarios.map((scenario) => scenario.id),
+    attemptsShape: "dialogue",
+    paused: tutorialActive,
+    snapshot: {
+      currentIndex,
+      completedIds,
+      attempts,
+      runSeed,
+      finished,
+      rewardMessage,
+      declinedLogin,
+    },
+    onRestore: (saved) => {
+      setCurrentIndex(saved.currentIndex);
+      setCompletedIds(saved.completedIds);
+      setAttempts(saved.attempts as Record<string, string[][]>);
+      setRunSeed(saved.runSeed);
+      setFinished(Boolean(saved.finished));
+      setRewardMessage(saved.rewardMessage ?? "");
+      setDeclinedLogin(Boolean(saved.declinedLogin));
+      setAttemptKey((previous) => previous + 1);
+    },
+  });
+  const session = learning.session;
 
   const currentScenario = scenarios[currentIndex];
   const attemptNumber = currentScenario
@@ -288,7 +324,6 @@ export function TrustLabChat({ simulation }: Props) {
     });
   };
 
-  // Kena jebakan: ulangi percakapan dari awal dengan urutan pilihan baru.
   const retryLevel = () => {
     setAttemptKey((previous) => previous + 1);
     scrollToScenario();
@@ -352,16 +387,40 @@ export function TrustLabChat({ simulation }: Props) {
     }
   };
 
+  function goNextLevel() {
+    setCurrentIndex((previous) => previous + 1);
+    scrollToScenario();
+  }
+
+  const gate = useLoginGate({
+    session: learning.session,
+    declinedLogin,
+    setDeclinedLogin,
+    tutorialActive,
+    currentIndex,
+    onAdvance: goNextLevel,
+  });
+
   const handleNext = async () => {
     if (isSavingReward || dialogue.ending?.result !== "win") return;
 
     if (!isLastLevel) {
-      setCurrentIndex((previous) => previous + 1);
-      scrollToScenario();
+      const needsLogin =
+        session.ready &&
+        !session.authenticated &&
+        !declinedLogin &&
+        !tutorialActive &&
+        currentIndex === LOGIN_GATE_AFTER_LEVEL - 1;
+
+      if (needsLogin) {
+        setGateOpen(true);
+        return;
+      }
+
+      goNextLevel();
       return;
     }
 
-    // Saat tutorial: tidak membuka hasil dan tidak menyimpan XP.
     if (tutorialActive) {
       setAttemptKey((previous) => previous + 1);
       return;
@@ -381,6 +440,7 @@ export function TrustLabChat({ simulation }: Props) {
     setAttemptKey((previous) => previous + 1);
     setFinished(false);
     setRewardMessage("");
+    setDeclinedLogin(false);
 
     scrollToScenario();
   };
@@ -510,6 +570,20 @@ export function TrustLabChat({ simulation }: Props) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {learning.resumed && (
+            <p className="mt-3 text-[11px] font-semibold text-[var(--accent)]">
+              Progres sebelumnya dilanjutkan.
+            </p>
+          )}
+
+          {session.ready && !session.authenticated && (
+            <p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
+              {declinedLogin
+                ? "Mode tamu: XP tidak akan dihitung."
+                : "Mode tamu: login untuk menyimpan progres dan XP."}
+            </p>
+          )}
         </div>
 
         <LevelMap
@@ -836,6 +910,13 @@ export function TrustLabChat({ simulation }: Props) {
           </aside>
         </div>
       </div>
+
+      <LoginGate
+        open={gate.open}
+        earnedXp={earnedLevelXp}
+        onAuthenticated={gate.onAuthenticated}
+        onContinue={gate.onContinue}
+      />
 
       <TrustLabTutorial
         active={tutorialActive}
