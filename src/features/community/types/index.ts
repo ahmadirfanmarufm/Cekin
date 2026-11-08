@@ -22,6 +22,15 @@ export type ModerationVerificationStatus =
   | "needs_info"
   | "rejected";
 
+export type NotificationType =
+  | "post_like"
+  | "post_comment"
+  | "comment_reply"
+  | "comment_like"
+  | "post_review"
+  | "post_report"
+  | "post_resubmitted";
+
 export type FeedFilter = "all" | "mine";
 
 export type SortOption = "recommended" | "newest" | "oldest";
@@ -68,6 +77,9 @@ export type CommunityPost = {
 
     commentCount: number;
     isMine: boolean;
+    editedAt: string | null;
+    reviewNote: string | null;
+    reportCount: number; 
 };
 
 export type CommunityViewer = {
@@ -85,6 +97,8 @@ export type CommunityModerationLog = {
     createdAt: string;
     moderatorId: string | null;
     moderatorUsername: string | null;
+    eventType: "review" | "edited";
+    actorLabel: string;
 };
 
 export type ApiResponse<T> = {
@@ -139,4 +153,25 @@ export type GifItem = {
   title: string;
   previewUrl: string;
   url: string;
+};
+
+export type CommunityNotification = {
+  id: string;
+  type: NotificationType;
+  count: number;
+  actorName: string | null;
+  postId: string | null;
+  postTitle: string | null;
+  meta: string | null;
+  isRead: boolean;
+  updatedAt: string;
+};
+
+export type CommunityReportItem = {
+  id: string;
+  reason: string;
+  detail: string | null;
+  status: string;
+  createdAt: string;
+  reporterUsername: string;
 };

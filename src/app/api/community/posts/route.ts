@@ -18,6 +18,7 @@ import {
 } from "@/lib/db/schema";
 
 import { getSessionUser } from "@/lib/auth/session";
+import { isModeratorRole } from "@/features/community/lib/rules";
 
 import {
   validateCommunityMedia,
@@ -133,21 +134,23 @@ export async function GET(request: Request) {
 
     const [posts, mediaRecords, myReactions] = await Promise.all([
       db
-        .select({
-          id: communityPosts.id,
-          category: communityPosts.category,
-          title: communityPosts.title,
-          content: communityPosts.content,
-          status: communityPosts.status,
-          verificationStatus: communityPosts.verificationStatus,
-          createdAt: communityPosts.createdAt,
-          updatedAt: communityPosts.updatedAt,
-          authorId: users.id,
-          author: users.username,
-        })
-        .from(communityPosts)
-        .innerJoin(users, eq(communityPosts.authorId, users.id))
-        .where(inArray(communityPosts.id, pageIds)),
+      .select({
+        id: communityPosts.id,
+        category: communityPosts.category,
+        title: communityPosts.title,
+        content: communityPosts.content,
+        status: communityPosts.status,
+        verificationStatus: communityPosts.verificationStatus,
+        createdAt: communityPosts.createdAt,
+        updatedAt: communityPosts.updatedAt,
+        editedAt: communityPosts.editedAt,
+        reviewNote: communityPosts.reviewNote,
+        authorId: users.id,
+        author: users.username,
+      })
+      .from(communityPosts)
+      .innerJoin(users, eq(communityPosts.authorId, users.id))
+      .where(inArray(communityPosts.id, pageIds)),
       db
         .select()
         .from(communityMedia)
@@ -206,8 +209,16 @@ export async function GET(request: Request) {
           verificationStatus: post.verificationStatus,
           createdAt: post.createdAt,
           updatedAt: post.updatedAt,
+          editedAt: post.editedAt,
 
-          author: { id: post.authorId, username: post.author },
+          reviewNote: user && (post.authorId === user.id || isModeratorRole(user.role)) ? post.reviewNote : null,
+
+          reportCount: user && isModeratorRole(user.role) ? (reportCounts.get(post.id) ?? 0) : 0,
+
+          author: {
+            id: post.authorId,
+            username: post.author,
+          },
 
           media: mediaWithUrls.filter((media) => media.postId === post.id),
 

@@ -10,6 +10,7 @@ import {
 
 import { getSessionUser } from "@/lib/auth/session";
 import { isSameOrigin } from "@/lib/auth/request-security";
+import { notify } from "@/features/community/server/notifications";
 
 const VERIFICATION_STATUSES = [
   "under_review",
@@ -161,17 +162,17 @@ export async function PATCH(
       );
     }
 
-    // 6. Update status dan simpan riwayat dalam satu transaksi
     const result = await db.transaction(async (tx) => {
-      const [post] = await tx
-        .select({
-          id: communityPosts.id,
-          verificationStatus:
-            communityPosts.verificationStatus,
-        })
-        .from(communityPosts)
-        .where(eq(communityPosts.id, postId))
-        .limit(1);
+    const [post] = await tx
+      .select({
+        id: communityPosts.id,
+        authorId: communityPosts.authorId,
+        verificationStatus:
+          communityPosts.verificationStatus,
+      })
+      .from(communityPosts)
+      .where(eq(communityPosts.id, postId))
+      .limit(1);
 
       if (!post) {
         return {
@@ -215,6 +216,7 @@ export async function PATCH(
       return {
         updated: true as const,
         postId,
+        authorId: post.authorId,
         previousStatus,
         verificationStatus,
         reviewedAt,
@@ -238,6 +240,16 @@ export async function PATCH(
         data: result,
       });
     }
+
+    await notify({
+      userId: result.authorId,
+      type: "post_review",
+      groupKey: `post_review:${postId}`,
+      postId,
+      actorId: user.id,
+      meta: verificationStatus,
+      aggregate: false,
+    });
 
     return NextResponse.json({
       success: true,

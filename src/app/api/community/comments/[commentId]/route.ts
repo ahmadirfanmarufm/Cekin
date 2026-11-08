@@ -14,10 +14,6 @@ import { fail, UUID_REGEX } from "@/features/community/server/http";
 
 type RouteContext = { params: Promise<{ commentId: string }> };
 
-/**
- * - Tanpa balasan  -> dihapus permanen.
- * - Ada balasan    -> isi & lampiran dibersihkan, balasan tetap tampil di bawah placeholder.
- */
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     if (!isSameOrigin(request)) return fail(403, "Request tidak diizinkan.");

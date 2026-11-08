@@ -31,6 +31,9 @@ import {
   Trash2,
   Upload,
   X,
+  Flag, 
+  Lock, 
+  Pencil
 } from "lucide-react";
 
 import {
@@ -77,6 +80,11 @@ import { PostEngagement } from "@/features/community/components/post-engagement"
 
 import { seenQuery } from "@/features/community/lib/seen-categories";
 
+import { EditPostDialog } from "@/features/community/components/edit-post-dialog";
+import { ReportPostDialog } from "@/features/community/components/report-post-dialog";
+import { PostReportsDialog } from "@/features/community/components/post-reports-dialog";
+import { canEditPost } from "@/features/community/lib/rules";
+
 const MAX_TITLE_LENGTH = 150;
 const MAX_CONTENT_LENGTH = 10000;
 
@@ -89,6 +97,14 @@ const formatFileSize = (size: number) => {
 }
 
 export const CommunityCenter = () => {
+    const [notificationRequest, setNotificationRequest] = useState<{
+        postId: string;
+        requestId: number;
+    } | null>(null);
+
+    const notificationRequestRef = useRef(0);
+    const processedNotificationRequestRef = useRef<number | null>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -116,6 +132,12 @@ export const CommunityCenter = () => {
     const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+
+    const [editTarget, setEditTarget] = useState<CommunityPost | null>(null);
+    const [reportTarget, setReportTarget] = useState<CommunityPost | null>(null);
+    const [reportsTarget, setReportsTarget] = useState<CommunityPost | null>(null);
+    const [highlightId, setHighlightId] = useState<string | null>(null);
+    const pendingFocus = useRef<string | null>(null);
 
     const [form, setForm] = useState({
         category: "whatsapp-scam" as CommunityCategory,
@@ -198,6 +220,44 @@ export const CommunityCenter = () => {
         }
     }, []);
 
+    useEffect(() => {
+        const openPostFromNotification = (postId: string) => {
+            if (!postId) return;
+
+            notificationRequestRef.current += 1;
+
+            setNotificationRequest({
+                postId,
+                requestId: notificationRequestRef.current,
+            });
+        };
+
+        const params = new URLSearchParams(window.location.search);
+        const initialPostId = params.get("postId");
+
+        if (initialPostId) {
+            openPostFromNotification(initialPostId);
+        }
+
+        const handleNotificationNavigation = (event: Event) => {
+            const customEvent = event as CustomEvent<{ postId: string }>;
+
+            openPostFromNotification(customEvent.detail.postId);
+        };
+
+        window.addEventListener(
+            "community:open-post",
+            handleNotificationNavigation,
+        );
+
+        return () => {
+            window.removeEventListener(
+                "community:open-post",
+                handleNotificationNavigation,
+            );
+        };
+    }, []);
+
     const moderation = useCommunityModeration({
         onSuccess: (message) => {
             showToast("success", message);
@@ -263,6 +323,64 @@ export const CommunityCenter = () => {
             return sortOption === "newest" ? dateB - dateA : dateA - dateB;
         });
     }, [posts, deferredSearchQuery, selectedCategory, feedFilter, sortOption]);
+
+    const scrollToPost = useCallback((postId: string) => {
+        const element = document.getElementById(`post-${postId}`);
+        if (!element) return false;
+
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(postId);
+        window.setTimeout(() => setHighlightId(null), 2500);
+        return true;
+    }, []);
+
+    const focusPost = useCallback((postId: string) => {
+            if (scrollToPost(postId)) return;
+
+            pendingFocus.current = postId;
+            setSelectedCategory("all");
+            setSearchQuery("");
+            setFeedFilter("all");
+
+            window.setTimeout(() => {
+                if (pendingFocus.current === postId) {
+                    pendingFocus.current = null;
+                    showToast("info", "Postingan tidak ada di feed saat ini. Coba muat ulang.");
+                }
+            }, 700);
+        },
+        [scrollToPost, showToast],
+    );
+
+    useEffect(() => {
+        if (!notificationRequest || loading) return;
+        if (processedNotificationRequestRef.current === notificationRequest.requestId) {
+            return;
+        }
+
+        const targetPost = posts.find(
+            (post) => post.id === notificationRequest.postId,
+        );
+
+        processedNotificationRequestRef.current =
+            notificationRequest.requestId;
+
+        if (!targetPost) {
+            showToast(
+                "info",
+                "Postingan tidak ditemukan. Silakan refresh feed.",
+            );
+            return;
+        }
+        focusPost(targetPost.id);
+
+    }, [notificationRequest, posts, loading, focusPost, showToast,
+    ]);
+
+    useEffect(() => {
+        const id = pendingFocus.current;
+        if (id && scrollToPost(id)) pendingFocus.current = null;
+    }, [filteredPosts, scrollToPost]);
 
     const handleOpenCreatePost = () => {
         if (!viewer.isAuthenticated) {
@@ -510,14 +628,16 @@ export const CommunityCenter = () => {
                 </p>
             </div>
 
-            <button
-                type="button"
-                onClick={handleOpenCreatePost}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-5 text-sm font-semibold text-white transition duration-300 hover:bg-[var(--brand-dark)]"
-            >
-                <Plus size={18} />
-                Buat Postingan
-            </button>
+            <div className="flex items-center gap-2">
+                <button
+                    type="button"
+                    onClick={handleOpenCreatePost}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-5 text-sm font-semibold text-white transition duration-300 hover:bg-[var(--brand-dark)]"
+                >
+                    <Plus size={18} />
+                    Buat Postingan
+                </button>
+            </div>
             </section>
 
             {/* Safety notice */}
@@ -798,7 +918,10 @@ export const CommunityCenter = () => {
                 return(
                 <article
                     key={post.id}
-                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-gray-300"
+                    id={`post-${post.id}`}
+                    className={`scroll-mt-24 overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                        highlightId === post.id ? "border-[var(--brand)] ring-2 ring-[var(--brand-soft)]" : "border-gray-200 hover:border-gray-300"
+                    }`}
                 >
                     <div className="space-y-4 p-4 sm:p-5">
                     {/* Author and status */}
@@ -822,8 +945,9 @@ export const CommunityCenter = () => {
                             </div>
 
                             <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
-                            <Clock3 size={12} />
-                            {formatDate(post.createdAt)}
+                                <Clock3 size={12} />
+                                {formatDate(post.createdAt)}
+                                {post.editedAt && <span>· diedit</span>}
                             </p>
                         </div>
                         </div>
@@ -853,6 +977,23 @@ export const CommunityCenter = () => {
                         {post.content}
                         </p>
                     </div>
+
+                    {post.isMine && post.verificationStatus === "needs_info" && (
+                        <div className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0 text-orange-600" />
+                            <div className="min-w-0 text-xs leading-relaxed text-orange-900">
+                            <p className="font-semibold">Moderator meminta informasi tambahan.</p>
+                            {post.reviewNote && <p className="mt-1 whitespace-pre-wrap break-words">{post.reviewNote}</p>}
+                            <button
+                                type="button"
+                                onClick={() => setEditTarget(post)}
+                                className="mt-2 font-bold text-orange-700 underline"
+                            >
+                                Lengkapi laporan
+                            </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Media */}
                     {post.media.length > 0 && (
@@ -921,10 +1062,11 @@ export const CommunityCenter = () => {
                             notify={showToast}
                         />
 
-                        {(isModerator || post.isMine) && (
-                            <div className="flex flex-wrap items-center gap-2">
-                            {isModerator && (
-                                <>
+                        {(() => {
+                            const canEdit = post.isMine && canEditPost(post.verificationStatus);
+
+                            return (
+                                <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => void moderation.handleOpenModerationLogs(post)}
@@ -934,27 +1076,74 @@ export const CommunityCenter = () => {
                                     Riwayat
                                 </button>
 
-                                <button
-                                    type="button"
-                                    onClick={() => moderation.handleOpenModeration(post)}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--brand)] px-3 py-2 text-xs font-semibold text-[var(--brand)] transition hover:bg-[var(--brand-soft)]"
-                                >
-                                    <ShieldCheck size={14} />
-                                    Tinjau Laporan
-                                </button>
-                                </>
-                            )}
+                                {isModerator && (
+                                    <>
+                                    <button
+                                        type="button"
+                                        onClick={() => moderation.handleOpenModeration(post)}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--brand)] px-3 py-2 text-xs font-semibold text-[var(--brand)] transition hover:bg-[var(--brand-soft)]"
+                                    >
+                                        <ShieldCheck size={14} />
+                                        Tinjau Laporan
+                                    </button>
 
-                            <button
-                                type="button"
-                                onClick={() => deletion.handleOpenDelete(post)}
-                                className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-50"
-                            >
-                                <Trash2 size={14} />
-                                Hapus
-                            </button>
-                            </div>
-                        )}
+                                    {post.reportCount > 0 && (
+                                        <button
+                                        type="button"
+                                        onClick={() => setReportsTarget(post)}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+                                        >
+                                        <Flag size={14} />
+                                        Dilaporkan ({post.reportCount})
+                                        </button>
+                                    )}
+                                    </>
+                                )}
+
+                                {post.isMine &&
+                                    (canEdit ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditTarget(post)}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                                    >
+                                        <Pencil size={14} />
+                                        Edit
+                                    </button>
+                                    ) : (
+                                    <span
+                                        title="Laporan yang sudah ditinjau tidak bisa diedit"
+                                        className="inline-flex items-center gap-1.5 px-1 text-[11px] text-gray-400"
+                                    >
+                                        <Lock size={12} />
+                                        Terkunci
+                                    </span>
+                                    ))}
+
+                                {(isModerator || post.isMine) && (
+                                    <button
+                                    type="button"
+                                    onClick={() => deletion.handleOpenDelete(post)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                                    >
+                                    <Trash2 size={14} />
+                                    Hapus
+                                    </button>
+                                )}
+
+                                {!post.isMine && (
+                                    <button
+                                    type="button"
+                                    onClick={() => (viewer.isAuthenticated ? setReportTarget(post) : setIsAuthModalOpen(true))}
+                                    className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-400 transition hover:bg-gray-100 hover:text-red-600"
+                                    >
+                                    <Flag size={14} />
+                                    Laporkan
+                                    </button>
+                                )}
+                                </div>
+                            );
+                        })()}
                     </div>
                     </div>
                 </article>
@@ -1282,6 +1471,35 @@ export const CommunityCenter = () => {
             onNoteChange={moderation.setModerationNote}
             onSubmit={moderation.handleUpdateVerification}
             onClose={moderation.handleCloseModeration}
+        />
+
+        <EditPostDialog
+            post={editTarget}
+            onClose={() => setEditTarget(null)}
+            onSaved={(message) => {
+                setEditTarget(null);
+                showToast("success", message);
+                void fetchPosts();
+            }}
+        />
+
+        <ReportPostDialog
+            post={reportTarget}
+            onClose={() => setReportTarget(null)}
+            onSubmitted={(message) => {
+                setReportTarget(null);
+                showToast("success", message);
+            }}
+        />
+
+        <PostReportsDialog
+            post={reportsTarget}
+            onClose={() => setReportsTarget(null)}
+            onDone={(message) => {
+                setReportsTarget(null);
+                showToast("success", message);
+                void fetchPosts();
+            }}
         />
 
         {/* Moderation logs */}

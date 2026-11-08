@@ -6,6 +6,7 @@ import { communityPosts, communityReactions } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth/session";
 import { isSameOrigin } from "@/lib/auth/request-security";
 import { fail, UUID_REGEX } from "@/features/community/server/http";
+import { notify, retract } from "@/features/community/server/notifications";
 
 type RouteContext = { params: Promise<{ postId: string }> };
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const desired = typeof body?.liked === "boolean" ? body.liked : null;
 
     const [post] = await db
-      .select({ status: communityPosts.status })
+      .select({ status: communityPosts.status, authorId: communityPosts.authorId })
       .from(communityPosts)
       .where(eq(communityPosts.id, postId))
       .limit(1);
@@ -66,16 +67,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       .limit(1);
 
     const shouldLike = desired ?? !existing;
+    const groupKey = `post_like:${postId}`;
 
     if (shouldLike && !existing) {
-      await db
+      const [inserted] = await db
         .insert(communityReactions)
         .values({ postId, userId: user.id, type: "helpful" })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ id: communityReactions.id });
+
+      if (inserted) {
+        await notify({ userId: post.authorId, type: "post_like", groupKey, postId, actorId: user.id });
+      }
     } else if (!shouldLike && existing) {
       await db
         .delete(communityReactions)
         .where(and(eq(communityReactions.postId, postId), eq(communityReactions.userId, user.id)));
+
+      await retract(post.authorId, groupKey);
     }
 
     const [{ total }] = await db

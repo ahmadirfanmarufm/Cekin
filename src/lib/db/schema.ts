@@ -130,6 +130,8 @@ export const communityPosts = pgTable(
     updatedAt: timestamp("updated_at", {
       withTimezone: true,
     }).defaultNow().notNull(),
+
+    editedAt: timestamp("edited_at", { withTimezone: true }),
   },
   (table) => [
     index("cekin_community_posts_author_idx").on(table.authorId),
@@ -276,6 +278,7 @@ export const communityReports = pgTable("cekin_community_reports",
     index("cekin_community_reports_post_idx").on(table.postId),
     index("cekin_community_reports_reporter_idx").on(table.reporterId),
     index("cekin_community_reports_status_idx").on(table.status),
+    uniqueIndex("cekin_community_reports_post_reporter_unique").on(table.postId, table.reporterId),
   ],
 );
 
@@ -307,6 +310,8 @@ export const communityModerationLogs = pgTable("cekin_community_moderation_logs"
     ).notNull(),
 
     note: text("note"),
+
+    eventType: varchar("event_type", { length: 20 }).notNull().default("review"),
 
     createdAt: timestamp("created_at", {
       withTimezone: true,
@@ -372,5 +377,41 @@ export const communityCommentLikes = pgTable(
   (table) => [
     uniqueIndex("cekin_community_comment_likes_unique").on(table.commentId, table.userId),
     index("cekin_community_comment_likes_comment_idx").on(table.commentId),
+  ],
+);
+
+export const communityNotifications = pgTable(
+  "cekin_community_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    // Penerima
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    type: varchar("type", { length: 30 }).notNull(),
+
+    // Satu baris per kelompok, misalnya "post_like:<postId>".
+    groupKey: varchar("group_key", { length: 100 }).notNull(),
+
+    postId: uuid("post_id").references(() => communityPosts.id, { onDelete: "cascade" }),
+
+    // Pelaku terbaru
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+
+    count: integer("count").notNull().default(1),
+
+    // Status baru (post_review) atau kode alasan (post_report)
+    meta: varchar("meta", { length: 100 }),
+
+    readAt: timestamp("read_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("cekin_community_notifications_group_unique").on(table.userId, table.groupKey),
+    index("cekin_community_notifications_user_idx").on(table.userId, table.updatedAt),
   ],
 );
