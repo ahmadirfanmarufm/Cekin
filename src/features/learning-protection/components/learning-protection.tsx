@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { getLevelInfo } from "@/features/auth/utils/level";
+import { BadgeShelf } from "@/components/badges/badge-shelf";
 
 interface AuthUser {
   id: string;
@@ -36,7 +37,7 @@ interface AuthUser {
 const experiences = [
   {
     id: "trust-lab",
-    title: "Trust Lab",
+    title: "Penipuan Chat",
     kicker: "EXPERIENCE THE TRAP",
     description: "Hadapi lowongan, top-up, dan investasi palsu.",
     difficulty: "Pemula",
@@ -46,7 +47,7 @@ const experiences = [
   },
   {
     id: "apps-scam",
-    title: "App Scam",
+    title: "Aplikasi Sus",
     kicker: "IS THIS APP SAFE?",
     description: "Periksa aplikasi, sumber unduhan, dan izinnya.",
     difficulty: "Menengah",
@@ -56,7 +57,7 @@ const experiences = [
   },
   {
     id: "phishing-attack",
-    title: "Phishing Attack",
+    title: "Phishing",
     kicker: "SPOT THE FAKE",
     description: "Selidiki email palsu sebelum tautan menjebakmu.",
     difficulty: "Menengah",
@@ -66,7 +67,7 @@ const experiences = [
   },
   {
     id: "spam-call",
-    title: "Scam Call",
+    title: "Penipuan Telepon",
     kicker: "DON'T TRUST THE CALLER",
     description: "Terima telepon fiksi dan pilih responsmu.",
     difficulty: "Menengah",
@@ -76,7 +77,7 @@ const experiences = [
   },
   {
     id: "online-gambling",
-    title: "Online Gambling Awareness",
+    title: "Judol",
     kicker: "DON'T GET TRAPPED",
     description: "Kenali promosi, near-miss, dan loss chasing.",
     difficulty: "Penting",
@@ -86,7 +87,7 @@ const experiences = [
   },
   {
     id: "mind-trap",
-    title: "Mind Trap",
+    title: "Jebakan Logika",
     kicker: "UNDERSTAND THE PSYCHOLOGY",
     description: "Kenali pola pikir yang dimanfaatkan pelaku.",
     difficulty: "Pemula",
@@ -471,6 +472,8 @@ export function LearningProtection() {
           </p>
         </div>
       </div>
+
+      <BadgeShelf showLocked />
     </section>
   );
 }

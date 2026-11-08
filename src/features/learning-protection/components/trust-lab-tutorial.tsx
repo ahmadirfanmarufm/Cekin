@@ -1,5 +1,6 @@
 "use client";
 
+import { badgeTutorialStep } from "./badge-parts";
 import {
   GuidedTutorial,
   type TutorialStep,
@@ -86,10 +87,11 @@ const STEPS: TutorialStep[] = [
     body: "Ciri-ciri penipuan selalu ada di panel ini.",
     target: "red-flags",
   },
+  badgeTutorialStep("trust"),
   {
     id: "finish",
     title: "Kamu siap!",
-    body: "Mulai sekarang XP dihitung dari jawabanmu. Capai Level 10 untuk lencana Trust Master.",
+    body: "Mulai sekarang XP dihitung dari jawabanmu. Capai Level 10 untuk badge Si Kebal Tipu.",
     cta: "Mulai berlatih",
   },
 ];

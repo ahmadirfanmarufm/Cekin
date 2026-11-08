@@ -1,5 +1,6 @@
 "use client";
 
+import { badgeTutorialStep } from "./badge-parts";
 import { GuidedTutorial, type TutorialStep } from "./guided-tutorial";
 
 export const PHISHING_TUTORIAL_KEY = "phishing-tutorial-v1";
@@ -91,9 +92,10 @@ const STEPS: TutorialStep[] = [
   {
     id: "progress",
     title: "Level dan XP",
-    body: "Level tinggi bernilai lebih besar. Selesaikan Level 10 untuk bonus XP dan lencana Phishing Hunter.",
+    body: "Level tinggi bernilai lebih besar. Selesaikan Level 10 untuk bonus XP dan badge Pemburu Phishing.",
     target: "progress",
   },
+  badgeTutorialStep("phishing"),
   {
     id: "finish",
     title: "Kamu siap!",

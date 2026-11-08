@@ -64,8 +64,9 @@ export type CommunityPost = {
     updatedAt: string;
 
     author: {
-        id: string;
-        username: string;
+      id: string;
+      username: string;
+      badges?: string[];
     };
 
     media: CommunityMedia[];
@@ -143,6 +144,7 @@ export type CommunityComment = {
   author: {
     id: string;
     username: string;
+    badges?: string[];
   };
   likes: LikeState;
   media: CommunityCommentMedia | null;

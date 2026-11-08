@@ -1,18 +1,6 @@
 import type { SimulationScenario } from "@/types/learning-protection/index";
 import { defineLevel, exit, fatal, good, slip, turn } from "./dialogue-builders";
 
-/**
- * Trust Lab: 10 level, tiap level adalah percakapan WhatsApp 3 giliran dengan penipu.
- *
- * Level 1-3  (Mudah)    : lowongan palsu, bonus bertekanan waktu, paket berisi file APK.
- * Level 4-6  (Menengah) : penyamaran adik, task scam, kode WhatsApp "salah kirim".
- * Level 7-8  (Sulit)    : CS palsu di DM, suara kerabat hasil kloning AI.
- * Level 9-10 (Ahli)     : investasi AI + romansa, "salah transfer" yang uangnya benar-benar masuk.
- *
- * Penipu tidak menyerah setelah satu penolakan: tekanan makin kuat tiap giliran,
- * dan tanda bahaya terbuka dari cara mereka bereaksi saat kamu memeriksa.
- */
-
 export const trustLabScenarios: SimulationScenario[] = [
   /* ===== LEVEL 1 ===== */
   defineLevel({

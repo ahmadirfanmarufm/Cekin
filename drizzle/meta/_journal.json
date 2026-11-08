@@ -64,6 +64,13 @@
       "when": 1794122181188,
       "tag": "0008_chief_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794135891270,
+      "tag": "0009_chief_marvel_boy",
+      "breakpoints": true
     }
   ]
 }

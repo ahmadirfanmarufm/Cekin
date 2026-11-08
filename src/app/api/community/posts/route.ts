@@ -14,6 +14,7 @@ import {
   communityPosts,
   communityReactions,
   communityReports,
+  userBadges,
   users,
 } from "@/lib/db/schema";
 
@@ -147,6 +148,7 @@ export async function GET(request: Request) {
         reviewNote: communityPosts.reviewNote,
         authorId: users.id,
         author: users.username,
+        authorRole: users.role,
       })
       .from(communityPosts)
       .innerJoin(users, eq(communityPosts.authorId, users.id))
@@ -168,6 +170,21 @@ export async function GET(request: Request) {
             )
         : Promise.resolve([] as { postId: string }[]),
     ]);
+
+    const authorIds = [...new Set(posts.map((post) => post.authorId))];
+
+    const badgeRows = authorIds.length
+      ? await db
+          .select({ userId: userBadges.userId, badgeId: userBadges.badgeId })
+          .from(userBadges)
+          .where(inArray(userBadges.userId, authorIds))
+          .orderBy(userBadges.earnedAt)
+      : [];
+
+    const badgesByUser = new Map<string, string[]>();
+    for (const row of badgeRows) {
+      badgesByUser.set(row.userId, [...(badgesByUser.get(row.userId) ?? []), row.badgeId]);
+    }
 
     const mediaWithUrls = await Promise.all(
       mediaRecords.map(async (media) => {
@@ -218,6 +235,8 @@ export async function GET(request: Request) {
           author: {
             id: post.authorId,
             username: post.author,
+            role: post.authorRole,
+            badges: badgesByUser.get(post.authorId) ?? [],
           },
 
           media: mediaWithUrls.filter((media) => media.postId === post.id),

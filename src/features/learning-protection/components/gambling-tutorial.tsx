@@ -1,5 +1,6 @@
 "use client";
 
+import { badgeTutorialStep } from "./badge-parts";
 import { GuidedTutorial, type TutorialStep } from "./guided-tutorial";
 
 export const GAMBLING_TUTORIAL_KEY = "gambling-tutorial-v2";
@@ -52,7 +53,7 @@ const STEPS: TutorialStep[] = [
   {
     id: "progress",
     title: "Level dan XP",
-    body: "Selesaikan Level 10 untuk bonus XP dan lencana Gambling Guardian.",
+    body: "Selesaikan Level 10 untuk bonus XP dan badge Pejuang Anti Judol.",
     target: "progress",
   },
   {
@@ -61,6 +62,7 @@ const STEPS: TutorialStep[] = [
     body: "Sulit berhenti bukan tanda lemah. Bantuan selalu ada.",
     target: "support",
   },
+  badgeTutorialStep("gambling"),
   {
     id: "finish",
     title: "Kamu siap!",

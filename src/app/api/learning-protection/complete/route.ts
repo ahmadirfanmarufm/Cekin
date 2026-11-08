@@ -24,6 +24,7 @@ import {
   calculateTrustLabXp,
 } from "@/lib/learning-protection/xp";
 import type { SimulationId } from "@/types/learning-protection";
+import { awardBadge } from "@/features/learning-protection/server/badges";
 
 const validSimulations = [
   "trust-lab",
@@ -178,6 +179,7 @@ export async function POST(request: NextRequest) {
     let maxXp = MAX_SIMULATION_XP;
     let levelXp: number | undefined;
     let bonusXp: number | undefined;
+    let totalMistakes: number | null = null;
 
     const xpConfig: XpConfig | undefined = XP_SIMULATIONS[simulationId];
 
@@ -191,8 +193,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const result = xpConfig.calculate(wrongCounts);
+      totalMistakes = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
 
+      const result = xpConfig.calculate(wrongCounts);
+      
       scoreXp = result.total;
       maxXp = xpConfig.maxXp;
       levelXp = result.levelXp;
@@ -290,6 +294,8 @@ export async function POST(request: NextRequest) {
       totalXp = currentUser?.totalXp ?? user.totalXp;
     }
 
+    const badge = totalMistakes === null ? null : await awardBadge({ userId: user.id, simulationId, mistakes: totalMistakes });
+
     return NextResponse.json({
       message: "Simulasi berhasil diselesaikan.",
       firstCompletion,
@@ -301,6 +307,7 @@ export async function POST(request: NextRequest) {
       levelXp,
       bonusXp,
       totalXp,
+      badge,
     });
   } catch (error) {
     console.error("SIMULATION_COMPLETE_ERROR:", error);

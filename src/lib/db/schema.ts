@@ -385,24 +385,20 @@ export const communityNotifications = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
 
-    // Penerima
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
 
     type: varchar("type", { length: 30 }).notNull(),
 
-    // Satu baris per kelompok, misalnya "post_like:<postId>".
     groupKey: varchar("group_key", { length: 100 }).notNull(),
 
     postId: uuid("post_id").references(() => communityPosts.id, { onDelete: "cascade" }),
 
-    // Pelaku terbaru
     actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
 
     count: integer("count").notNull().default(1),
 
-    // Status baru (post_review) atau kode alasan (post_report)
     meta: varchar("meta", { length: 100 }),
 
     readAt: timestamp("read_at", { withTimezone: true }),
@@ -413,5 +409,27 @@ export const communityNotifications = pgTable(
   (table) => [
     uniqueIndex("cekin_community_notifications_group_unique").on(table.userId, table.groupKey),
     index("cekin_community_notifications_user_idx").on(table.userId, table.updatedAt),
+  ],
+);
+
+export const userBadges = pgTable(
+  "cekin_user_badges",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    badgeId: varchar("badge_id", { length: 50 }).notNull(),
+    simulationId: varchar("simulation_id", { length: 50 }).notNull(),
+
+    mistakes: integer("mistakes").notNull().default(0),
+
+    earnedAt: timestamp("earned_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("cekin_user_badges_user_badge_unique").on(table.userId, table.badgeId),
+    index("cekin_user_badges_user_idx").on(table.userId),
   ],
 );

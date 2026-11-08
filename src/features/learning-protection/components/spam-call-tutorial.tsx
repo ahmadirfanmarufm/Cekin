@@ -1,6 +1,7 @@
 "use client";
 
 import { GuidedTutorial, type TutorialStep } from "./guided-tutorial";
+import { badgeTutorialStep } from "./badge-parts";
 
 export const SPAM_CALL_TUTORIAL_KEY = "spam-call-tutorial-v1";
 
@@ -84,10 +85,11 @@ const STEPS: TutorialStep[] = [
     body: "Level tinggi bernilai lebih besar. Langkah keliru mengurangi XP.",
     target: "progress",
   },
+  badgeTutorialStep("calls"),
   {
     id: "finish",
     title: "Kamu siap!",
-    body: "Mulai sekarang XP dihitung dari jawabanmu. Capai Level 10 untuk lencana Call Shield.",
+    body: "Mulai sekarang XP dihitung dari jawabanmu. Capai Level 10 untuk badge King Gocek Telepon.",
     cta: "Mulai berlatih",
   },
 ];

@@ -49,11 +49,12 @@ import {
 import { AppsScamTutorial, APPS_SCAM_TUTORIAL_KEY } from "./apps-scam-tutorial";
 import {
   LOGIN_GATE_AFTER_LEVEL,
-  buildLoginHref,
   useLearningProgress,
 } from "@/lib/learning-protection/use-learning-progress";
 import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
 import { LoginGate } from "./login-gate";
+import { BadgeTracker, BadgeResult } from "./badge-parts";
+import { BADGE_MISTAKE_LIMIT, getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
 
 type Props = {
   simulation: SimulationConfig;
@@ -102,10 +103,10 @@ export function AppsScam({ simulation }: Props) {
   const [runSeed, setRunSeed] = useState(0);
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
+  const [badgeSaved, setBadgeSaved] = useState<boolean | null>(null);
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [isEducationOpen, setIsEducationOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [gateOpen, setGateOpen] = useState(false);
   const [declinedLogin, setDeclinedLogin] = useState(false);
 
   const mainContentRef = useRef<HTMLElement | null>(null);
@@ -140,6 +141,8 @@ export function AppsScam({ simulation }: Props) {
   const levelXpList = scenarios.map((scenario, index) =>
     appsScamLevelXp(index + 1, wrongCountOf(scenario.id)),
   );
+
+  const runMistakes = scenarios.reduce((sum, s) => sum + wrongCountOf(s.id), 0);
 
   const earnedLevelXp = scenarios.reduce(
     (sum, scenario, index) =>
@@ -347,31 +350,29 @@ export function AppsScam({ simulation }: Props) {
       });
 
       if (response.status === 401) {
-        setRewardMessage(
-          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
-        );
+        setBadgeSaved(false);
+        setRewardMessage("Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.");
         return;
       }
 
       if (!response.ok) {
-        setRewardMessage(
-          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
-        );
+        setRewardMessage("Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",);
         return;
       }
 
       const result = await response.json();
+      setBadgeSaved(Boolean(result.badge?.owned));
       const scoreXp: number = result.scoreXp ?? 0;
       const maxXp: number = result.maxXp ?? APPS_SCAM_MAX_XP;
 
       if (result.xpEarned > 0) {
         setRewardMessage(
           scoreXp >= maxXp
-            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Apps Scam.`
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Aplikasi Sus.`
             : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi tanpa salah untuk XP maksimal.`,
         );
       } else if ((result.bestXp ?? 0) >= maxXp) {
-        setRewardMessage("Kamu sudah meraih XP maksimal di Apps Scam.");
+        setRewardMessage("Kamu sudah meraih XP maksimal di Aplikasi Sus.");
       } else {
         setRewardMessage(
           `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
@@ -439,19 +440,7 @@ export function AppsScam({ simulation }: Props) {
     }
 
     if (currentIndex < totalCount - 1) {
-      if (!isLastLevel) {
-        if (gate.request()) return;
-        goNextLevel();
-        return;
-      }
-
-      const needsLogin = session.ready && !session.authenticated && !declinedLogin && !tutorialActive && currentIndex === LOGIN_GATE_AFTER_LEVEL - 1;
-
-      if (needsLogin) {
-        setGateOpen(true);
-        return;
-      }
-
+      if (gate.request()) return;
       goNextLevel();
       return;
     }
@@ -476,6 +465,7 @@ export function AppsScam({ simulation }: Props) {
     setRunSeed((previous) => previous + 1);
     setFinished(false);
     setRewardMessage("");
+    setBadgeSaved(null);
     setIsSavingReward(false);
     setIsEducationOpen(false);
     setShowGuide(false);
@@ -641,6 +631,8 @@ export function AppsScam({ simulation }: Props) {
     const wrongCounts = scenarios.map((scenario) => wrongCountOf(scenario.id));
     const finalXp = calculateAppsScamXp(wrongCounts);
     const totalWrong = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const badge = getBadgeByKey("apps");
+    const earned = isBadgeEarned(totalWrong);
     const isPerfect = totalWrong === 0;
 
     return (
@@ -676,18 +668,24 @@ export function AppsScam({ simulation }: Props) {
               </p>
 
               <h1 className="relative mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                {isPerfect ? "Perfect App Guardian!" : "Selamat, App Guardian!"}
+                {earned
+                  ? isPerfect
+                    ? `Sempurna! ${badge.name}`
+                    : `Mantap, ${badge.name}!`
+                  : "Tamat! Badge-nya Belum Rezeki"}
               </h1>
 
               <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
                 Kamu menamatkan seluruh {totalCount} level, dari APK MOD sampai pembaruan berbahaya yang menyamar jadi aplikasi tepercaya.
               </p>
 
-              <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
-                <Trophy size={16} />
-                Lencana App Guardian
-                {isPerfect && <Star size={14} className="fill-current" />}
-              </div>
+              {earned && (
+                <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
+                  <Trophy size={14} />
+                  Badge {badge.name}
+                  {isPerfect && <Star size={14} className="fill-current" />}
+                </div>
+              )}
             </div>
 
             <div className="p-6 md:p-9">
@@ -717,6 +715,12 @@ export function AppsScam({ simulation }: Props) {
                 </div>
               </div>
 
+              <BadgeResult
+                simulationKey="apps"
+                mistakes={totalWrong}
+                saved={badgeSaved}
+              />
+
               <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
                 <h2 className="text-sm font-extrabold text-[var(--foreground)]">Rincian reward</h2>
 
@@ -728,7 +732,7 @@ export function AppsScam({ simulation }: Props) {
                   <li className="flex items-center justify-between text-[var(--muted)]">
                     <span className="flex items-center gap-2">
                       <Crown size={14} className="text-[var(--warning)]" />
-                      Bonus App Guardian
+                      Bonus Detektif Aplikasi
                     </span>
                     <span className="font-bold text-[var(--accent)]">+{finalXp.bonus} XP</span>
                   </li>
@@ -744,7 +748,7 @@ export function AppsScam({ simulation }: Props) {
               <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[var(--border)] p-5">
                 <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
                 <div>
-                  <h2 className="text-sm font-bold text-[var(--foreground)]">Prinsip utama Apps Scam</h2>
+                  <h2 className="text-sm font-bold text-[var(--foreground)]">Prinsip utama Aplikasi Sus</h2>
                   <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
                     Toko resmi, rating tinggi, dan nama yang familier bukan jaminan mutlak. Periksa sumber, developer, izin, dan siapa yang menyuruhmu memasang. Jangan pernah memasang aplikasi atas permintaan penelepon atau pesan yang tidak kamu minta.
                   </p>
@@ -801,7 +805,7 @@ export function AppsScam({ simulation }: Props) {
           <div>
             <div className="badge">
               <Smartphone size={14} />
-              GAME & APPS SCAM
+              APLIKASI SUS
             </div>
 
             <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
@@ -878,6 +882,8 @@ export function AppsScam({ simulation }: Props) {
             </p>
           )}
         </div>
+
+        <BadgeTracker simulationKey="apps" mistakes={runMistakes} />
 
         {/* Peta level */}
         <div className="mb-6" data-tutorial="levels">
@@ -1551,7 +1557,7 @@ export function AppsScam({ simulation }: Props) {
                     </span>
                   </p>
                   <p className="mt-1 text-[11px] leading-relaxed text-white/60">
-                    Level tinggi bernilai lebih besar. Keputusan salah mengurangi XP level itu. Selesaikan Level {totalCount} untuk bonus {APPS_SCAM_MASTER_BONUS} XP dan lencana App Guardian.
+                    Level tinggi bernilai lebih besar. Keputusan salah mengurangi XP level itu. Selesaikan Level {totalCount} untuk bonus {APPS_SCAM_MASTER_BONUS} XP dan badge Detektif Aplikasi.
                   </p>
                 </div>
               </div>

@@ -47,12 +47,10 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import type {
     ApiResponse,
     CommunityCategory,
-    CommunityModerationLog,
     CommunityPost,
     CommunityToastData,
     CommunityToastType,
     CommunityViewer,
-    ModerationVerificationStatus,
     FeedFilter,
     SortOption,
     SelectedMedia,
@@ -64,6 +62,8 @@ import {
   getCategoryLabel,
   getVerificationConfig,
 } from "@/features/community/lib/utils";
+import { BadgeChips } from "@/components/badges/badge-chips";
+import { AuthorProfileDialog } from "@/features/community/components/author-profile-dialog";
 
 import { ModerationLogs } from "@/features/community/components/moderation-logs";
 import { ModerationDialog } from "@/features/community/components/moderation-dialog";
@@ -130,6 +130,8 @@ export const CommunityCenter = () => {
     const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
 
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    const [profileTarget, setProfileTarget] = useState<{ id: string; username: string, role?: string | null } | null>(null);
 
     const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
 
@@ -919,7 +921,7 @@ export const CommunityCenter = () => {
                 <article
                     key={post.id}
                     id={`post-${post.id}`}
-                    className={`scroll-mt-24 overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                    className={`relative rounded-2xl border bg-white shadow-sm transition ${
                         highlightId === post.id ? "border-[var(--brand)] ring-2 ring-[var(--brand-soft)]" : "border-gray-200 hover:border-gray-300"
                     }`}
                 >
@@ -933,9 +935,15 @@ export const CommunityCenter = () => {
 
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-semibold text-gray-900">
+                            <button
+                                type="button"
+                                onClick={() => setProfileTarget(post.author)}
+                                className="truncate text-sm font-semibold text-gray-900 transition hover:text-[var(--brand)]"
+                                >
                                 {post.author.username}
-                            </p>
+                            </button>
+
+                            <BadgeChips badgeIds={post.author.badges} max={3} />
 
                             {post.isMine && (
                                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
@@ -1534,6 +1542,8 @@ export const CommunityCenter = () => {
             imageUrl={previewImage}
             onClose={() => setPreviewImage(null)}
         />
+
+        <AuthorProfileDialog author={profileTarget} onClose={() => setProfileTarget(null)} />
 
         {/* Toast */}
         <CommunityToast
