@@ -703,17 +703,13 @@ export function MindTrapSimulation({ simulation }: Props) {
         <div className="mb-7 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <div className="badge">
-              <ShieldCheck size={14} />
-              JUDOL
+              <Brain size={14} />
+              JEBAKAN LOGIKA
             </div>
 
             <h1 className="heading heading-2 mt-4">Jangan asal install aplikasi.</h1>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-              <div className="badge">
-                <Brain size={14} />
-                JEBAKAN LOGIKA
-              </div>
               <span className="rounded-full border border-[var(--border)] px-3 py-1">
                 Simulasi fiktif
               </span>

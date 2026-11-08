@@ -473,7 +473,9 @@ export function LearningProtection() {
         </div>
       </div>
 
-      <BadgeShelf showLocked />
+      <div className="mx-auto mt-10 max-w-6xl sm:mt-12">
+        <BadgeShelf showLocked />
+      </div>
     </section>
   );
 }
