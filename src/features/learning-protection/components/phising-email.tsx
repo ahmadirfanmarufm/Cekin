@@ -1216,7 +1216,7 @@ export function PhishingEmail({ simulation }: Props) {
         </div>
 
         <p className="mt-6 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-          CEKIN Learning &amp; Protection · Phishing · Seluruh email dalam simulasi ini bersifat fiktif.
+          CEKIN Learning &amp; Protection - Phishing - Seluruh email dalam simulasi ini bersifat fiktif.
         </p>
       </div>
 

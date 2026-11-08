@@ -17,7 +17,7 @@ export type Scenario = {
 export const trustScenarios: Scenario[] = [
   {
     title: 'Lowongan Part-Time Palsu',
-    sender: 'Rani · Rekruter Online',
+    sender: 'Rani - Rekruter Online',
     context: 'Sebuah nomor baru menghubungimu melalui WhatsApp.',
     messages: [
       'Halo Kak! Kamu lolos kerja part-time online. Cukup like dan follow akun, penghasilan Rp300.000–Rp500.000/hari.',
@@ -34,7 +34,7 @@ export const trustScenarios: Scenario[] = [
   },
   {
     title: 'Top-Up Game Super Murah',
-    sender: 'TopUp Sultan · Akun sosial',
+    sender: 'TopUp Sultan - Akun sosial',
     context: 'Sebuah akun menawarkan diamond dengan harga 70% lebih murah.',
     messages: [
       'PROMO KILAT! 5.000 diamond cuma Rp99 ribu. Sudah 12.000 pelanggan puas.',
@@ -51,7 +51,7 @@ export const trustScenarios: Scenario[] = [
   },
   {
     title: 'Investasi Pasti Untung',
-    sender: 'Coach Arga · Mentor Investasi',
+    sender: 'Coach Arga - Mentor Investasi',
     context: 'Kamu dimasukkan ke grup investasi tanpa diminta.',
     messages: [
       'Profit dijamin 25% tiap minggu, tanpa risiko. Semua anggota sudah cuan.',

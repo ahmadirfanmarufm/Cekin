@@ -268,7 +268,7 @@ export function LearningProtection() {
 
                     <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#e9f7ef] px-2.5 py-1 text-[10px] font-bold text-[#18794e]">
                       <Trophy size={12} />
-                      Level {level.level} · {level.name}
+                      Level {level.level} - {level.name}
                     </span>
                   </div>
                 </div>

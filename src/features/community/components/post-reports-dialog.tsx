@@ -96,7 +96,7 @@ function ReportsPanel({ post, onClose, onDone }: Props & { post: CommunityPost }
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(summary).map(([reason, total]) => (
                     <span key={reason} className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700">
-                      {getReportReasonLabel(reason)} · {total}
+                      {getReportReasonLabel(reason)} - {total}
                     </span>
                   ))}
                 </div>
@@ -123,7 +123,7 @@ function ReportsPanel({ post, onClose, onDone }: Props & { post: CommunityPost }
                       </p>
                     )}
                     <p className="mt-1.5 text-[10px] text-gray-400">
-                      {item.reporterUsername} · {formatDate(item.createdAt)}
+                      {item.reporterUsername} - {formatDate(item.createdAt)}
                     </p>
                   </li>
                 ))}
