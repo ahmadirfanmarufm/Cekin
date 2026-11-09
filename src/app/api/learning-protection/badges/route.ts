@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { connection, NextRequest, NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -8,6 +8,8 @@ import { getSessionUser } from "@/lib/auth/session";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(request: NextRequest) {
+  await connection();
+
   try {
     const requested = request.nextUrl.searchParams.get("userId");
     let userId: string | null = null;
