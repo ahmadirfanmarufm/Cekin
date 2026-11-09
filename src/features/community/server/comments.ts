@@ -6,6 +6,7 @@ import {
   communityCommentMedia,
   communityComments,
   communityPosts,
+  userBadges,
   users,
 } from "@/lib/db/schema";
 import { COMMUNITY_BUCKET, supabaseAdmin } from "@/lib/supabase/admin";
@@ -53,16 +54,26 @@ export async function fetchComments(params: {
   if (rows.length === 0) return [];
 
   const ids = rows.map((row) => row.id);
+  const authorIds = [...new Set(rows.map((row) => row.authorId))];
 
-  const [mediaRows, likeRows] = await Promise.all([
+  const [mediaRows, likeRows, badgeRows] = await Promise.all([
     db.select().from(communityCommentMedia).where(inArray(communityCommentMedia.commentId, ids)),
     db
       .select({ commentId: communityCommentLikes.commentId, userId: communityCommentLikes.userId })
       .from(communityCommentLikes)
       .where(inArray(communityCommentLikes.commentId, ids)),
+    db
+      .select({ userId: userBadges.userId, badgeId: userBadges.badgeId })
+      .from(userBadges)
+      .where(inArray(userBadges.userId, authorIds))
+      .orderBy(userBadges.earnedAt),
   ]);
 
-  // Satu panggilan untuk semua signed URL.
+  const badgesByUser = new Map<string, string[]>();
+  for (const row of badgeRows) {
+    badgesByUser.set(row.userId, [...(badgesByUser.get(row.userId) ?? []), row.badgeId]);
+  }
+
   const signedUrls = new Map<string, string>();
   const uploadPaths = mediaRows.map((m) => m.storagePath).filter((p): p is string => Boolean(p));
 
@@ -80,7 +91,6 @@ export async function fetchComments(params: {
     }
   }
 
-  // Komentar yang dihapus hanya ditampilkan (sebagai placeholder) bila masih punya balasan.
   const parentsWithReplies = new Set(
     rows.filter((r) => r.status === "published" && r.parentId).map((r) => r.parentId as string),
   );
@@ -102,7 +112,7 @@ export async function fetchComments(params: {
       isDeleted,
       isMine: viewerId !== null && row.authorId === viewerId,
       isPostAuthor: row.authorId === post.authorId,
-      author: { id: row.authorId, username: row.authorName },
+      author: { id: row.authorId, username: row.authorName, badges: badgesByUser.get(row.authorId) ?? [] },
       likes: {
         total: likes.length,
         hasLiked: viewerId !== null && likes.some((l) => l.userId === viewerId),

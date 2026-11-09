@@ -155,7 +155,7 @@ export function useCommunityModeration({
 
       try {
         const response = await fetch(
-          `/api/community/moderation/posts/${post.id}/logs`,
+          `/api/community/posts/${post.id}/history`,
           {
             method: "GET",
             cache: "no-store",

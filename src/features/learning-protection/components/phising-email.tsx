@@ -49,6 +49,8 @@ import { PhishingTutorial, PHISHING_TUTORIAL_KEY } from "./phishing-tutorial";
 import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
 import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
 import { LoginGate } from "./login-gate";
+import { BadgeTracker, BadgeResult } from "./badge-parts";
+import { BADGE_MISTAKE_LIMIT, getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
 
 type Props = {
   simulation: SimulationConfig;
@@ -108,6 +110,7 @@ export function PhishingEmail({ simulation }: Props) {
   const [showLearningModal, setShowLearningModal] = useState(false);
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
+  const [badgeSaved, setBadgeSaved] = useState<boolean | null>(null);
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [declinedLogin, setDeclinedLogin] = useState(false);
 
@@ -142,6 +145,8 @@ export function PhishingEmail({ simulation }: Props) {
   const levelXpList = scenarios.map((scenario, index) =>
     phishingLevelXp(index + 1, wrongCountOf(scenario.id)),
   );
+
+  const runMistakes = scenarios.reduce((sum, s) => sum + wrongCountOf(s.id), 0);
 
   const earnedLevelXp = scenarios.reduce(
     (sum, scenario, index) =>
@@ -299,7 +304,7 @@ export function PhishingEmail({ simulation }: Props) {
         <Mail className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
         <h1 className="heading heading-2">Skenario belum tersedia</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Konten Phishing Attack sedang disiapkan.
+          Konten Phishing sedang disiapkan.
         </p>
         <Link href="/learning-protection" className="button button-primary mt-6">
           Kembali ke Learning &amp; Protection
@@ -320,31 +325,29 @@ export function PhishingEmail({ simulation }: Props) {
       });
 
       if (response.status === 401) {
-        setRewardMessage(
-          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
-        );
+        setBadgeSaved(false);
+        setRewardMessage("Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.");
         return;
       }
 
       if (!response.ok) {
-        setRewardMessage(
-          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
-        );
+        setRewardMessage("Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",);
         return;
       }
 
       const result = await response.json();
+      setBadgeSaved(Boolean(result.badge?.owned));
       const scoreXp: number = result.scoreXp ?? 0;
       const maxXp: number = result.maxXp ?? PHISHING_MAX_XP;
 
       if (result.xpEarned > 0) {
         setRewardMessage(
           scoreXp >= maxXp
-            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Phishing Attack.`
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Phishing.`
             : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi tanpa salah untuk XP maksimal.`,
         );
       } else if ((result.bestXp ?? 0) >= maxXp) {
-        setRewardMessage("Kamu sudah meraih XP maksimal di Phishing Attack.");
+        setRewardMessage("Kamu sudah meraih XP maksimal di Phishing.");
       } else {
         setRewardMessage(
           `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
@@ -468,6 +471,7 @@ export function PhishingEmail({ simulation }: Props) {
     setShowLearningModal(false);
     setFinished(false);
     setRewardMessage("");
+    setBadgeSaved(null);
     setIsSavingReward(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -480,6 +484,8 @@ export function PhishingEmail({ simulation }: Props) {
     const wrongCounts = scenarios.map((scenario) => wrongCountOf(scenario.id));
     const finalXp = calculatePhishingXp(wrongCounts);
     const totalWrong = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const badge = getBadgeByKey("phishing");
+    const earned = isBadgeEarned(totalWrong);
     const isPerfect = totalWrong === 0;
 
     return (
@@ -515,7 +521,11 @@ export function PhishingEmail({ simulation }: Props) {
               </p>
 
               <h1 className="relative mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                {isPerfect ? "Perfect Phishing Hunter!" : "Selamat, Phishing Hunter!"}
+                {earned
+                  ? isPerfect
+                    ? `Sempurna! ${badge.name}`
+                    : `Mantap, ${badge.name}!`
+                  : "Tamat! Badge-nya Belum Rezeki"}
               </h1>
 
               <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
@@ -523,11 +533,13 @@ export function PhishingEmail({ simulation }: Props) {
                 persetujuan izin aplikasi yang tampak sah.
               </p>
 
-              <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
-                <Trophy size={16} />
-                Lencana Phishing Hunter
-                {isPerfect && <Star size={14} className="fill-current" />}
-              </div>
+              {earned && (
+                <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
+                  <Trophy size={14} />
+                  Badge {badge.name}
+                  {isPerfect && <Star size={14} className="fill-current" />}
+                </div>
+              )}
             </div>
 
             <div className="p-6 md:p-9">
@@ -557,6 +569,12 @@ export function PhishingEmail({ simulation }: Props) {
                 </div>
               </div>
 
+              <BadgeResult
+                simulationKey="apps"
+                mistakes={totalWrong}
+                saved={badgeSaved}
+              />
+
               <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
                 <h2 className="text-sm font-extrabold text-[var(--foreground)]">Rincian reward</h2>
 
@@ -568,7 +586,7 @@ export function PhishingEmail({ simulation }: Props) {
                   <li className="flex items-center justify-between text-[var(--muted)]">
                     <span className="flex items-center gap-2">
                       <Crown size={14} className="text-[var(--warning)]" />
-                      Bonus Phishing Hunter
+                      Bonus Pemburu Phishing
                     </span>
                     <span className="font-bold text-[var(--accent)]">+{finalXp.bonus} XP</span>
                   </li>
@@ -584,7 +602,7 @@ export function PhishingEmail({ simulation }: Props) {
               <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[var(--border)] p-5">
                 <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]" />
                 <div>
-                  <h2 className="text-sm font-bold text-[var(--foreground)]">Prinsip utama Phishing Attack</h2>
+                  <h2 className="text-sm font-bold text-[var(--foreground)]">Prinsip utama Phishing</h2>
                   <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
                     Nama, logo, bahkan hasil “lolos” pemeriksaan teknis tidak membuktikan sebuah email
                     asli. Jangan memberi kata sandi, kode, uang, atau izin akses lewat tautan di email.
@@ -642,7 +660,7 @@ export function PhishingEmail({ simulation }: Props) {
           <div>
             <div className="badge">
               <Mail size={14} />
-              PHISHING ATTACK
+              PHISHING
             </div>
 
             <h1 className="heading heading-2 mt-4">
@@ -719,6 +737,8 @@ export function PhishingEmail({ simulation }: Props) {
             </p>
           )}
         </div>
+
+        <BadgeTracker simulationKey="phishing" mistakes={runMistakes} />
 
         {/* Peta level */}
         <div data-tutorial="levels" className="mb-6">
@@ -1190,13 +1210,13 @@ export function PhishingEmail({ simulation }: Props) {
             </p>
             <p className="mt-3 border-t border-white/15 pt-3 text-[11px] leading-relaxed text-white/60">
               Potensi XP {potentialXp}/{PHISHING_MAX_XP}. Jawaban salah mengurangi XP level itu. Selesaikan
-              Level {totalCount} untuk bonus {PHISHING_MASTER_BONUS} XP dan lencana Phishing Hunter.
+              Level {totalCount} untuk bonus {PHISHING_MASTER_BONUS} XP dan badge Pemburu Phishing.
             </p>
           </div>
         </div>
 
         <p className="mt-6 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-          CEKIN Learning &amp; Protection · Phishing Attack · Seluruh email dalam simulasi ini bersifat fiktif.
+          CEKIN Learning &amp; Protection - Phishing - Seluruh email dalam simulasi ini bersifat fiktif.
         </p>
       </div>
 

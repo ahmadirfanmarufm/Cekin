@@ -12,6 +12,7 @@ import { CommunityMediaValidationError } from "@/features/community/lib/validati
 import { COMMENT_LIMITS } from "@/features/community/lib/comment-limits";
 import { validateCommentMedia } from "@/features/community/lib/comment-validation";
 import { fetchComments } from "@/features/community/server/comments";
+import { notify } from "@/features/community/server/notifications";
 import { fail, UUID_REGEX } from "@/features/community/server/http";
 import { gifMimeType, isAllowedGifUrl } from "@/features/community/server/gif-provider";
 
@@ -54,14 +55,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     if (!UUID_REGEX.test(postId)) return fail(400, "ID postingan tidak valid.");
 
     const [post] = await db
-      .select({ status: communityPosts.status })
+      .select({ status: communityPosts.status, authorId: communityPosts.authorId })
       .from(communityPosts)
       .where(eq(communityPosts.id, postId))
       .limit(1);
 
     if (!post || post.status !== "published") return fail(404, "Postingan tidak ditemukan.");
 
-    // Batasi spam komentar.
     const [{ total }] = await db
       .select({ total: count() })
       .from(communityComments)
@@ -93,8 +93,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     if (file && gifUrl) return fail(400, "Pilih salah satu: file atau GIF.");
     if (!content && !file && !gifUrl) return fail(400, "Tulis komentar atau lampirkan media.");
 
-    // Balasan hanya satu tingkat: membalas balasan akan menempel ke komentar induknya.
     let parentId: string | null = null;
+    let repliedToId: string | null = null;
+    let repliedToAuthorId: string | null = null;
     const rawParent = formData.get("parentId");
 
     if (typeof rawParent === "string" && rawParent) {
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           parentId: communityComments.parentId,
           postId: communityComments.postId,
           status: communityComments.status,
+          authorId: communityComments.authorId,
         })
         .from(communityComments)
         .where(eq(communityComments.id, rawParent))
@@ -116,6 +118,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       }
 
       parentId = parent.parentId ?? parent.id;
+      repliedToId = parent.id;
+      repliedToAuthorId = parent.authorId;
     }
 
     const commentId = randomUUID();
@@ -146,7 +150,6 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         duration: validated.duration,
       };
     } else if (gifUrl) {
-      // URL GIF dari klien tidak dipercaya begitu saja: hanya domain penyedia GIF yang diterima.
       if (!isAllowedGifUrl(gifUrl)) return fail(400, "GIF tidak valid.");
 
       mediaRecord = {
@@ -171,6 +174,26 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
       if (mediaRecord) await tx.insert(communityCommentMedia).values(mediaRecord);
     });
+
+    if (repliedToId && repliedToAuthorId) {
+      await notify({
+        userId: repliedToAuthorId,
+        type: "comment_reply",
+        groupKey: `comment_reply:${repliedToId}`,
+        postId,
+        actorId: user.id,
+      });
+    }
+
+    if (repliedToAuthorId !== post.authorId) {
+      await notify({
+        userId: post.authorId,
+        type: "post_comment",
+        groupKey: `post_comment:${postId}`,
+        postId,
+        actorId: user.id,
+      });
+    }
 
     const [comment] = await fetchComments({ postId, viewerId: user.id, commentId });
 

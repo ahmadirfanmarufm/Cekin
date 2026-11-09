@@ -1,5 +1,6 @@
 "use client";
 
+import { badgeTutorialStep } from "./badge-parts";
 import {
   GuidedTutorial,
   type TutorialStep,
@@ -79,10 +80,11 @@ const STEPS: TutorialStep[] = [
     body: "Daftar ini merangkum pemicu yang paling sering menunggangi pikiranmu.",
     target: "tactics",
   },
+  badgeTutorialStep("mind"),
   {
     id: "finish",
     title: "Kamu siap!",
-    body: "Mulai sekarang XP dihitung dari jawabanmu. Capai Level 10 untuk lencana Mind Guardian.",
+    body: "Mulai sekarang XP dihitung dari jawabanmu. Capai Level 10 untuk lencana Mikir Kids.",
     cta: "Mulai berlatih",
   },
 ];

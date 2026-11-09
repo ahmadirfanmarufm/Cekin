@@ -487,7 +487,7 @@ export function SimulationExperience({ simulation }: Props) {
         </div>
 
         <p className="mt-5 text-center text-xs leading-6 text-slate-400">
-          CEKIN Learning & Protection · Simulasi edukasi fiktif
+          CEKIN Learning & Protection - Simulasi edukasi fiktif
         </p>
       </div>
     </main>

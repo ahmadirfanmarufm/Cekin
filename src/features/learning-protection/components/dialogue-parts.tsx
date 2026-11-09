@@ -20,6 +20,9 @@ import type {
   ScenarioDifficulty,
   SimulationScenario,
 } from "@/types/learning-protection";
+import { BadgeResult } from "./badge-parts";
+import { getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
+import type { SimulationId } from "@/types/learning-protection";
 
 export const DIFFICULTY_STYLES: Record<ScenarioDifficulty, string> = {
   Mudah: "bg-[var(--accent-soft)] text-[var(--accent)]",
@@ -252,7 +255,8 @@ const CONFETTI = [
 ];
 
 export function MasterReward({
-  badgeName,
+  badgeKey,
+  badgeSaved = null,
   intro,
   totalCount,
   completedCount,
@@ -265,7 +269,8 @@ export function MasterReward({
   rewardMessage,
   onRestart,
 }: {
-  badgeName: string;
+  badgeKey: SimulationId;
+  badgeSaved?: boolean | null;
   intro: string;
   totalCount: number;
   completedCount: number;
@@ -279,6 +284,8 @@ export function MasterReward({
   rewardMessage: string;
   onRestart: () => void;
 }) {
+  const badge = getBadgeByKey(badgeKey);
+  const earned = isBadgeEarned(totalMistakes);
   const isPerfect = totalMistakes === 0;
 
   return (
@@ -314,18 +321,24 @@ export function MasterReward({
             </p>
 
             <h1 className="relative mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-              {isPerfect ? `Perfect ${badgeName}!` : `Selamat, ${badgeName}!`}
+              {earned
+                ? isPerfect
+                  ? `Sempurna! ${badge.name}`
+                  : `Mantap, ${badge.name}!`
+                : "Tamat! Badge-nya Belum Rezeki"}
             </h1>
 
             <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
               {intro}
             </p>
 
-            <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
-              <Trophy size={16} />
-              Lencana {badgeName}
-              {isPerfect && <Star size={14} className="fill-current" />}
-            </div>
+            {earned && (
+              <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
+                <Trophy size={14} />
+                Badge {badge.name}
+                {isPerfect && <Star size={14} className="fill-current" />}
+              </div>
+            )}
           </div>
 
           <div className="p-6 md:p-9">
@@ -338,6 +351,12 @@ export function MasterReward({
                   Level selesai
                 </p>
               </div>
+
+              <BadgeResult
+                simulationKey={badgeKey}
+                mistakes={totalMistakes}
+                saved={badgeSaved}
+              />
 
               <div className="rounded-2xl bg-[var(--surface)] p-5 text-center">
                 <p className="text-3xl font-extrabold text-[var(--accent)]">
@@ -376,7 +395,7 @@ export function MasterReward({
                 <li className="flex items-center justify-between text-[var(--muted)]">
                   <span className="flex items-center gap-2">
                     <Crown size={14} className="text-[var(--warning)]" />
-                    Bonus {badgeName}
+                    Bonus tamat
                   </span>
                   <span className="font-bold text-[var(--accent)]">
                     +{xp.bonus} XP

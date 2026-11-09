@@ -12,9 +12,9 @@ import { mindTrapScenarios } from "./mind-trap-level";
 export const simulations: SimulationConfig[] = [
   {
     id: "trust",
-    title: "Trust Lab",
-    subtitle: "Experience the Trap",
-    description: "Naiki 10 level penipuan digital, dari yang mudah dikenali sampai yang sangat meyakinkan.",
+    title: "Anti Ketipu Chat",
+    subtitle: "Ngobrol Sama Penipu",
+    description: "Ngobrol langsung sama penipu di 10 level, dari yang gampang ketahuan sampai yang bikin ragu.",
     difficulty: "Pemula",
     duration: "10 menit",
     icon: "message-circle",
@@ -24,10 +24,9 @@ export const simulations: SimulationConfig[] = [
 
   {
     id: "apps",
-    title: "Apps Scam",
-    subtitle: "Is This App Safe?",
-    description:
-      "Naiki 10 level penipuan aplikasi, dari APK MOD sampai update berbahaya yang menyamar jadi aplikasi tepercaya.",
+    title: "Jangan Asal Install",
+    subtitle: "Aman Gak Nih Aplikasinya?",
+    description: "10 level aplikasi mencurigakan, dari APK MOD sampai update berbahaya yang menyamar jadi aplikasi tepercaya.",
     difficulty: "Menengah",
     duration: "10 menit",
     icon: "gamepad-2",
@@ -37,10 +36,9 @@ export const simulations: SimulationConfig[] = [
 
   {
     id: "phishing",
-    title: "Phishing Attack",
-    subtitle: "Spot the Fake",
-    description:
-      "Naiki 10 level email phishing, dari ancaman blokir sampai persetujuan izin aplikasi yang tampak sah.",
+    title: "Email Abal-abal",
+    subtitle: "Asli atau Jebakan?",
+    description: "10 level email jebakan, dari ancaman blokir akun sampai izin aplikasi yang kelihatan sah.",
     difficulty: "Menengah",
     duration: "10 menit",
     icon: "mail",
@@ -50,10 +48,9 @@ export const simulations: SimulationConfig[] = [
 
   {
     id: "calls",
-    title: "Scam Call",
-    subtitle: "Don't Trust the Caller",
-    description:
-      "Naiki 10 level penipuan lewat telepon, dari rekaman otomatis sampai video call deepfake dan penipuan pemulihan dana.",
+    title: "Penipuan Telepon",
+    subtitle: "Jangan Langsung Percaya",
+    description: "10 telepon penipu, dari rekaman otomatis sampai video call deepfake dan penipuan pemulihan dana.",
     difficulty: "Menengah",
     duration: "10 menit",
     icon: "phone",
@@ -63,10 +60,9 @@ export const simulations: SimulationConfig[] = [
 
   {
     id: "gambling",
-    title: "Online Gambling Awareness",
-    subtitle: "Don't Get Trapped",
-    description:
-      "Praktik langsung: hitung uang yang hilang, bongkar mitos “jam gacor”, dan susun rencana berhenti.",
+    title: "Stop Judol",
+    subtitle: "Hitung Sendiri",
+    description: "Praktik langsung: hitung uang yang hilang, bongkar mitos “jam gacor”, dan susun rencana berhenti.",
     difficulty: "Penting",
     duration: "10 menit",
     icon: "dice-5",
@@ -76,9 +72,9 @@ export const simulations: SimulationConfig[] = [
 
   {
     id: "mind",
-    title: "Mind Trap",
-    subtitle: "Understand the Psychology",
-    description: "Naiki 10 level trik psikologi, dari FOMO sampai bias yang ada di dalam pikiranmu sendiri.",
+    title: "Jebakan Otak",
+    subtitle: "Kenapa Kita Gampang Percaya?",
+    description: "10 level trik psikologi, dari FOMO sampai bias yang ada di pikiranmu sendiri.",
     difficulty: "Pemula",
     duration: "10 menit",
     icon: "brain",

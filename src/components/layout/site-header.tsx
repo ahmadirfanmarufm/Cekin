@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
   X,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { AuthModal } from "@/components/auth/auth-modal";
+import { NotificationBell } from "@/features/community/components/notification-bell";
 import Image from "next/image";
 
 type AuthUser = {
@@ -35,6 +36,17 @@ const navigation = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleOpenNotificationPost = (postId: string) => {
+    router.push(`/community?postId=${encodeURIComponent(postId)}`);
+
+    window.dispatchEvent(
+        new CustomEvent("community:open-post", {
+            detail: { postId },
+        }),
+    );
+};
 
   const [isOpen, setIsOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -227,6 +239,10 @@ export function SiteHeader() {
 
           {/* Desktop Actions */}
           <div className="hidden items-center gap-3 lg:flex">
+            <NotificationBell
+              enabled={Boolean(user)}
+              onOpenPost={handleOpenNotificationPost}
+            />
 
             {!authLoading && !user && (
               <button
@@ -341,19 +357,28 @@ export function SiteHeader() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 lg:hidden"
-            aria-label={isOpen ? "Tutup menu" : "Buka menu"}
-            aria-expanded={isOpen}
-            aria-controls="mobile-navigation"
-            onClick={() => {
-              setIsOpen((prev) => !prev);
-              setIsUserMenuOpen(false);
-            }}
-          >
-            {isOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
+          {/* Mobile Actions */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <NotificationBell
+              enabled={Boolean(user)}
+              onOpenPost={handleOpenNotificationPost}
+            />
+
+            {/* Mobile Menu Button */}
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              aria-label={isOpen ? "Tutup menu" : "Buka menu"}
+              aria-expanded={isOpen}
+              aria-controls="mobile-navigation"
+              onClick={() => {
+                setIsOpen((prev) => !prev);
+                setIsUserMenuOpen(false);
+              }}
+            >
+              {isOpen ? <X size={21} /> : <Menu size={21} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}

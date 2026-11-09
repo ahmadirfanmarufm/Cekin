@@ -52,6 +52,8 @@ import { useDialogue } from "@/lib/learning-protection/use-dialogue";
 import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
 import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
 import { LoginGate } from "./login-gate";
+import { BadgeTracker, BadgeResult } from "./badge-parts";
+import { BADGE_MISTAKE_LIMIT, getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
 
 type Props = {
   simulation: SimulationConfig;
@@ -73,6 +75,7 @@ export function SpamCallSimulation({ simulation }: Props) {
   const [finished, setFinished] = useState(false);
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
+  const [badgeSaved, setBadgeSaved] = useState<boolean | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [declinedLogin, setDeclinedLogin] = useState(false);
 
@@ -138,6 +141,11 @@ export function SpamCallSimulation({ simulation }: Props) {
 
   const levelXpList = scenarios.map((scenario, index) =>
     spamCallLevelXp(index + 1, mistakesOf(scenario)),
+  );
+
+  const runMistakes = scenarios.reduce(
+    (sum, scenario) => sum + mistakesOf(scenario),
+    0,
   );
 
   const earnedLevelXp = scenarios.reduce(
@@ -258,7 +266,7 @@ export function SpamCallSimulation({ simulation }: Props) {
         <PhoneCall className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
         <h1 className="heading heading-2">Skenario belum tersedia</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Konten Spam Call sedang disiapkan.
+          Konten Penipuan Telepon sedang disiapkan.
         </p>
         <Link href="/learning-protection" className="button button-primary mt-6">
           Kembali ke Learning &amp; Protection
@@ -295,9 +303,7 @@ export function SpamCallSimulation({ simulation }: Props) {
       });
 
       if (response.status === 401) {
-        setRewardMessage(
-          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
-        );
+        setRewardMessage("Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.");
         return;
       }
 
@@ -309,17 +315,18 @@ export function SpamCallSimulation({ simulation }: Props) {
       }
 
       const result = await response.json();
+      setBadgeSaved(Boolean(result.badge?.owned));
       const scoreXp: number = result.scoreXp ?? 0;
       const maxXp: number = result.maxXp ?? SPAM_CALL_MAX_XP;
 
       if (result.xpEarned > 0) {
         setRewardMessage(
           scoreXp >= maxXp
-            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Spam Call.`
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Penipuan Telepon.`
             : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi tanpa salah untuk XP maksimal.`,
         );
       } else if ((result.bestXp ?? 0) >= maxXp) {
-        setRewardMessage("Kamu sudah meraih XP maksimal di Spam Call.");
+        setRewardMessage("Kamu sudah meraih XP maksimal di Penipuan Telepon.");
       } else {
         setRewardMessage(
           `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
@@ -328,9 +335,7 @@ export function SpamCallSimulation({ simulation }: Props) {
 
       window.dispatchEvent(new Event("cekin-auth-change"));
     } catch {
-      setRewardMessage(
-        "Level maksimal tercapai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.",
-      );
+      setRewardMessage("Level maksimal tercapai, tetapi koneksi gagal menyimpan progres. Coba lagi nanti.");
     } finally {
       setIsSavingReward(false);
     }
@@ -416,7 +421,8 @@ export function SpamCallSimulation({ simulation }: Props) {
 
     return (
       <MasterReward
-        badgeName="Call Shield"
+        badgeKey="calls"
+        badgeSaved={badgeSaved}
         intro={`Kamu menamatkan ${totalCount} panggilan, dari rekaman otomatis sampai video call deepfake dan penipuan pemulihan dana. Kamu kini lebih siap menghadapi telepon penipu.`}
         totalCount={totalCount}
         completedCount={completedIds.length}
@@ -457,7 +463,7 @@ export function SpamCallSimulation({ simulation }: Props) {
           <div>
             <div className="badge">
               <PhoneCall size={14} />
-              SCAM CALL
+              PENIPUAN TELEPON
             </div>
 
             <h1 className="heading heading-2 mt-4">
@@ -529,6 +535,8 @@ export function SpamCallSimulation({ simulation }: Props) {
             </p>
           )}
         </div>
+
+        <BadgeTracker simulationKey="calls" mistakes={runMistakes} />
 
         <LevelMap
           scenarios={scenarios}
@@ -923,7 +931,7 @@ export function SpamCallSimulation({ simulation }: Props) {
               <p className="mt-3 border-t border-white/15 pt-3 text-[11px] leading-relaxed text-white/60">
                 Potensi XP {potentialXp}/{SPAM_CALL_MAX_XP}. Setiap langkah keliru mengurangi XP level
                 itu. Selesaikan Level {totalCount} untuk bonus {SPAM_CALL_MASTER_BONUS} XP dan
-                lencana Call Shield.
+                badge King Gocek Telepon.
               </p>
             </div>
           </aside>

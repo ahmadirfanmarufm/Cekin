@@ -12,6 +12,7 @@ import type {
   LikeState,
 } from "@/features/community/types";
 import { LikeButton } from "./like-button";
+import { BadgeChips } from "@/components/badges/badge-chips";
 
 type CommentItemProps = {
   comment: CommunityComment;
@@ -140,8 +141,9 @@ export const CommentItem = ({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div className="relative flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-xs font-semibold text-gray-900">{comment.author.username}</span>
+          <BadgeChips badgeIds={comment.author.badges} max={2} />
 
           {comment.isPostAuthor && (
             <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-dark)]">

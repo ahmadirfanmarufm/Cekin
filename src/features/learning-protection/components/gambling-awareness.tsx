@@ -42,6 +42,8 @@ import { GamblingActivity } from "./gambling-activities";
 import { useLearningProgress } from "@/lib/learning-protection/use-learning-progress";
 import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
 import { LoginGate } from "./login-gate";
+import { BadgeTracker, BadgeResult } from "./badge-parts";
+import { BADGE_MISTAKE_LIMIT, getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
 
 type Props = {
   simulation: SimulationConfig;
@@ -91,6 +93,7 @@ export function GamblingAwareness({ simulation }: Props) {
   const [activityDone, setActivityDone] = useState(false);
   const [finished, setFinished] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
+  const [badgeSaved, setBadgeSaved] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [declinedLogin, setDeclinedLogin] = useState(false);
 
@@ -127,6 +130,8 @@ export function GamblingAwareness({ simulation }: Props) {
   const levelXpList = scenarios.map((scenario, index) =>
     gamblingLevelXp(index + 1, wrongCountOf(scenario.id)),
   );
+
+  const runMistakes = scenarios.reduce((sum, s) => sum + wrongCountOf(s.id), 0);
 
   const earnedLevelXp = scenarios.reduce(
     (sum, scenario, index) =>
@@ -277,31 +282,28 @@ export function GamblingAwareness({ simulation }: Props) {
       });
 
       if (response.status === 401) {
-        setRewardMessage(
-          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
-        );
+        setRewardMessage("Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.");
         return;
       }
 
       if (!response.ok) {
-        setRewardMessage(
-          "Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.",
-        );
+        setRewardMessage("Level maksimal tercapai, tetapi progres belum berhasil disimpan. Kamu tetap bisa melihat hasilmu.");
         return;
       }
 
       const result = await response.json();
+      setBadgeSaved(Boolean(result.badge?.owned));
       const scoreXp: number = result.scoreXp ?? 0;
       const maxXp: number = result.maxXp ?? GAMBLING_MAX_XP;
 
       if (result.xpEarned > 0) {
         setRewardMessage(
           scoreXp >= maxXp
-            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Gambling Awareness.`
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Stop Judol.`
             : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi tanpa salah untuk XP maksimal.`,
         );
       } else if ((result.bestXp ?? 0) >= maxXp) {
-        setRewardMessage("Kamu sudah meraih XP maksimal di Gambling Awareness.");
+        setRewardMessage("Kamu sudah meraih XP maksimal di Stop Judol.");
       } else {
         setRewardMessage(
           `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
@@ -418,6 +420,7 @@ export function GamblingAwareness({ simulation }: Props) {
     setActivityDone(false);
     setFinished(false);
     setRewardMessage("");
+    setBadgeSaved(null);
     setIsSaving(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -430,6 +433,8 @@ export function GamblingAwareness({ simulation }: Props) {
     const wrongCounts = scenarios.map((scenario) => wrongCountOf(scenario.id));
     const finalXp = calculateGamblingXp(wrongCounts);
     const totalWrong = wrongCounts.reduce((sum, wrong) => sum + wrong, 0);
+    const badge = getBadgeByKey("gambling");
+    const earned = isBadgeEarned(totalWrong);
     const isPerfect = totalWrong === 0;
 
     return (
@@ -462,7 +467,11 @@ export function GamblingAwareness({ simulation }: Props) {
               </p>
 
               <h1 className="relative mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">
-                {isPerfect ? "Perfect Gambling Guardian!" : "Selamat, Gambling Guardian!"}
+                {earned
+                  ? isPerfect
+                    ? `Sempurna! ${badge.name}`
+                    : `Mantap, ${badge.name}!`
+                  : "Tamat! Badge-nya Belum Rezeki"}
               </h1>
 
               <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/80">
@@ -471,8 +480,8 @@ export function GamblingAwareness({ simulation }: Props) {
               </p>
 
               <div className="relative mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-extrabold text-[var(--brand-dark)]">
-                <Trophy size={16} />
-                Lencana Gambling Guardian
+                <Trophy size={14} />
+                Badge {badge.name}
                 {isPerfect && <Star size={14} className="fill-current" />}
               </div>
             </div>
@@ -502,6 +511,12 @@ export function GamblingAwareness({ simulation }: Props) {
                 </div>
               </div>
 
+              <BadgeResult
+                simulationKey="apps"
+                mistakes={totalWrong}
+                saved={badgeSaved}
+              />
+
               <div className="mt-5 rounded-2xl border border-[var(--border)] p-5">
                 <h2 className="text-sm font-extrabold text-[var(--foreground)]">Rincian reward</h2>
 
@@ -513,7 +528,7 @@ export function GamblingAwareness({ simulation }: Props) {
                   <li className="flex items-center justify-between text-[var(--muted)]">
                     <span className="flex items-center gap-2">
                       <Crown size={14} className="text-[var(--warning)]" />
-                      Bonus Gambling Guardian
+                      Bonus Pejuang Anti Judol
                     </span>
                     <span className="font-bold text-[var(--accent)]">+{finalXp.bonus} XP</span>
                   </li>
@@ -594,7 +609,7 @@ export function GamblingAwareness({ simulation }: Props) {
           <div>
             <div className="badge">
               <ShieldCheck size={14} />
-              GAMBLING AWARENESS
+              JUDOL
             </div>
 
             <h1 className="heading heading-2 mt-4">Hitung sendiri, jangan percaya iklan.</h1>
@@ -664,6 +679,8 @@ export function GamblingAwareness({ simulation }: Props) {
             </p>
           )}
         </section>
+
+        <BadgeTracker simulationKey="gambling" mistakes={runMistakes} />
 
         <section data-tutorial="levels" className="mb-6">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -937,7 +954,7 @@ export function GamblingAwareness({ simulation }: Props) {
 
               <p className="mt-3 border-t border-white/15 pt-3 text-[11px] leading-relaxed text-white/60">
                 Potensi XP {potentialXp}/{GAMBLING_MAX_XP}. Selesaikan Level {totalCount} untuk bonus{" "}
-                {GAMBLING_MASTER_BONUS} XP dan lencana Gambling Guardian.
+                {GAMBLING_MASTER_BONUS} XP dan badge Pejuang Anti Judol.
               </p>
             </div>
           </aside>

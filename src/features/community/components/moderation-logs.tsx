@@ -59,7 +59,7 @@ export function ModerationLogs({
               />
 
               <h2 className="font-bold text-gray-900">
-                Riwayat Moderasi
+                Riwayat Status
               </h2>
             </div>
 
@@ -111,8 +111,7 @@ export function ModerationLogs({
               </h3>
 
               <p className="mt-1 max-w-xs text-xs leading-relaxed text-gray-500">
-                Belum ada perubahan status verifikasi pada laporan ini.
-                Riwayat akan muncul setelah moderator melakukan perubahan.
+                Belum ada perubahan status pada laporan ini.
               </p>
             </div>
           ) : (
@@ -157,7 +156,7 @@ export function ModerationLogs({
                       <div className="min-w-0 flex-1 pb-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900">
-                            Status diperbarui
+                            {log.eventType === "edited" ? "Laporan diperbarui" : "Status diperbarui"}
                           </p>
 
                           <span className="text-[10px] text-gray-400">
@@ -167,10 +166,7 @@ export function ModerationLogs({
 
                         <p className="mt-1 text-xs text-gray-500">
                           Oleh{" "}
-                          <span className="font-semibold text-gray-700">
-                            {log.moderatorUsername ??
-                              "Moderator tidak tersedia"}
-                          </span>
+                          <span className="font-semibold text-gray-700">{log.actorLabel}</span>
                         </p>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">

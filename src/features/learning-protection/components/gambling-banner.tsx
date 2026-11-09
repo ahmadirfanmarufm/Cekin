@@ -155,7 +155,7 @@ function CommentBanner({ promo }: { promo: GamblingScenarioData }) {
         <div className="min-w-0 flex-1">
           <p className="text-xs">
             <span className="font-bold">{promo.sender}</span>{" "}
-            <span className="text-gray-500">· 3 mnt</span>
+            <span className="text-gray-500">- 3 mnt</span>
           </p>
 
           <p className="mt-1 text-sm leading-snug">{promo.headline}</p>

@@ -76,7 +76,7 @@ function SlotSim({ onDone }: { onDone: () => void }) {
   return (
     <div className={BOX}>
       <p className="text-xs text-[var(--muted)]">
-        Modal {rp(START)} · taruhan {rp(10_000)} · 100 putaran · RTP contoh 85%
+        Modal {rp(START)} - taruhan {rp(10_000)} - 100 putaran - RTP contoh 85%
       </p>
 
       <button

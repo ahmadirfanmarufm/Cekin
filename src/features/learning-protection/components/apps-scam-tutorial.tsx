@@ -6,6 +6,7 @@ import {
   GuidedTutorial,
   type TutorialStep,
 } from "./guided-tutorial";
+import { badgeTutorialStep } from "./badge-parts";
 
 export const APPS_SCAM_TUTORIAL_KEY = "apps-scam-tutorial-v1";
 
@@ -106,9 +107,10 @@ const STEPS: TutorialStep[] = [
   {
     id: "progress",
     title: "Level dan XP",
-    body: "Level tinggi bernilai lebih besar. Selesaikan Level 10 untuk bonus XP dan lencana App Guardian.",
+    body: "Level tinggi bernilai lebih besar. Selesaikan Level 10 untuk bonus XP dan badge Detektif Aplikasi.",
     target: "progress",
   },
+  badgeTutorialStep("apps"),
   {
     id: "finish",
     title: "Kamu siap!",

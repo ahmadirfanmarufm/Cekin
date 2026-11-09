@@ -48,11 +48,12 @@ import { mistakesOfPaths } from "@/lib/learning-protection/dialogue";
 import { useDialogue } from "@/lib/learning-protection/use-dialogue";
 import {
   LOGIN_GATE_AFTER_LEVEL,
-  buildLoginHref,
   useLearningProgress,
 } from "@/lib/learning-protection/use-learning-progress";
 import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
 import { LoginGate } from "./login-gate";
+import { BadgeTracker, BadgeResult } from "./badge-parts";
+import { BADGE_MISTAKE_LIMIT, getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
 
 type Props = {
   simulation: SimulationConfig;
@@ -72,6 +73,7 @@ export function TrustLabChat({ simulation }: Props) {
   const [finished, setFinished] = useState(false);
   const [isSavingReward, setIsSavingReward] = useState(false);
   const [rewardMessage, setRewardMessage] = useState("");
+  const [badgeSaved, setBadgeSaved] = useState<boolean | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -80,13 +82,11 @@ export function TrustLabChat({ simulation }: Props) {
     completedIds: string[];
     attempts: Record<string, string[][]>;
   } | null>(null);
-  // Kunci localStorage per akun (atau "guest") agar tutorial tidak berulang.
   const tutorialStorageKey = useRef(`${TRUST_LAB_TUTORIAL_KEY}:guest`);
 
   const scenarioRef = useRef<HTMLElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Gerbang login untuk tamu dan penyimpanan progres.
   const [gateOpen, setGateOpen] = useState(false);
   const [declinedLogin, setDeclinedLogin] = useState(false);
 
@@ -173,6 +173,11 @@ export function TrustLabChat({ simulation }: Props) {
   const earnedLevelXp = scenarios.reduce(
     (sum, scenario, index) =>
       completedIds.includes(scenario.id) ? sum + levelXpList[index] : sum,
+    0,
+  );
+
+  const runMistakes = scenarios.reduce(
+    (sum, scenario) => sum + mistakesOf(scenario),
     0,
   );
 
@@ -301,7 +306,7 @@ export function TrustLabChat({ simulation }: Props) {
         <MessageCircle className="mx-auto mb-4 h-10 w-10 text-[var(--muted)]" />
         <h1 className="heading heading-2">Skenario belum tersedia</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Konten Trust Lab sedang disiapkan.
+          Konten Penipuan Chat sedang disiapkan.
         </p>
         <Link
           href="/learning-protection"
@@ -346,9 +351,9 @@ export function TrustLabChat({ simulation }: Props) {
       });
 
       if (response.status === 401) {
-        setRewardMessage(
-          "Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.",
-        );
+        setBadgeSaved(false);
+
+        setRewardMessage("Level maksimal tercapai! Login untuk menyimpan progres, XP, dan lencana ke akunmu.");
         return;
       }
 
@@ -360,17 +365,18 @@ export function TrustLabChat({ simulation }: Props) {
       }
 
       const result = await response.json();
+      setBadgeSaved(Boolean(result.badge?.owned));
       const scoreXp: number = result.scoreXp ?? 0;
       const maxXp: number = result.maxXp ?? TRUST_LAB_MAX_XP;
 
       if (result.xpEarned > 0) {
         setRewardMessage(
           scoreXp >= maxXp
-            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Trust Lab.`
+            ? `Sempurna! Kamu mendapatkan ${result.xpEarned} XP dari Penipuan Chat.`
             : `Kamu mendapatkan ${result.xpEarned} XP (skor ${scoreXp}/${maxXp}). Ulangi simulasi tanpa salah untuk meraih XP maksimal.`,
         );
       } else if ((result.bestXp ?? 0) >= maxXp) {
-        setRewardMessage("Kamu sudah meraih XP maksimal di Trust Lab.");
+        setRewardMessage("Kamu sudah meraih XP maksimal di Penipuan Chat.");
       } else {
         setRewardMessage(
           `Skor ${scoreXp} XP belum melebihi hasil terbaikmu (${result.bestXp} XP). Ulangi dan jawab lebih teliti untuk menambah XP.`,
@@ -405,18 +411,7 @@ export function TrustLabChat({ simulation }: Props) {
     if (isSavingReward || dialogue.ending?.result !== "win") return;
 
     if (!isLastLevel) {
-      const needsLogin =
-        session.ready &&
-        !session.authenticated &&
-        !declinedLogin &&
-        !tutorialActive &&
-        currentIndex === LOGIN_GATE_AFTER_LEVEL - 1;
-
-      if (needsLogin) {
-        setGateOpen(true);
-        return;
-      }
-
+      if (gate.request()) return;
       goNextLevel();
       return;
     }
@@ -460,7 +455,8 @@ export function TrustLabChat({ simulation }: Props) {
 
     return (
       <MasterReward
-        badgeName="Trust Master"
+        badgeKey="trust"
+        badgeSaved={badgeSaved}
         intro={`Kamu menamatkan ${totalCount} percakapan, dari bujukan sederhana sampai penipuan yang tampak sangat meyakinkan. Kamu kini lebih siap menghadapi modus digital masa kini.`}
         totalCount={totalCount}
         completedCount={completedIds.length}
@@ -504,7 +500,7 @@ export function TrustLabChat({ simulation }: Props) {
           <div>
             <div className="badge">
               <MessageCircle size={14} />
-              TRUST LAB
+              PENIPUAN CHAT
             </div>
 
             <h1 className="heading heading-2 mt-4">
@@ -585,6 +581,11 @@ export function TrustLabChat({ simulation }: Props) {
             </p>
           )}
         </div>
+
+        <BadgeTracker
+          simulationKey="trust"
+          mistakes={runMistakes}
+        />
 
         <LevelMap
           scenarios={scenarios}
@@ -903,7 +904,7 @@ export function TrustLabChat({ simulation }: Props) {
                 <p className="mt-1 text-[11px] leading-relaxed text-white/60">
                   Level tinggi bernilai lebih besar. Setiap langkah keliru
                   mengurangi XP level itu. Selesaikan Level {totalCount} untuk
-                  bonus {TRUST_LAB_MASTER_BONUS} XP dan lencana Trust Master.
+                  bonus {TRUST_LAB_MASTER_BONUS} XP dan badge Si Kebal Tipu.
                 </p>
               </div>
             </div>
