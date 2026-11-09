@@ -15,31 +15,37 @@ const modes = [
     title: "Phishing",
     description: "Link palsu yang mencuri data",
     icon: Mail,
+    href: "/learning-protection/phishing-attack",
   },
   {
     title: "Lowongan palsu",
     description: "Deposit untuk pekerjaan fiktif",
     icon: MessageSquare,
+    href: "/learning-protection/trust-lab",
   },
   {
     title: "Aplikasi",
     description: "APK dan izin berbahaya",
     icon: BugPlay,
+    href: "/learning-protection/apps-scam",
   },
   {
     title: "Telepon penipuan",
     description: "Penelepon menyamar",
     icon: Phone,
+    href: "/learning-protection/spam-call",
   },
   {
     title: "Judi online",
     description: "Manipulasi dan loss chasing",
     icon: Dices,
+    href: "/learning-protection/online-gambling",
   },
   {
     title: "Investasi palsu",
     description: "Untung tinggi tanpa risiko",
     icon: Wallet,
+    href: "/learning-protection/mind-trap",
   },
 ];
 
@@ -70,7 +76,7 @@ export function ThreatModes() {
             return (
               <Link
                 key={mode.title}
-                href="/learning-protection"
+                href={mode.href}
                 className="group grid min-h-[80px] grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-3 rounded-[15px] border border-[#e6eaf0] bg-white p-4 text-[#667085] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#c4d6f1] hover:shadow-[0_10px_25px_rgba(20,35,60,0.05)] sm:min-h-[88px]"
               >
                 <span className="grid size-11 place-items-center rounded-xl bg-[#eaf1fc] text-[#2457a6]">
