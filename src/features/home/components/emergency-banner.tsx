@@ -4,7 +4,7 @@ import { Heart, ArrowRight } from "lucide-react";
 
 export function EmergencyBanner() {
   return (
-    <section className="mx-auto w-full max-w-[1160px] px-4 py-12 sm:px-6 sm:py-16 lg:px-0 lg:py-20">
+    <section className="mx-auto w-full max-w-[1160px] px-4 py-12 sm:py-16 lg:py-20 px-5 sm:px-8 lg:px-10">
       <div className="grid grid-cols-1 items-center gap-5 rounded-[20px] border border-[#d9eee2] bg-gradient-to-r from-[#effaf4] to-[#f7fbff] p-5 sm:p-7 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-6 lg:p-8">
         <div className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#e9f7ef] text-[#26a269] sm:size-[58px] sm:rounded-[17px]">
           <Heart size={28} className="sm:hidden" />

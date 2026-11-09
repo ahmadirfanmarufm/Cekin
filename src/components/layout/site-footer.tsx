@@ -23,7 +23,7 @@ const footerNavigation = [
 export function SiteFooter() {
   return (
     <footer className="bg-[#14243e] pt-12 text-white sm:pt-16">
-      <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6 lg:px-0">
+      <div className="mx-auto w-full max-w-[1160px] px-4 px-5 sm:px-8 lg:px-10">
         <div className="grid grid-cols-2 gap-x-5 gap-y-9 border-b border-white/10 pb-9 sm:gap-x-10 sm:gap-y-10 lg:grid-cols-[1.5fr_0.85fr_0.95fr_1.25fr] lg:gap-12 lg:pb-12">
           {/* Brand */}
           <div className="col-span-2 flex flex-col items-start lg:col-span-1">

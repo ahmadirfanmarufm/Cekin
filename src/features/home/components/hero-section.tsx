@@ -6,7 +6,7 @@ import { HeroVisual } from "./hero-visual";
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-x-clip bg-[radial-gradient(circle_at_85%_35%,#eaf2ff_0%,transparent_34%),linear-gradient(180deg,#fbfdff_0%,#ffffff_100%)]">
+    <section className="relative overflow-x-clip bg-[radial-gradient(circle_at_85%_35%,#eaf2ff_0%,transparent_34%),linear-gradient(180deg,#fbfdff_0%,#ffffff_100%)] px-5 sm:px-8 lg:px-10">
       <div className="mx-auto grid min-h-[580px] w-full max-w-[1160px] grid-cols-1 items-center gap-8 px-4 py-14 sm:px-6 sm:py-16 lg:min-h-[620px] lg:grid-cols-[1.05fr_0.95fr] lg:gap-11 lg:px-0 lg:py-[75px]">
 
         {/* Hero Content */}

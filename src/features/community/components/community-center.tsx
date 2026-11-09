@@ -607,7 +607,7 @@ export const CommunityCenter = () => {
     );
 
     return (
-        <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-6xl space-y-6 py-6 px-5 sm:px-8 lg:px-10">
             {/* Header */}
             <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>

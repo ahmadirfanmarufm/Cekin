@@ -46,7 +46,7 @@ const modes = [
 export function ThreatModes() {
   return (
     <section className="bg-[#f7f9fc] py-16 sm:py-20">
-      <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6 lg:px-0">
+      <div className="mx-auto w-full max-w-[1160px] px-5 sm:px-8 lg:px-10">
         <div className="mb-8 flex flex-col gap-3 sm:mb-9 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
           <div>
             <span className="inline-flex rounded-full bg-[#eaf1fc] px-3 py-2 text-[11px] font-extrabold tracking-wide text-[#2457a6]">

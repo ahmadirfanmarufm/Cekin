@@ -226,7 +226,7 @@ export function LearningProtection() {
   };
 
   return (
-    <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+    <section className="min-h-[calc(100vh-80px)] bg-[#f7f9fc] py-12 sm:py-16 px-5 sm:px-8 lg:px-10">
       <div className="mx-auto max-w-6xl">
         {/* Page Introduction */}
         <div className="mx-auto mb-10 max-w-3xl text-center sm:mb-14">

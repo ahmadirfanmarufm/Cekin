@@ -4,7 +4,7 @@ import { Search, Brain, ArrowRight } from "lucide-react";
 
 export function PrimaryFeatures() {
   return (
-    <section className="mx-auto w-full max-w-[1160px] px-4 py-16 sm:px-6 sm:py-20 lg:px-0">
+    <section className="mx-auto w-full max-w-[1160px] py-16 sm:py-20 px-5 sm:px-8 lg:px-10">
       <div className="mx-auto mb-9 max-w-[650px] text-center">
         <span className="inline-flex items-center rounded-full bg-[#eaf1fc] px-3 py-2 text-[11px] font-extrabold tracking-wide text-[#2457a6]">
           Apa yang kamu butuhkan?
