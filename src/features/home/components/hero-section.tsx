@@ -29,7 +29,7 @@ export function HeroSection() {
 
           <div className="mt-7 flex flex-col flex-wrap justify-center gap-3 sm:flex-row lg:justify-start">
             <Link
-              href="/cek-ancaman"
+              href="/threat-check"
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#2457a6] px-5 py-3 text-[13px] font-bold !text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#183d78] hover:shadow-lg hover:shadow-[#2457a6]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2457a6]"
             >
               <Search size={18} />

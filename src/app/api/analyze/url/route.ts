@@ -25,18 +25,62 @@ const urlAnalysisSchema = {
 
 const SHORTENER_DOMAINS = new Set([
   "bit.ly", "tinyurl.com", "t.co", "s.id", "is.gd", "buff.ly", "cutt.ly",
-  "rb.gy", "rebrand.ly", "linktr.ee", "shorturl.at", "wa.me"
+  "rb.gy", "rebrand.ly", "linktr.ee", "shorturl.at", "wa.me",
+  "ow.ly", "goo.gl", "t.ly", "tiny.cc", "v.gd", "shorte.st", "adf.ly", "bc.vc",
+  "ouo.io", "clck.ru", "bl.ink", "soo.gd", "lnkd.in", "qr.ae", "cur.lv", "x.co",
+  "u.to", "j.mp", "bitly.com", "bit.do", "mcaf.ee", "su.pr", "trib.al", "dlvr.it",
+  "ift.tt", "tiny.one", "short.io", "short.cm", "kutt.it", "snip.ly", "hyperurl.co",
+  "lnk.to", "lnk.bio", "bio.link", "1url.com", "2u.pw", "chilp.it", "clk.sh",
+  "cli.re", "dwarfurl.com", "easyurl.net", "fur.ly", "gg.gg", "href.li", "migre.me",
+  "n9.cl", "ouo.press", "shrinkme.io", "shrtco.de", "t2m.io", "tny.im", "urlz.fr",
+  "vzturl.com", "zpr.io", "adfoc.us", "exe.io", "fc.lc", "gplinks.co",
+  "linkvertise.com", "mboost.me", "shrinke.me", "droplink.co", "safelinku.com",
+  "za.gl", "cutt.us", "shorturl.asia", "smarturl.it", "qrco.de", "lc.cx", "rotf.lol",
+  "spoo.me", "u.nu", "x.gd", "zzb.bz", "urlr.me", "rlu.ru", "tinyarro.ws", "0rz.tw",
+  "1ink.cc", "3.ly", "tiny.ie", "short.gy", "ulvis.net", "go2l.ink", "bom.so",
+  "t.cn", "okt.to", "ity.im", "sh.st", "po.st"
 ]);
 
 const SUSPICIOUS_TLDS = new Set([
-  "xyz", "top", "work", "click", "buzz", "cfd", "monster", "sbs", 
-  "rest", "cam", "fit", "icu", "gq", "ml", "cf", "ga", "tk"
+  "xyz", "top", "work", "click", "buzz", "cfd", "monster", "sbs",
+  "rest", "cam", "fit", "icu", "gq", "ml", "cf", "ga", "tk",
+  "loan", "win", "bid", "men", "date", "download", "stream", "review", "trade", "party",
+  "racing", "accountant", "science", "faith", "cricket", "gdn", "kim", "country", "webcam", "link",
+  "live", "online", "site", "website", "space", "store", "shop", "tech", "fun", "life",
+  "world", "today", "club", "vip", "info", "biz", "cc", "ws", "pw", "su",
+  "zip", "mov", "bar", "bond", "quest", "uno", "host", "press", "digital", "network",
+  "cloud", "rocks", "ninja", "guru", "support", "services", "center", "agency", "email", "solutions",
+  "run", "one", "pics", "mom", "lol", "cyou", "ltd", "wang", "xin", "ren",
+  "red", "ooo", "gold", "bet", "poker", "casino", "bingo", "game", "games", "vegas",
+  "cash", "money", "loans", "credit", "finance", "capital", "trading", "forex", "deals", "gift"
 ]);
 
 const SENSITIVE_BRANDS = [
-  "bca", "bri", "mandiri", "bni", "cimb", "bsi", "dana", "ovo", "gopay",
-  "shopee", "tokopedia", "whatsapp", "telegram", "facebook", "instagram",
-  "google", "apple", "netflix", "pajak", "pln", "telkomsel"
+  // Bank
+  "bca", "bri", "mandiri", "bni", "cimb", "bsi", "btn", "permata", "danamon", "ocbc",
+  "maybank", "panin", "btpn", "jago", "seabank", "allobank", "jenius", "livin", "brimo",
+  "klikbca", "mybca", "bjb",
+  // E-wallet & fintech
+  "dana", "ovo", "gopay", "linkaja", "shopeepay", "isaku", "doku", "flip", "kredivo",
+  "akulaku", "spaylater", "gopaylater", "indodana", "atome",
+  // E-commerce, transportasi, travel
+  "shopee", "tokopedia", "lazada", "blibli", "bukalapak", "tiktokshop", "olx", "zalora",
+  "traveloka", "tiketcom", "pegipegi", "agoda", "grab", "gojek", "maxim",
+  // Ekspedisi
+  "jne", "jnt", "sicepat", "anteraja", "posindonesia", "ninjaxpress", "idexpress",
+  "tiki", "dhl", "fedex",
+  // Telekomunikasi
+  "telkomsel", "indosat", "axis", "smartfren", "indihome",
+  // Media sosial & pesan
+  "whatsapp", "telegram", "facebook", "instagram", "tiktok", "twitter", "youtube",
+  // Pemerintah & layanan publik
+  "pajak", "djp", "coretax", "bpjs", "polri", "kominfo", "komdigi", "kemnaker",
+  "dukcapil", "imigrasi", "samsat", "beacukai", "ojk", "prakerja", "pln", "pertamina",
+  "mypertamina", "kemensos", "bansos",
+  // Layanan global, kripto, game
+  "google", "apple", "netflix", "microsoft", "amazon", "paypal", "spotify", "vidio",
+  "dropbox", "icloud", "gmail", "binance", "indodax", "pintu", "coinbase", "metamask",
+  "garena", "freefire", "mobilelegends", "roblox"
 ];
 
 const GAMBLING_KEYWORDS = [
@@ -45,7 +89,20 @@ const GAMBLING_KEYWORDS = [
   "olympus", "mahjong", "scatter", "habanero", "microgaming", "pgsoft", "slot88",
   "depo", "withdraw", "wd", "bonus", "member", "livecasino", "bocoran", "anti-rungkad",
   "rungkad", "freebet", "agen", "parlay", "spadegaming", "jokergaming", "link-alternatif",
-  "situs-judi", "slot-online", "domino99", "qq", "capsa", "cuan", "garansi-kekalahan"
+  "situs-judi", "slot-online", "domino99", "qq", "capsa", "cuan", "garansi-kekalahan",
+  "slot-gacor", "slot777", "rajaslot", "dewaslot", "dewa-slot", "slot-demo", "demo-slot",
+  "situs-slot", "slot-terpercaya", "judi-online", "judionline", "judi-bola", "judibola",
+  "bola-online", "ibcbet", "maxbet", "cmd368", "sabung-ayam", "sabungayam", "tembak-ikan",
+  "poker-online", "pokerqq", "dominoqq", "bandarq", "bandar-togel", "togel-online",
+  "toto-macau", "totomacau", "hongkong-pools", "hk-pools", "angka-jitu", "prediksi-togel",
+  "result-togel", "data-sgp", "paito", "agen-bola", "agen-slot", "agen-judi", "agen-togel",
+  "mix-parlay", "sportsbook", "baccarat", "roulette", "blackjack", "sicbo", "dragon-tiger",
+  "idnpoker", "idnplay", "joker123", "pragmaticplay", "sweetbonanza", "gatesofolympus",
+  "mahjong-ways", "starlight-princess", "new-member", "bonus-new-member", "depo-5000",
+  "deposit-pulsa", "slot-dana", "slot-pulsa", "slot-qris", "rtp-live", "rtp-slot",
+  "bocoran-rtp", "link-gacor", "situs-gacor", "jam-gacor", "pola-gacor", "scatter-hitam",
+  "slot-thailand", "server-thailand", "server-kamboja", "wd-cepat", "jp-paus",
+  "bebas-blokir", "anti-nawala", "nawala", "hoki", "hokibet", "gampang-menang"
 ];
 
 interface RawSignal {
@@ -175,18 +232,36 @@ function analyzeUrlStructure(urlObj: URL): RawSignal[] {
   return signals;
 }
 
+function analyzeDomainPattern(urlObj: URL): RawSignal[] {
+  const signals: RawSignal[] = [];
+  const hostname = urlObj.hostname.toLowerCase();
+
+  const domainGamblingPattern = /(toto|slot|bet|casino|poker|togel|maxwin|gacor|dewi|hoki|808|777|888)/i;
+  
+  if (domainGamblingPattern.test(hostname)) {
+    signals.push({
+      id: "gambling-domain-keyword",
+      label: "Domain Mengandung Indikator Judi",
+      rawFact: `Nama domain '${hostname}' mengandung kata kunci identik situs perjudian.`,
+      suggestedPoints: 45,
+    });
+  }
+
+  return signals;
+}
+
 function analyzeGamblingContent(urlObj: URL, metadata: string): RawSignal[] {
   const signals: RawSignal[] = [];
-  const targetText = `${urlObj.pathname} ${urlObj.search} ${metadata}`.toLowerCase();
+  const targetText = `${urlObj.hostname} ${urlObj.pathname} ${urlObj.search} ${metadata}`.toLowerCase();
 
   const detectedKeywords = GAMBLING_KEYWORDS.filter(keyword => targetText.includes(keyword));
 
   if (detectedKeywords.length > 0) {
-    const points = Math.min(50, 25 + detectedKeywords.length * 5);
+    const points = Math.min(50, 30 + detectedKeywords.length * 5);
     signals.push({
       id: "gambling-seo-poisoning",
       label: "Indikasi Konten Judi Online / SEO Spam",
-      rawFact: `Terdeteksi kata kunci perjudian: [${detectedKeywords.slice(0, 10).join(", ")}] pada URL atau metadata halaman.`,
+      rawFact: `Terdeteksi kata kunci perjudian: [${detectedKeywords.slice(0, 10).join(", ")}] pada domain, URL, atau metadata halaman.`,
       suggestedPoints: points,
     });
   }
@@ -218,6 +293,9 @@ export async function POST(req: Request) {
 
     const heuristicSignals = analyzeUrlStructure(parsedUrl);
     collectedSignals.push(...heuristicSignals);
+
+    const domainSignals = analyzeDomainPattern(parsedUrl);
+    collectedSignals.push(...domainSignals);
 
     const [sucuriData, pageMetadata] = await Promise.all([
       fetchSucuriScan(rawInput),
@@ -294,7 +372,7 @@ export async function POST(req: Request) {
 
       Tugas Anda:
       Terjemahkan temuan-temuan di atas ke format JSON yang ramah, jelas, dan edukatif bagi masyarakat awam di Indonesia.
-      Jika terdapat temuan 'gambling-seo-poisoning', jelaskan bahaya situs judi online, penipuan saldo/data pribadi, serta risiko finansial secara eksplisit.
+      Jika terdapat temuan 'gambling-seo-poisoning' atau 'gambling-domain-keyword', jelaskan bahaya situs judi online, penipuan saldo/data pribadi, serta risiko finansial secara eksplisit.
       Pastikan setiap finding memiliki:
       - 'id': ID unik temuan
       - 'label': Nama indikator yang jelas dan tidak terlalu teknis

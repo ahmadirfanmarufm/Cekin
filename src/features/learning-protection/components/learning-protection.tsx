@@ -47,7 +47,7 @@ const experiences = [
   },
   {
     id: "apps-scam",
-    title: "Aplikasi Sus",
+    title: "Aplikasi Mencurigakan",
     kicker: "IS THIS APP SAFE?",
     description: "Periksa aplikasi, sumber unduhan, dan izinnya.",
     difficulty: "Menengah",
@@ -77,7 +77,7 @@ const experiences = [
   },
   {
     id: "online-gambling",
-    title: "Judol",
+    title: "Judi Online",
     kicker: "DON'T GET TRAPPED",
     description: "Kenali promosi, near-miss, dan loss chasing.",
     difficulty: "Penting",

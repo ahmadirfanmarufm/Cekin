@@ -1,36 +1,192 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cekin
+
+<p align="center">
+  <strong>Platform edukasi dan analisis ancaman digital untuk membantu pengguna mengenali penipuan dengan lebih percaya diri.</strong>
+</p>
+
+<p align="center">
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js"></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript"></a>
+  <a href="https://tailwindcss.com/"><img src="https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS"></a>
+  <a href="https://orm.drizzle.team/"><img src="https://img.shields.io/badge/Drizzle_ORM-PostgreSQL-C5F74F?logo=drizzle&logoColor=111827" alt="Drizzle ORM"></a>
+  <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10.x-F69220?logo=pnpm&logoColor=white" alt="pnpm"></a>
+</p>
+
+## Overview
+
+Cekin adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal terhadap potensi ancaman digital. Pengguna dapat menganalisis konten dari beberapa sumber, mempelajari pola-pola penipuan melalui simulasi interaktif, serta berdiskusi dan berbagi bukti di komunitas.
+
+![Cekin](./public/logo_cekin.webp)
+
+> Hasil analisis Cekin bersifat informatif dan edukatif. Gunakan penilaian manusia serta sumber resmi sebelum mengambil keputusan finansial, keamanan, atau hukum.
+
+## Fitur Utama
+
+| Area | Fitur |
+| --- | --- |
+| **Analisis ancaman** | Pemeriksaan URL, email, nomor telepon, gambar, percakapan/chat, dan peluang investasi. |
+| **Insight berbasis AI** | Analisis terstruktur dengan rekomendasi dan indikator risiko yang mudah dipahami. |
+| **Learning Protection** | Simulasi interaktif untuk mengenali phishing, spam call, aplikasi scam, judi online, manipulasi psikologis, dan membangun kepercayaan digital. |
+| **Komunitas** | Membuat posting, komentar bertingkat, reaksi, media pendukung, laporan, moderasi, serta riwayat perubahan. |
+| **Akun dan progres** | Registrasi/login, sesi pengguna, XP, progres simulasi, dan badge pembelajaran. |
+| **Emergency Center** | Akses cepat ke panduan dan tindakan awal saat menghadapi insiden digital. |
+
+## Tech Stack
+
+- **Framework:** Next.js 16 App Router, React 19
+- **Bahasa:** TypeScript 5 dengan strict mode
+- **Styling:** Tailwind CSS 4 dan komponen berbasis shadcn/Base UI
+- **Database:** PostgreSQL
+- **ORM & migrasi:** Drizzle ORM dan Drizzle Kit
+- **Backend services:** Next.js Route Handlers dan Supabase Storage
+- **AI:** Google Gemini API untuk analisis terstruktur
+- **Validasi & utilitas:** Zod, libphonenumber-js, Cheerio
+- **Testing:** Vitest, Testing Library, dan Playwright
+- **Package manager:** pnpm 10
+
+## Arsitektur dan Struktur Direktori
+
+```text
+.
+├── drizzle/                  # Migration SQL dan snapshot schema
+├── public/                   # Asset statis, termasuk logo Cekin
+├── src/
+│   ├── app/                  # App Router, halaman, layout, dan API Route Handlers
+│   │   ├── (app)/            # Halaman utama aplikasi
+│   │   └── api/              # Endpoint auth, analisis, komunitas, dan learning
+│   ├── components/           # Komponen UI dan layout yang reusable
+│   ├── features/             # Modul fitur berdasarkan domain bisnis
+│   │   ├── community/
+│   │   ├── home/
+│   │   └── learning-protection/
+│   ├── lib/                  # Integrasi database, auth, AI, Supabase, dan utilitas
+│   └── types/                # Type definitions lintas fitur
+├── .env.example              # Template environment variables
+├── drizzle.config.ts         # Konfigurasi Drizzle Kit
+├── next.config.ts            # Konfigurasi Next.js
+├── package.json              # Script dan dependency proyek
+└── pnpm-lock.yaml            # Lockfile pnpm
+```
+
+### Prinsip arsitektur
+
+1. **Domain-driven feature modules:** logika fitur dikelompokkan di `src/features`, bukan dipusatkan dalam satu folder global.
+2. **Server/client boundary:** akses database, secret, dan integrasi admin berada di modul server; komponen interaktif tetap berada pada boundary client yang diperlukan.
+3. **Typed data access:** schema PostgreSQL didefinisikan di `src/lib/db/schema.ts` dan dikelola melalui Drizzle migration.
+4. **API terpisah per domain:** endpoint tersedia di `src/app/api` dengan route group berdasarkan use case.
 
 ## Getting Started
 
-First, run the development server:
+### Prasyarat
+
+- Node.js versi LTS (disarankan Node.js 20 atau lebih baru)
+- pnpm `10.16.1` atau kompatibel
+- PostgreSQL yang dapat diakses aplikasi
+- Project Supabase untuk storage komunitas
+- API key Google Gemini untuk fitur analisis AI
+
+### Instalasi
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/ahmadirfanmarufm/Cekin.git
+cd Cekin
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Salin template environment lalu isi nilainya sesuai environment lokal:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env
+```
 
-## Learn More
+| Variable | Kegunaan |
+| --- | --- |
+| `DATABASE_URL` | Connection string PostgreSQL untuk Drizzle dan aplikasi. |
+| `SUPABASE_URL` | URL Supabase untuk operasi server-side. |
+| `SUPABASE_SECRET_KEY` | Secret key Supabase; hanya untuk server dan jangan diekspos ke client. |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL Supabase yang aman digunakan di client. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key Supabase untuk client. |
+| `KLIPY_API_KEY` | API key Klipy untuk fitur GIF komunitas. |
+| `GEMINI_API_KEY` | API key Google Gemini untuk analisis AI. |
+| `GEMINI_MODEL` | Opsional; override model Gemini default yang digunakan aplikasi. |
 
-To learn more about Next.js, take a look at the following resources:
+### Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pastikan `DATABASE_URL` sudah terisi, lalu jalankan migration yang tersedia:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm exec drizzle-kit migrate
+```
 
-## Deploy on Vercel
+Jika schema berubah selama pengembangan, buat migration baru sebelum menerapkannya:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+pnpm exec drizzle-kit generate
+pnpm exec drizzle-kit migrate
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Menjalankan development server
+
+```bash
+pnpm dev
+```
+
+Buka [http://localhost:3000](http://localhost:3000) di browser.
+
+## Quality Checks
+
+Jalankan pemeriksaan yang relevan sebelum membuat pull request:
+
+```bash
+pnpm lint
+pnpm test
+pnpm build
+```
+
+## Build dan Deployment
+
+### Build production lokal
+
+```bash
+pnpm build
+pnpm start
+```
+
+`pnpm build` menjalankan build production Next.js. Setelah berhasil, `pnpm start` menjalankan server production pada port default Next.js.
+
+### Deployment ke Vercel
+
+1. Push repository ke GitHub dan import project ke [Vercel](https://vercel.com/new).
+2. Pilih framework **Next.js**. Vercel biasanya mendeteksi konfigurasi secara otomatis.
+3. Gunakan `pnpm install` sebagai install command bila diperlukan.
+4. Tambahkan seluruh environment variables production di **Project Settings → Environment Variables**.
+5. Pastikan database PostgreSQL dan Supabase Storage dapat diakses dari deployment.
+6. Jalankan migration database melalui proses deployment yang terkontrol, bukan dari browser atau client.
+7. Deploy, lalu verifikasi halaman utama, autentikasi, analisis, upload media, dan endpoint komunitas.
+
+Untuk production, gunakan branch deployment yang terlindungi, preview environment terpisah, dan rotasi secret sesuai kebijakan operasional.
+
+## Contributing
+
+Kontribusi dipersilakan melalui pull request.
+
+1. Fork repository dan buat branch dari branch utama:
+   ```bash
+   git checkout -b feat/nama-perubahan
+   ```
+2. Buat perubahan yang terfokus dan ikuti pola arsitektur yang sudah ada.
+3. Tambahkan atau perbarui test untuk perilaku yang berubah.
+4. Jalankan `pnpm lint`, `pnpm test`, dan `pnpm build`.
+5. Buka pull request dengan ringkasan perubahan, alasan teknis, dan langkah verifikasi.
+
+Hindari memasukkan secret, data pengguna, hasil build, atau perubahan migration yang tidak diperlukan. Untuk perubahan schema, sertakan migration Drizzle yang dapat direproduksi.
+
+## License
+
+Lisensi proyek belum ditetapkan dalam repository ini. Sampai file `LICENSE` tersedia, perlakukan source code sebagai **all rights reserved** dan minta persetujuan maintainer sebelum menggunakan atau mendistribusikannya.
+
+---
+
+Dibuat untuk membantu pengguna Indonesia menjadi lebih siap menghadapi ancaman digital.

@@ -28,10 +28,10 @@ type AuthUser = {
 
 const navigation = [
   { label: "Beranda", href: "/" },
-  { label: "Cek Ancaman", href: "/cek-ancaman" },
+  { label: "Cek Ancaman", href: "/threat-check" },
   { label: "Learning & Protection", href: "/learning-protection" },
   { label: "Komunitas", href: "/community" },
-  { label: "Tentang Kami", href: "/tentang-kami" },
+  { label: "Tentang Kami", href: "/about-us" },
 ];
 
 export function SiteHeader() {
@@ -175,7 +175,7 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-xl px-5 sm:px-8 lg:px-10">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-xl px-5 sm:px-8 md:px-10 xl:px-0">
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between">
 
           {/* Logo */}
@@ -349,7 +349,7 @@ export function SiteHeader() {
             )}
 
             <Link
-              href="/cek-ancaman"
+              href="/threat-check"
               className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold !text-white shadow-md shadow-blue-600/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               Mulai Cek
@@ -481,7 +481,7 @@ export function SiteHeader() {
                 </button>
 
                 <Link
-                  href="/cek-ancaman"
+                  href="/threat-check"
                   onClick={() => setIsOpen(false)}
                   className="flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold !text-white shadow-md shadow-blue-600/20 transition-colors hover:bg-blue-700"
                 >
