@@ -1040,7 +1040,7 @@ export function AppsScam({ simulation }: Props) {
                               <span className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted)]">
                                 <Star size={10} className="fill-amber-400 text-amber-400" />
                                 {app.rating}
-                                <span>·</span>
+                                <span>-</span>
                                 {app.downloads}
                               </span>
                             </span>
@@ -1230,11 +1230,7 @@ export function AppsScam({ simulation }: Props) {
                                 className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3"
                               >
                                 <div className="flex min-w-0 items-center gap-2.5">
-                                  {permission.suspicious ? (
-                                    <AlertTriangle size={17} className="shrink-0 text-[var(--warning)]" />
-                                  ) : (
-                                    <CheckCircle2 size={17} className="shrink-0 text-[var(--accent)]" />
-                                  )}
+                                  <Lock size={17} className="shrink-0 text-[var(--muted)]" />
 
                                   <div className="min-w-0">
                                     <p className="text-xs font-bold text-[var(--foreground)]">
@@ -1246,14 +1242,8 @@ export function AppsScam({ simulation }: Props) {
                                   </div>
                                 </div>
 
-                                <span
-                                  className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${
-                                    permission.suspicious
-                                      ? "bg-[var(--warning)]/10 text-[#9a6700]"
-                                      : "bg-[var(--accent-soft)] text-[var(--accent)]"
-                                  }`}
-                                >
-                                  {permission.suspicious ? "Periksa" : "Wajar"}
+                                <span className="shrink-0 rounded-full bg-[var(--surface)] px-2 py-1 text-[9px] font-bold text-[var(--foreground)]">
+                                  {permission.mode ?? "—"}
                                 </span>
                               </div>
                             ))}
@@ -1381,6 +1371,36 @@ export function AppsScam({ simulation }: Props) {
                               </ul>
                             </div>
 
+                            <div className="mt-3 w-full rounded-xl border border-[var(--border)] p-4 text-left">
+                              <p className="text-xs font-extrabold text-[var(--foreground)]">
+                                Tinjauan izin
+                              </p>
+
+                              <ul className="mt-3 space-y-2">
+                                {app.permissions.map((permission) => (
+                                  <li
+                                    key={permission.name}
+                                    className="flex items-start justify-between gap-2 text-[10px] leading-4"
+                                  >
+                                    <span className="text-[var(--foreground)]">
+                                      <span className="font-bold">{permission.name}</span>
+                                      {permission.mode ? ` · ${permission.mode}` : ""}
+                                    </span>
+
+                                    <span
+                                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                        permission.suspicious
+                                          ? "bg-[var(--warning)]/10 text-[#9a6700]"
+                                          : "bg-[var(--accent-soft)] text-[var(--accent)]"
+                                      }`}
+                                    >
+                                      {permission.suspicious ? "Perlu dibatasi" : "Sesuai fungsi"}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
                             <div className="mt-3 w-full rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-soft)] p-4 text-left">
                               <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--accent)]">
                                 <ShieldCheck size={16} />
@@ -1447,7 +1467,7 @@ export function AppsScam({ simulation }: Props) {
                             </button>
 
                             <p className="mt-3 text-center text-[10px] text-[var(--muted)]">
-                              CEKIN · App Security Lab
+                              CEKIN - App Security Lab
                             </p>
                           </div>
                         </div>

@@ -18,6 +18,14 @@ export type GamblingActivityKind =
 
 export type ScenarioDifficulty = "Mudah" | "Menengah" | "Sulit" | "Ahli";
 
+export type ChatProfileItem = { label: string; value: string; suspicious: boolean };
+
+export type ChatProfile = {
+  phone: string;
+  about?: string;
+  items: ChatProfileItem[];
+};
+
 export type ScenarioSender = {
   name: string;
   status?: string;
@@ -70,6 +78,7 @@ export type SimulationScenario = {
   difficulty?: ScenarioDifficulty;
   topic?: string;
   sender?: ScenarioSender;
+  profile?: ChatProfile;
   messages?: string[];
   gamblingDetails?: GamblingScenarioData
   dialogue?: DialogueTree;
@@ -154,6 +163,7 @@ export type AppScenarioData = {
     name: string;
     reason: string;
     suspicious: boolean;
+    mode?: string;
   }[];
   redFlags: string[];
   explanation: string;

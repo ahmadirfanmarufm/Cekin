@@ -642,6 +642,7 @@ export function PhishingEmail({ simulation }: Props) {
   const isUnsafe = !!selectedChoice && !selectedChoice.isSafe;
   const isLastLevel = currentIndex >= totalCount - 1;
   const hideAddress = currentIndex >= HIDE_ADDRESS_FROM_INDEX && !showDetails;
+  const showVerdict = currentIndex < 3 || !!selectedChoice;
   const avatarColor = AVATAR_COLORS[currentIndex % AVATAR_COLORS.length];
 
   return (
@@ -971,24 +972,21 @@ export function PhishingEmail({ simulation }: Props) {
 
                         {email.checks.map((check) => (
                           <li key={check.label} className="flex items-start gap-2 text-xs leading-5">
-                            {check.suspicious ? (
-                              <AlertTriangle size={15} className="mt-0.5 shrink-0 text-[var(--warning)]" />
+                            {showVerdict ? (
+                              check.suspicious
+                                ? <AlertTriangle size={15} className="mt-0.5 shrink-0 text-[var(--warning)]" />
+                                : <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[var(--accent)]" />
                             ) : (
-                              <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+                              <Search size={15} className="mt-0.5 shrink-0 text-[var(--muted)]" />
                             )}
-                            <span>
-                              <span className="font-bold text-[var(--foreground)]">{check.label}: </span>
-                              <span className="text-[var(--muted)]">{check.value}</span>
-                              <span
-                                className={`ml-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                                  check.suspicious
-                                    ? "bg-[var(--warning)]/10 text-[#9a6700]"
-                                    : "bg-[var(--accent-soft)] text-[var(--accent)]"
-                                }`}
-                              >
+
+                            {showVerdict && (
+                              <span className={`ml-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                check.suspicious ? "bg-[var(--warning)]/10 text-[#9a6700]" : "bg-[var(--accent-soft)] text-[var(--accent)]"
+                              }`}>
                                 {check.suspicious ? "Periksa" : "Wajar"}
                               </span>
-                            </span>
+                            )}
                           </li>
                         ))}
                       </ul>

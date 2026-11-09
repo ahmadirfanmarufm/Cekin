@@ -5,11 +5,6 @@ import { ArrowRight, Check, CircleStar, LogIn } from "lucide-react";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { LOGIN_GATE_AFTER_LEVEL } from "@/lib/learning-protection/use-learning-progress";
 
-/**
- * Ditampilkan kepada tamu setelah menyelesaikan level ke-N.
- * - "Login dan lanjutkan": membuka AuthModal. Begitu login berhasil, simulasi lanjut otomatis.
- * - "Lanjut tanpa XP": tetap belajar, XP tidak dihitung.
- */
 export function LoginGate({
   open,
   earnedXp,
