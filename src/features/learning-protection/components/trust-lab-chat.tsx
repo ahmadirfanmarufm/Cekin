@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  X,
+  UserRound,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
@@ -47,13 +49,11 @@ import {
 import { mistakesOfPaths } from "@/lib/learning-protection/dialogue";
 import { useDialogue } from "@/lib/learning-protection/use-dialogue";
 import {
-  LOGIN_GATE_AFTER_LEVEL,
   useLearningProgress,
 } from "@/lib/learning-protection/use-learning-progress";
 import { useLoginGate } from "@/lib/learning-protection/use-login-gate";
 import { LoginGate } from "./login-gate";
-import { BadgeTracker, BadgeResult } from "./badge-parts";
-import { BADGE_MISTAKE_LIMIT, getBadgeByKey, isBadgeEarned } from "@/lib/learning-protection/badge";
+import { BadgeTracker } from "./badge-parts";
 
 type Props = {
   simulation: SimulationConfig;
@@ -75,6 +75,7 @@ export function TrustLabChat({ simulation }: Props) {
   const [rewardMessage, setRewardMessage] = useState("");
   const [badgeSaved, setBadgeSaved] = useState<boolean | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   const [tutorialActive, setTutorialActive] = useState(false);
   const tutorialSnapshot = useRef<{
@@ -188,6 +189,10 @@ export function TrustLabChat({ simulation }: Props) {
   const progress = totalCount ? (completedIds.length / totalCount) * 100 : 0;
   const isLastLevel = currentIndex >= totalCount - 1;
 
+  useEffect(() => {
+    setShowProfile(false);
+  }, [currentIndex, attemptKey]);
+
   /* ---------- Tutorial ---------- */
 
   const startTutorial = () => {
@@ -236,11 +241,6 @@ export function TrustLabChat({ simulation }: Props) {
     );
   }, []);
 
-  /**
-   * Tutorial otomatis hanya untuk:
-   * - pengunjung baru / tamu yang belum pernah melihatnya,
-   * - user login yang BELUM menyelesaikan simulasi ini.
-   */
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -482,6 +482,8 @@ export function TrustLabChat({ simulation }: Props) {
   ======================================== */
 
   const sender = currentScenario.sender;
+  const profile = currentScenario.profile;
+  const reveal = dialogue.phase === "ended";
   const waiting = dialogue.phase === "revealing";
 
   return (
@@ -661,26 +663,28 @@ export function TrustLabChat({ simulation }: Props) {
                     </div>
 
                     {/* WhatsApp header */}
-                    <div className="flex items-center gap-3 bg-[#075e54] px-3 py-3 text-white">
+                    <button
+                      type="button"
+                      data-tutorial="profile"
+                      onClick={() => setShowProfile(true)}
+                      className="flex w-full items-center gap-3 bg-[#075e54] px-3 py-3 text-left text-white"
+                      aria-label="Lihat info kontak"
+                    >
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
                         <MessageCircle size={18} />
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold">
-                          {sender?.name ?? "Kontak Tidak Dikenal"}
-                        </p>
+                        <p className="truncate text-sm font-bold">{sender?.name ?? "Kontak Tidak Dikenal"}</p>
                         <p className="mt-0.5 truncate text-[10px] text-white/70">
-                          {dialogue.typing
-                            ? "sedang mengetik..."
-                            : (sender?.status ?? "online")}
+                          {dialogue.typing ? "sedang mengetik..." : "ketuk untuk info kontak"}
                         </p>
                       </div>
 
                       <Video size={18} className="shrink-0 text-white/90" />
                       <Phone size={17} className="shrink-0 text-white/90" />
                       <MoreVertical size={18} className="shrink-0 text-white/90" />
-                    </div>
+                    </button>
 
                     {/* Chat */}
                     <div
@@ -786,6 +790,66 @@ export function TrustLabChat({ simulation }: Props) {
                     <div className="flex justify-center bg-[#f0f0f0] pb-2.5 pt-1">
                       <div className="h-1 w-20 rounded-full bg-[#17233b]" />
                     </div>
+
+                    {showProfile && profile && (
+  <div className="absolute inset-0 z-20 flex flex-col bg-[#f0f2f5]">
+    <div className="flex items-center gap-3 bg-[#075e54] px-3 py-3 text-white">
+      <button
+        type="button"
+        onClick={() => setShowProfile(false)}
+        aria-label="Tutup info kontak"
+        className="flex size-8 items-center justify-center rounded-full bg-white/15"
+      >
+        <X size={16} />
+      </button>
+      <p className="text-sm font-bold">Info kontak</p>
+    </div>
+
+    <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex flex-col items-center text-center">
+        <div className="flex size-20 items-center justify-center rounded-full bg-[#dfe5e7] text-[#8696a0]">
+          <UserRound size={40} />
+        </div>
+        <p className="mt-3 text-base font-bold text-[#111b21]">{sender?.name}</p>
+        <p className="text-xs text-[#667781]">{profile.phone}</p>
+        {profile.about && (
+          <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs italic text-[#3b4a54]">
+            “{profile.about}”
+          </p>
+        )}
+      </div>
+
+      <ul className="mt-4 space-y-2">
+        {profile.items.map((item) => (
+          <li key={item.label} className="rounded-xl bg-white p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#667781]">
+              {item.label}
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-[#111b21]">
+              {item.value}
+              {reveal && (
+                <span
+                  className={`ml-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                    item.suspicious
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  {item.suspicious ? "Janggal" : "Wajar"}
+                </span>
+              )}
+            </p>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-center text-[10px] leading-relaxed text-[#667781]">
+        Info profil hanya petunjuk. Akun asli bisa tampak sederhana, dan akun palsu bisa tampak rapi.
+        {!reveal && " Penilaian tiap info baru dibuka setelah percakapan selesai."}
+      </p>
+    </div>
+  </div>
+)}
                   </div>
                 </div>
               </div>

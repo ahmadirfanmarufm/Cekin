@@ -29,6 +29,12 @@ const STEPS: TutorialStep[] = [
     target: "chat",
   },
   {
+    id: "profile",
+    title: "Cek profilnya",
+    body: "Ketuk bagian atas chat untuk melihat info kontak. Itu petunjuk, bukan bukti: penipu bisa punya profil rapi, dan orang asli bisa punya nomor baru.",
+    target: "profile",
+  },
+  {
     id: "reply-1",
     title: "Balas dia",
     body: "Pilih balasanmu. Di latihan tidak ada hukuman.",

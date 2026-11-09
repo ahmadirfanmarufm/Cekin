@@ -2,796 +2,320 @@ import type { SimulationScenario } from "@/types/learning-protection/index";
 import { defineLevel, exit, fatal, good, slip, turn } from "./dialogue-builders";
 
 export const spamCallScenarios: SimulationScenario[] = [
-  /* ===== LEVEL 1 ===== */
+  /* 1. ASLI: driver ojol */
   defineLevel({
-    id: "calls-1",
-    level: 1,
-    difficulty: "Mudah",
-    topic: "Rekaman otomatis (robocall)",
-    title: "Listrik Akan Diputus",
-    description: "Telepon berisi suara rekaman soal tunggakan listrik.",
-    sender: { name: "+62 21 5090 1188", status: "Rekaman otomatis" },
-    takeaway: "Tagihan resmi dicek di aplikasi sendiri, bukan lewat telepon yang menghubungimu.",
-    t1: turn(
-      [
-        "🔊 [Rekaman] Pelanggan yang terhormat, listrik Anda akan diputus hari ini karena tunggakan.",
-        "Tekan 1 untuk bicara dengan petugas.",
-      ],
-      [
-        fatal(
-          "a",
-          "Tekan 1 lalu sebut nomor ID pelanggan saya",
-          "ID pelanggan dan data pribadi dipakai untuk penipuan lanjutan.",
-          "Terima kasih. Sebutkan juga nomor KTP Bapak/Ibu.",
-        ),
-        slip(
-          "b",
-          "Tekan 1, tanya saja tagihannya berapa",
-          "Selamat siang, tagihan Anda Rp1.870.000 dan harus dibayar sekarang.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Tekan 1, lalu minta nama dan nomor pegawainya",
-          "Saya petugas pusat, tidak perlu nomor pegawai. Bayar sekarang ya.",
-          "t2",
-          "Tidak mau menyebut identitas",
-        ),
-      ],
-    ),
-    t2: turn(
-      ["Listrik padam 15 menit lagi. Transfer ke rekening dinas ini, lalu kirim bukti bayarnya."],
-      [
-        fatal(
-          "a",
-          "Oke, saya transfer sekarang",
-          "Tagihan asli tidak dibayar ke rekening pribadi lewat telepon.",
-          "Terima kasih. Jangan tutup telepon ya.",
-        ),
-        slip(
-          "b",
-          "Saya bayar lewat dompet digital saja",
-          "Boleh, kirimkan kode pembayarannya ke saya.",
-          "t3",
-        ),
-        good(
-          "c",
-          "Saya cek dulu di aplikasi PLN resmi",
-          "Aplikasinya sedang gangguan, bayar di sini saja!",
-          "t3",
-          "Menyuruh tidak cek aplikasi resmi",
-        ),
-      ],
-    ),
-    t3: turn(["Terakhir! Kalau tidak bayar sekarang, petugas kami datang memutus listriknya."], [
-      fatal(
-        "a",
-        "Ya sudah, saya bayar",
-        "Ancaman pemutusan dipakai agar kamu tidak sempat mengecek.",
-        "Bagus, ini rekeningnya.",
+    id: "calls-1", level: 1, difficulty: "Mudah",
+    topic: "Telepon asli: driver ojek online",
+    title: "Driver Sudah di Depan",
+    description: "Kamu baru memesan ojek online. Nomor tak dikenal menelepon.",
+    sender: { name: "0813 2200 4411", status: "Nomor tak dikenal" },
+    takeaway: "Telepon dari nomor asing bisa saja asli. Cocokkan dengan pesanan, dan jangan beri kode atau data yang tidak relevan.",
+    turns: {
+      t1: turn(
+        ["Selamat siang, saya driver pesanan ojek Kakak. Sudah di depan gang ya, motor hitam, plat B 6643 XYZ."],
+        [
+          good("a", "Oke Pak. Saya lihat di aplikasi plat dan namanya sama, saya turun", "Siap Kak, saya tunggu.", "t2"),
+          fatal("b", "Siapa kamu? Saya tutup, ini penipuan", "Kali ini asli: ada pesanan aktif di aplikasimu. Cek plat dan nama driver di aplikasi sebelum menutup.", "Halo? Kak?"),
+          slip("c", "Pak, sebutkan nomor teleponku dan alamat tujuanku dulu", "Waduh Kak, saya lihatnya cuma titik jemput dan nama. Kakak turun aja ya.", "t2"),
+        ],
       ),
-      fatal(
-        "b",
-        "Saya berikan nomor kartu kredit saja",
-        "Data kartu yang diberikan lewat telepon bisa langsung dipakai belanja.",
-        "Sebutkan juga tiga angka di belakang kartu.",
+      t2: turn(
+        ["Kak, supaya cepat, bisa sebutkan kode OTP yang masuk ke SMS Kakak? Biar saya bisa mulai trip."],
+        [
+          exit("a", "Tidak perlu OTP, Pak. Tripnya dimulai dari aplikasiku, saya yang konfirmasi", "Ojol tidak pernah butuh OTP lewat telepon. Kamu tetap mengendalikan trip lewat aplikasi."),
+          fatal("b", "Oke Pak, kodenya 7 3 0 5 2 1", "OTP bukan bagian dari trip ojol. Sekali dibagikan, akunmu bisa diambil alih.", "Terima kasih Kak."),
+        ],
       ),
-      exit(
-        "c",
-        "Silakan. Saya cek di aplikasi resmi dan matikan telepon",
-        "Kamu mengecek lewat kanal resmi dan tidak terpancing ancaman.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 2 ===== */
+  /* 2. Undian operator */
   defineLevel({
-    id: "calls-2",
-    level: 2,
-    difficulty: "Mudah",
-    topic: "Undian palsu",
-    title: "Selamat, Kamu Menang Mobil!",
-    description: "Penelepon mengaku dari operator seluler dan bilang nomormu terpilih.",
-    sender: { name: "0812 7700 4521", status: "Mengaku “Operator SelulerKu”" },
-    takeaway: "Hadiah asli tidak meminta biaya lebih dulu.",
-    t1: turn(
-      [
-        "Selamat siang! Nomor Anda terpilih sebagai pemenang undian tahunan SelulerKu 🎉",
-        "Hadiahnya 1 unit mobil. Boleh konfirmasi nama lengkap Anda?",
-      ],
-      [
-        fatal(
-          "a",
-          "Nama saya sesuai KTP, nomor KTP saya ...",
-          "Nama dan KTP lengkap cukup untuk membuka pinjaman atas namamu.",
-          "Terima kasih, data lengkap. Sekarang soal pajaknya ya.",
-        ),
-        slip(
-          "b",
-          "Wah, saya ikut undian apa ya?",
-          "Semua pelanggan otomatis ikut, Kak. Beruntung sekali!",
-          "t2",
-        ),
-        good(
-          "c",
-          "Saya tidak pernah ikut undian. Undian apa ini?",
-          "Undian khusus pelanggan setia, tidak perlu daftar.",
-          "t2",
-          "Hadiah tanpa pernah ikut",
-        ),
-      ],
-    ),
-    t2: turn(["Untuk pencairan, bayar pajak hadiah Rp2.500.000 ke rekening ini hari ini juga."], [
-      fatal(
-        "a",
-        "Baik, saya transfer pajaknya",
-        "Pajak hadiah asli tidak dibayar ke rekening pribadi lewat telepon.",
-        "Terima kasih, tunggu konfirmasinya.",
+    id: "calls-2", level: 2, difficulty: "Mudah",
+    topic: "Undian palsu berkedok operator seluler",
+    title: "Hadiah dari Operator",
+    description: "Penelepon sopan menyebut nomor ponselmu terpilih dalam program loyalitas.",
+    sender: { name: "0812 7700 4521", status: "Mengaku “SelulerKu”" },
+    takeaway: "Hadiah asli tidak meminta data identitas lengkap atau pembayaran lebih dulu, bahkan jika penelepon ramah dan tidak menekan.",
+    turns: {
+      t1: turn(
+        ["Selamat siang Kak, saya dari SelulerKu Loyalty. Nomor Kakak terpilih dapat bonus kuota 20GB 🎉", "Boleh konfirmasi nama lengkap dan tanggal lahir Kakak untuk pencatatan?"],
+        [
+          good("a", "Saya terima kasih, tapi bonus bisa dicek lewat aplikasi SelulerKu saja, kan?", "Bisa juga Kak, tapi lewat telepon lebih cepat. Nama saja dulu ya.", "t2", "Mendorong keluar dari aplikasi"),
+          fatal("b", "Nama saya Rina Wulandari, lahir 12 Mei 1998", "Nama dan tanggal lahir sering dipakai untuk meretas akun atau menjawab pertanyaan keamanan.", "Terima kasih, sekarang NIK-nya ya."),
+          slip("c", "Boleh, namaku Rina saja", "Terima kasih Kak Rina. Tanggal lahirnya juga ya.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Potong saja dari hadiahnya",
-        "Tidak bisa Kak, sistemnya mengharuskan bayar di muka.",
-        "t3",
+      t2: turn(
+        ["Untuk mengaktifkan bonusnya, tekan *123*77# di ponsel Kakak ya, sekarang saya tunggu di telepon."],
+        [
+          exit("a", "Saya cek dulu di aplikasi, kode itu tidak saya tekan", "Kode USSD asing bisa mengalihkan panggilan atau SMS-mu. Bonus asli tidak butuh itu."),
+          fatal("b", "Oke, saya tekan sekarang", "Kode itu bisa mengalihkan SMS dan OTP ke nomor pelaku.", "Berhasil Kak, terima kasih."),
+          slip("c", "Kirim saja kodenya lewat SMS biar kupelajari", "Kodenya sudah saya sebut Kak, cepat ya.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "Hadiah asli tidak minta bayar dulu",
-        "Ini aturan pajak negara, Kak. Jangan membantah.",
-        "t3",
-        "Minta bayar untuk menerima hadiah",
+      t3: turn(
+        ["Kak, bonus hangus dalam 5 menit kalau tidak diaktifkan. Mau diberikan ke pelanggan lain?"],
+        [
+          exit("a", "Silakan. Saya tidak menekan kode apa pun dan akan tanya gerai resmi", "Tekanan waktu dipakai agar kamu tak sempat memeriksa."),
+          fatal("b", "Jangan, saya tekan sekarang", "Kamu menyerahkan kendali SMS-mu.", "Bagus!"),
+        ],
       ),
-    ]),
-    t3: turn(["Hadiah hangus dalam 30 menit. Mau diberikan ke orang lain?"], [
-      fatal(
-        "a",
-        "Jangan, saya bayar sekarang",
-        "Batas waktu dipakai agar kamu tidak berpikir.",
-        "Ini nomor rekeningnya.",
-      ),
-      fatal(
-        "b",
-        "Saya pinjam uang dulu untuk bayar",
-        "Berutang demi hadiah palsu hanya menambah kerugian.",
-        "Cepat ya, waktunya habis.",
-      ),
-      exit(
-        "c",
-        "Berikan saja. Saya tutup dan laporkan nomor ini",
-        "Kamu tidak mau membayar demi hadiah yang tidak pernah kamu ikuti.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 3 ===== */
+  /* 3. COD + biaya tambahan */
   defineLevel({
-    id: "calls-3",
-    level: 3,
-    difficulty: "Mudah",
-    topic: "Kurir COD palsu",
-    title: "Paket COD di Depan Rumah",
-    description: "Kurir bilang paket bayar di tempat sudah sampai, padahal kamu tidak memesan.",
+    id: "calls-3", level: 3, difficulty: "Mudah",
+    topic: "COD asli yang disusupi biaya tambahan",
+    title: "Paket yang Memang Kamu Pesan",
+    description: "Kamu memang memesan sepatu COD Rp320.000. Kurir menelepon dan semua detailnya cocok, lalu ada permintaan tambahan.",
     sender: { name: "0857 3310 9022", status: "Mengaku kurir" },
-    takeaway: "Tidak memesan? Tolak paketnya. Jangan beri OTP untuk “membatalkan”.",
-    t1: turn(
-      [
-        "Selamat siang, saya kurir. Paket COD Rp487.000 atas nama Anda sudah di depan rumah.",
-        "Mohon siapkan uangnya ya.",
-      ],
-      [
-        fatal(
-          "a",
-          "Oke, saya bayar Rp487.000 lewat transfer",
-          "Kamu membayar paket yang tidak pernah kamu pesan.",
-          "Terima kasih, transfer ke rekening ini ya.",
-        ),
-        slip(
-          "b",
-          "Paketnya dari siapa ya?",
-          "Dari toko online, Kak. Pokoknya atas nama Anda.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Saya tidak merasa pesan apa pun",
-          "Mungkin dipesankan keluarga. Pokoknya harus dibayar.",
-          "t2",
-          "Tidak bisa menyebut pengirim",
-        ),
-      ],
-    ),
-    t2: turn(["Kalau mau dibatalkan, sebutkan kode OTP yang barusan masuk ke SMS Anda."], [
-      fatal(
-        "a",
-        "Kodenya 5 2 8 1 9 3",
-        "OTP adalah kunci akunmu. Tidak ada pembatalan paket yang butuh OTP.",
-        "Kode diterima, mohon tunggu.",
+    takeaway: "Detail yang cocok tidak membuktikan penelepon asli. Biaya tambahan yang diminta lewat transfer adalah tanda utama.",
+    turns: {
+      t1: turn(
+        ["Selamat siang Kak, saya kurir. Paket sepatu COD Rp320.000 resi 8821 sudah di kantor pos, mau diantar sore ini."],
+        [
+          good("a", "Iya Pak, boleh diantar sore. Bayarnya tunai ke kurir saat terima kan?", "Betul Kak, tunai. Tapi ada satu hal tambahan.", "t2"),
+          fatal("b", "Kamu pasti penipu, saya tidak pesan apa pun", "Kali ini kamu memang memesan sepatu itu. Menyangkal tanpa mengecek pesanan membuat paketmu dikembalikan.", "Oke Kak, paket dikembalikan."),
+          slip("c", "Boleh, kirim nomor rekeningmu, saya transfer saja", "Rekening saya 7712-0045 ya Kak, sekalian dengan asuransi.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Aku foto saja SMS-nya ya",
-        "Boleh, kirim ke nomor ini.",
-        "t3",
+      t2: turn(
+        ["Karena barang bernilai tinggi, ada biaya asuransi Rp25.000. Transfer dulu ke rekening saya, nanti paketnya saya antar."],
+        [
+          exit("a", "Biaya seperti itu seharusnya tertera di resi. Saya bayar COD saat terima saja, tidak transfer dulu", "Biaya tambahan yang diminta lewat transfer pribadi adalah modus. Pembayaran COD dilakukan saat serah terima."),
+          fatal("b", "Oke saya transfer Rp25.000", "Selain kehilangan uang, kamu juga memberi pelaku bukti transfer yang dipakai untuk penipuan lain.", "Terima kasih Kak, saya segera ke sana."),
+          slip("c", "Aku transfer Rp10.000 dulu sebagai panjar", "Kurang Kak, harus penuh.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "Kurir tidak pernah minta OTP",
-        "Ini prosedur terbaru, Kak!",
-        "t3",
-        "Meminta kode OTP",
+      t3: turn(["Kak, kalau tidak dibayar sekarang paket kami kembalikan ke gudang."],
+        [
+          exit("a", "Silakan. Saya cek resi dan hubungi toko online langsung", "Kamu mengecek lewat kanal resmi."),
+          fatal("b", "Baik, saya transfer sekarang", "Ancaman pengembalian dipakai agar kamu menyerah.", "Terima kasih."),
+        ],
       ),
-    ]),
-    t3: turn(["Kalau ditolak, Anda kena denda penolakan dan datanya kami laporkan."], [
-      fatal(
-        "a",
-        "Aduh, ya sudah kubayar saja",
-        "Ancaman denda dipakai agar kamu menyerah.",
-        "Bagus, transfer sekarang.",
-      ),
-      fatal(
-        "b",
-        "Kuberikan kodenya biar dibatalkan",
-        "OTP tidak boleh dibagikan, apa pun alasannya.",
-        "Kode diterima.",
-      ),
-      exit(
-        "c",
-        "Saya tolak paketnya, tutup telepon, dan cek di aplikasi belanja",
-        "Menolak paket yang tidak dipesan adalah langkah paling aman.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 4 ===== */
+  /* 4. Bank palsu */
   defineLevel({
-    id: "calls-4",
-    level: 4,
-    difficulty: "Menengah",
-    topic: "Penyamaran petugas bank",
-    title: "Transaksi Mencurigakan di Rekeningmu",
-    description: "Penelepon mengaku dari keamanan bank dan tahu nama lengkapmu.",
+    id: "calls-4", level: 4, difficulty: "Menengah",
+    topic: "Penyamaran petugas bank (menolak ditelepon balik)",
+    title: "Transaksi Mencurigakan",
+    description: "Penelepon mengaku dari keamanan bank dan menyebut nama serta tanggal lahirmu dengan benar.",
     sender: { name: "021 5088 7000", status: "Nomor mirip layanan bank" },
-    takeaway: "Bank tidak pernah meminta OTP, PIN, atau memindahkan uangmu ke “rekening aman”.",
-    t1: turn(
-      [
-        "Selamat pagi Bapak/Ibu. Saya Reza dari keamanan Bank Nusantara.",
-        "Ada transaksi Rp12.500.000 ke luar negeri di rekening Anda. Apakah itu Anda?",
-      ],
-      [
-        fatal(
-          "a",
-          "Bukan! Tolong batalkan sekarang, ini kode OTP saya",
-          "OTP yang kamu berikan justru yang mereka butuhkan untuk menguras rekeningmu.",
-          "Terima kasih, kami proses pembatalannya.",
-        ),
-        slip(
-          "b",
-          "Bukan, apa yang harus saya lakukan?",
-          "Jangan panik. Sebutkan nomor kartu dan 4 digit terakhir untuk verifikasi.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Saya akan telepon bank lewat nomor di kartu saya",
-          "Tidak perlu, nanti transaksinya keburu lolos. Tetap di telepon ya!",
-          "t2",
-          "Melarang menutup telepon",
-        ),
-      ],
-    ),
-    t2: turn(["Jangan tutup telepon. Untuk memblokir, sebutkan PIN dan kode OTP yang masuk."], [
-      fatal(
-        "a",
-        "PIN saya 4 8 ... dan OTP-nya ...",
-        "PIN dan OTP memberi akses penuh ke rekeningmu.",
-        "Kode diterima.",
+    takeaway: "Petugas asli menerima kamu menutup telepon dan menghubungi lagi lewat nomor resmi. Pelaku berusaha mencegahnya.",
+    turns: {
+      t1: turn(
+        ["Selamat pagi Ibu Rina, saya Reza dari keamanan Bank Nusantara. Ada transaksi Rp12.500.000 ke luar negeri atas nama Ibu.", "Tanggal lahir Ibu 12 Mei 1998, benar? Apakah transaksi itu Ibu lakukan?"],
+        [
+          good("a", "Bukan saya. Saya tutup dan telepon nomor di belakang kartu untuk memastikan", "Tidak perlu Bu, nanti keburu lolos. Tetap di telepon ya!", "t2", "Melarang menutup telepon"),
+          fatal("b", "Bukan, tolong batalkan. Ini kode OTP saya", "OTP justru yang dibutuhkan pelaku untuk menguras rekeningmu.", "Terima kasih, kami proses."),
+          slip("c", "Bukan, apa yang harus saya lakukan?", "Jangan panik Bu. Sebutkan 4 digit terakhir kartu untuk verifikasi.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Saya sebut OTP saja, PIN tidak",
-        "OTP saja cukup. Sebutkan sekarang.",
-        "t3",
+      t2: turn(
+        ["Untuk memblokir, sebutkan PIN dan kode OTP yang masuk. Jangan tutup telepon, ini sangat mendesak."],
+        [
+          exit("a", "Bank tidak pernah minta PIN atau OTP. Saya tutup dan hubungi bank lewat aplikasi", "Kamu memutus panggilan dan menghubungi kanal resmi."),
+          fatal("b", "PIN saya 4 8 3 9 dan OTP-nya 7 1 2", "PIN dan OTP memberi akses penuh.", "Diterima."),
+          slip("c", "Saya sebut OTP saja, PIN tidak", "OTP saja cukup. Sebutkan sekarang.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "Bank tidak pernah minta PIN atau OTP",
-        "Anda mempersulit kami. Dana Anda dalam bahaya!",
-        "t3",
-        "Meminta PIN dan OTP",
+      t3: turn(["Satu-satunya cara: pindahkan saldo ke rekening aman kami sekarang."],
+        [
+          exit("a", "Saya tutup dan telepon bank sendiri", "“Rekening aman” milik pelaku. Bank tidak pernah memintanya."),
+          fatal("b", "Baik, saya pindahkan", "Uang yang dipindahkan sulit ditarik kembali.", "Jangan tutup telepon."),
+        ],
       ),
-    ]),
-    t3: turn(["Satu-satunya cara: pindahkan saldo ke rekening aman kami sekarang."], [
-      fatal(
-        "a",
-        "Baik, saya pindahkan saldonya",
-        "“Rekening aman” milik penipu. Bank tidak pernah memintanya.",
-        "Setelah selesai, jangan tutup telepon.",
-      ),
-      fatal(
-        "b",
-        "Saya pindahkan sebagian saja",
-        "Uang yang dipindahkan sulit ditarik kembali.",
-        "Sisanya juga ya.",
-      ),
-      exit(
-        "c",
-        "Saya tutup telepon dan hubungi bank lewat aplikasi resmi",
-        "Kamu memutus panggilan dan memverifikasi lewat kanal yang kamu pilih sendiri.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 5 ===== */
+  /* 5. ASLI: klinik */
   defineLevel({
-    id: "calls-5",
-    level: 5,
-    difficulty: "Menengah",
-    topic: "Penyamaran aparat",
-    title: "Rekeningmu Dipakai Pencucian Uang",
-    description: "Penelepon mengaku penyidik dan menyebut namamu terkait kasus.",
-    sender: { name: "0811 9000 3350", status: "Mengaku “Penyidik Polda”" },
-    takeaway: "Aparat tidak memeriksa lewat telepon dan tidak menyuruh memindahkan uang.",
-    t1: turn(
-      [
-        "Saya AKP Hendra, penyidik. Rekening atas nama Anda dipakai dalam kasus pencucian uang.",
-        "Anda terancam ditangkap. Ini serius.",
-      ],
-      [
-        fatal(
-          "a",
-          "Astaga, saya tidak tahu! Saya akan kooperatif, apa yang harus saya serahkan?",
-          "Rasa takut dipakai agar kamu langsung menurut.",
-          "Serahkan data rekening dan PIN untuk pemeriksaan.",
-        ),
-        slip(
-          "b",
-          "Saya tidak bersalah! Bisa kirim surat resminya?",
-          "Suratnya dikirim lewat WhatsApp. Pemeriksaan harus dimulai sekarang.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Panggilan polisi dikirim lewat surat resmi, bukan telepon",
-          "Ini kasus rahasia, makanya lewat telepon.",
-          "t2",
-          "Alasan “kasus rahasia”",
-        ),
-      ],
-    ),
-    t2: turn(["Kasus ini rahasia. Jangan beri tahu keluarga atau siapa pun, atau Anda juga kena pasal."], [
-      fatal(
-        "a",
-        "Baik, saya tidak akan bilang siapa-siapa",
-        "Larangan memberi tahu orang lain adalah ciri utama penipuan ini.",
-        "Bagus. Sekarang ikuti arahan saya.",
+    id: "calls-5", level: 5, difficulty: "Menengah",
+    topic: "Telepon asli: klinik mengonfirmasi jadwal kontrol",
+    title: "Konfirmasi Jadwal Kontrol",
+    description: "Dua hari lalu kamu mendaftar kontrol di klinik lewat aplikasi mereka. Nomor tak dikenal menelepon.",
+    sender: { name: "021 7400 5521", status: "Nomor telepon kantor" },
+    takeaway: "Telepon yang hanya mengonfirmasi hal yang memang kamu lakukan, tanpa meminta kode atau data rahasia, boleh dilayani.",
+    turns: {
+      t1: turn(
+        ["Selamat siang, dari Klinik Sehat Sentosa. Dengan Ibu Rina? Besok Rabu pukul 10.00 jadwal kontrol dr. Hadi ya, mohon konfirmasi hadir."],
+        [
+          good("a", "Iya Mbak, saya hadir. Saya daftar dua hari lalu lewat aplikasi klinik", "Baik Bu, sudah kami catat. Mohon datang 15 menit lebih awal ya.", "t2"),
+          fatal("b", "Tutup telepon. Aku tidak mengenal nomor ini", "Kali ini asli: ada jadwal yang memang kamu buat. Jadwalmu dibatalkan karena tidak ada konfirmasi.", "Halo? Bu?"),
+          slip("c", "Bisa konfirmasi atas nama Rina Wulandari, KTP-nya saya sebutkan", "Tidak perlu KTP Bu, nama saja cukup.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Saya kabari istri saya saja",
-        "Jangan! Atau Anda ikut ditahan.",
-        "t3",
+      t2: turn(
+        ["Satu lagi Bu, kalau ada kendala di aplikasi, kami bisa bantu. Tidak ada biaya tambahan, ya."],
+        [
+          exit("a", "Baik, terima kasih. Sampai besok", "Kamu melayani telepon yang memang berkaitan dengan jadwalmu, tanpa memberi data tambahan."),
+          fatal("b", "Tolong kirim nomor rekeningmu, saya mau bayar panjar sekarang", "Tidak ada panjar yang diminta. Kamu mengirim uang tanpa alasan.", "Eh, nggak perlu Bu."),
+        ],
       ),
-      good(
-        "c",
-        "Saya mau ke kantor polisi terdekat untuk memastikan",
-        "Tidak perlu, nanti Anda ditahan di tempat!",
-        "t3",
-        "Melarang datang ke kantor polisi",
-      ),
-    ]),
-    t3: turn(["Pindahkan dana ke rekening pengamanan negara, nanti dikembalikan setelah terbukti bersih."], [
-      fatal(
-        "a",
-        "Baik, saya pindahkan sekarang",
-        "Tidak ada “rekening pengamanan negara” untuk warga.",
-        "Kirim buktinya.",
-      ),
-      fatal(
-        "b",
-        "Saya pindahkan setengahnya",
-        "Setengah uang tetap hilang.",
-        "Setengah lagi ya.",
-      ),
-      exit(
-        "c",
-        "Saya tutup dan lapor ke kantor polisi langsung",
-        "Kamu menolak tekanan dan mengecek ke kantor polisi yang asli.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 6 ===== */
+  /* 6. CS remote */
   defineLevel({
-    id: "calls-6",
-    level: 6,
-    difficulty: "Menengah",
-    topic: "Aplikasi remote access",
-    title: "“CS Marketplace” Minta Pasang Aplikasi",
-    description: "Penelepon tahu namamu dan pesananmu, lalu menawarkan refund.",
+    id: "calls-6", level: 6, difficulty: "Menengah",
+    topic: "Aplikasi remote access oleh “CS” yang menelepon balik",
+    title: "CS Menelepon Balik Keluhanmu",
+    description: "Kemarin kamu mengeluh di media sosial soal refund. Hari ini CS-nya menelepon dan tahu nomor pesananmu.",
     sender: { name: "0821 6000 1900", status: "Mengaku “CS BelanjaKu”" },
-    takeaway: "Jangan pernah memasang aplikasi bantuan jarak jauh atas permintaan penelepon.",
-    t1: turn(
-      [
-        "Selamat siang, saya CS BelanjaKu. Pesanan Anda nomor BK-77120 bermasalah.",
-        "Dana Rp389.000 akan kami refund. Boleh kami bantu prosesnya?",
-      ],
-      [
-        fatal(
-          "a",
-          "Boleh, tolong bantu sekarang",
-          "Kamu langsung masuk ke alur penipuan tanpa memeriksa.",
-          "Silakan pasang aplikasi bantuan dulu.",
-        ),
-        slip(
-          "b",
-          "Pesanan yang mana ya?",
-          "Yang tanggal kemarin, Kak. Nama dan alamat Kakak sudah ada di sistem.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Saya cek dulu di aplikasi resmi",
-          "Prosesnya lebih cepat lewat telepon, Kak.",
-          "t2",
-          "Mendorong keluar dari aplikasi resmi",
-        ),
-      ],
-    ),
-    t2: turn(["Silakan pasang aplikasi “QuickAssist” dari toko aplikasi, lalu sebutkan kode 9 digitnya."], [
-      fatal(
-        "a",
-        "Sudah terpasang. Kodenya 482 913 705",
-        "Kode itu memberi penelepon kendali penuh atas layar ponselmu.",
-        "Terima kasih, layar Anda sudah terlihat.",
+    takeaway: "Mereka bisa tahu masalahmu karena kamu sendiri menceritakannya di publik. CS asli tidak meminta aplikasi pengendali layar.",
+    turns: {
+      t1: turn(
+        ["Selamat siang Ibu Rina, saya Sari CS BelanjaKu. Soal keluhan refund pesanan BK-77120 kemarin, kami ingin bantu.", "Boleh kami bantu proses langsung sekarang?"],
+        [
+          good("a", "Boleh. Tolong sebutkan apa langkahnya", "Mudah Bu. Pasang aplikasi bantuan dulu ya.", "t2"),
+          fatal("b", "Silakan Bu, saya pasang apa pun yang dibutuhkan", "Kamu langsung menyerahkan kendali tanpa tahu langkahnya.", "Pasang QuickAssist ya, kodenya saya minta."),
+          slip("c", "Mungkin kamu penipu, tapi lanjut saja deh", "Baik Bu, mohon pasang aplikasi bantuan ya.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Saya pasang, tapi kodenya belum kuberikan",
-        "Tidak apa-apa, sebutkan saja kalau siap.",
-        "t3",
+      t2: turn(
+        ["Silakan pasang “QuickAssist” dari toko aplikasi, lalu sebutkan kode 9 digitnya supaya saya bisa membantu langsung."],
+        [
+          exit("a", "CS resmi tidak butuh aplikasi pengendali layar. Saya cek lewat pusat bantuan di aplikasi", "Kamu menolak langkah yang memberi kendali layar."),
+          fatal("b", "Sudah terpasang, kodenya 482 913 705", "Kode itu memberi penelepon kendali penuh atas layarmu.", "Layar Ibu sudah terlihat."),
+          slip("c", "Saya pasang tapi kodenya belum saya kasih", "Tidak apa Bu, kapan siap saja ya.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "CS resmi tidak minta pasang aplikasi kendali jarak jauh",
-        "Ini prosedur refund terbaru Kak.",
-        "t3",
-        "Minta pasang aplikasi remote",
+      t3: turn(["Sekarang buka m-banking Ibu supaya kami bisa memverifikasi pengembalian dana ke rekening."],
+        [
+          exit("a", "Tidak. Saya hapus aplikasinya dan hubungi pusat bantuan resmi", "Kamu memutus kendali sebelum dipakai."),
+          fatal("b", "Baik, saya buka", "Pelaku melihat layar, PIN, dan OTP-mu.", "Terlihat. Sekarang masukkan PIN."),
+        ],
       ),
-    ]),
-    t3: turn(["Sekarang buka m-banking Anda, supaya kami bisa memverifikasi refund."], [
-      fatal(
-        "a",
-        "Oke, saya buka m-banking",
-        "Pelaku melihat layar, PIN, dan OTP-mu lalu memindahkan uangmu.",
-        "Terlihat. Sekarang masukkan PIN.",
-      ),
-      fatal(
-        "b",
-        "Kubuka tapi kututup bagian saldonya",
-        "Pelaku tetap bisa membaca SMS dan notifikasi.",
-        "Silakan lanjut.",
-      ),
-      exit(
-        "c",
-        "Tidak. Saya tutup telepon dan hapus aplikasinya",
-        "Kamu memutus kendali sebelum aplikasi dipakai.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 7 ===== */
+  /* 7. SIM swap */
   defineLevel({
-    id: "calls-7",
-    level: 7,
-    difficulty: "Sulit",
+    id: "calls-7", level: 7, difficulty: "Sulit",
     topic: "Pembajakan nomor (SIM swap)",
-    title: "Kartu SIM Akan Diblokir",
-    description: "“Operator” bilang nomormu harus diverifikasi, dan menyebut NIK-mu dengan benar.",
+    title: "Registrasi Kartu Perlu Diperbarui",
+    description: "“Operator” menyebut NIK-mu dengan benar. Nadanya sangat profesional dan tidak mengancam.",
     sender: { name: "0878 2200 6001", status: "Mengaku “Customer Care Operator”" },
-    takeaway: "Operator tidak meminta OTP atau mengalihkan SMS-mu. Nomor yang dibajak bisa menguras semua akunmu.",
-    t1: turn(
-      [
-        "Selamat siang. Kartu Anda akan diblokir karena registrasi NIK belum valid.",
-        "NIK Anda berakhiran 0042, benar ya? Kami bantu verifikasi sekarang.",
-      ],
-      [
-        fatal(
-          "a",
-          "Benar, NIK saya lengkap: ...",
-          "Pelaku yang sudah tahu sebagian data memakai data lengkapmu untuk mengambil alih nomor.",
-          "Terima kasih, kami proses.",
-        ),
-        slip(
-          "b",
-          "Memang benar, kok mereka tahu ya?",
-          "Data Anda ada di sistem kami, Kak. Mari lanjutkan.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Data bisa bocor. Saya cek registrasi lewat gerai resmi",
-          "Ke gerai butuh waktu, nomor keburu mati. Kami bantu di sini.",
-          "t2",
-          "Data benar dipakai sebagai “bukti”",
-        ),
-      ],
-    ),
-    t2: turn(["Nanti ada SMS kode masuk. Mohon sebutkan kodenya untuk menyelesaikan verifikasi."], [
-      fatal(
-        "a",
-        "Kodenya 7 2 1 9 4 0",
-        "Kode itu dipakai memindahkan nomormu ke kartu SIM lain.",
-        "Terima kasih, nomor Anda sedang kami proses.",
+    takeaway: "Data benar bukan bukti penelepon asli. Operator tidak meminta kode SMS atau menyuruh mengalihkan SMS.",
+    turns: {
+      t1: turn(
+        ["Selamat siang Ibu Rina. Sesuai aturan, registrasi kartu Ibu perlu validasi ulang. NIK Ibu berakhiran 0042, benar?", "Prosesnya hanya 2 menit, tidak ada biaya."],
+        [
+          good("a", "Betul, tapi validasi bisa saya lakukan di gerai atau aplikasi resmi saja", "Tentu Bu, tapi lewat telepon lebih cepat dan Ibu tidak perlu antre.", "t2", "Mendorong keluar dari kanal resmi"),
+          fatal("b", "Benar, ini NIK lengkap saya: 3174...", "Pelaku memakai data lengkapmu untuk mengambil alih nomor.", "Terima kasih, kami proses."),
+          slip("c", "Boleh, silakan lanjut", "Terima kasih Bu. Nanti ada SMS kode masuk.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Kuteruskan SMS-nya ke nomor Anda",
-        "Boleh, kirim ke nomor ini.",
-        "t3",
+      t2: turn(["Nanti ada SMS berisi kode verifikasi. Mohon dibacakan agar kami bisa menyelesaikan prosesnya."],
+        [
+          exit("a", "Operator tidak pernah minta kode SMS. Saya datang ke gerai resmi", "Kode itu dipakai memindahkan nomormu ke kartu SIM lain."),
+          fatal("b", "Kodenya 7 2 1 9 4 0", "Nomormu dipindahkan ke SIM pelaku, semua OTP masuk ke mereka.", "Terima kasih, nomor Anda sedang diproses."),
+          slip("c", "Kuteruskan SMS-nya ke nomor ini", "Boleh, kirim ke sini.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "Operator tidak pernah minta kode SMS",
-        "Kode ini bukan OTP, ini kode verifikasi biasa.",
-        "t3",
-        "Meminta kode SMS",
+      t3: turn(["Atau, tekan kode pengalihan yang saya kirim supaya SMS Ibu otomatis kami terima."],
+        [
+          exit("a", "Saya tutup dan datang ke gerai operator", "Pengalihan SMS memberi pelaku semua OTP."),
+          fatal("b", "Baik, saya tekan", "Semua SMS dan OTP-mu masuk ke penipu.", "Berhasil."),
+        ],
       ),
-    ]),
-    t3: turn(["Atau tekan kode pengalihan yang saya kirim, agar SMS Anda kami terima untuk verifikasi."], [
-      fatal(
-        "a",
-        "Baik, saya tekan kodenya",
-        "Pengalihan membuat semua SMS dan OTP-mu masuk ke penipu.",
-        "Berhasil, sekarang tunggu ya.",
-      ),
-      fatal(
-        "b",
-        "Saya tekan, tapi matikan data seluler dulu",
-        "Mematikan data tidak membatalkan pengalihan SMS.",
-        "Sudah masuk, terima kasih.",
-      ),
-      exit(
-        "c",
-        "Saya tutup telepon dan datang ke gerai operator resmi",
-        "Kamu memverifikasi di gerai resmi, bukan lewat telepon.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 8 ===== */
+  /* 8. ASLI: bank menelepon */
   defineLevel({
-    id: "calls-8",
-    level: 8,
-    difficulty: "Sulit",
-    topic: "Penyamaran petugas pajak",
-    title: "SPT Bermasalah dan Denda",
-    description: "Penelepon mengaku petugas pajak dan menyebut data pajak yang tampak benar.",
-    sender: { name: "021 5200 8800", status: "Mengaku “KPP”" },
-    takeaway: "Urusan pajak dicek di situs dan aplikasi resmi sendiri, bukan lewat telepon atau foto KTP di chat.",
-    t1: turn(
-      [
-        "Selamat siang, saya petugas pajak. Ada selisih pada pelaporan SPT Anda.",
-        "Anda terancam denda Rp8.400.000 jika tidak diselesaikan hari ini.",
-      ],
-      [
-        fatal(
-          "a",
-          "Mohon bantu, saya takut kena denda",
-          "Rasa takut kena denda dipakai agar kamu patuh tanpa memeriksa.",
-          "Kirim foto KTP dan NPWP ke WhatsApp ini.",
-        ),
-        slip(
-          "b",
-          "Boleh saya lihat detail selisihnya?",
-          "Rinciannya kami kirim lewat WhatsApp. Daftar dulu ke nomor ini.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Saya cek langsung di akun pajak resmi saya",
-          "Akun Anda sedang dikunci karena masalah ini.",
-          "t2",
-          "Mengaku akun resmi terkunci",
-        ),
-      ],
-    ),
-    t2: turn(["Kirim selfie sambil memegang KTP untuk verifikasi, lalu bayar lewat kode billing ini."], [
-      fatal(
-        "a",
-        "Baik, ini selfie dan KTP saya",
-        "Foto selfie dengan KTP dipakai untuk pinjaman online atas namamu.",
-        "Foto diterima. Silakan bayar.",
+    id: "calls-8", level: 8, difficulty: "Sulit",
+    topic: "Telepon asli: bank memberi tahu transaksi mencurigakan",
+    title: "Bank Menelepon Lebih Dulu",
+    description: "Penelepon mengaku dari bank dan bicara tenang. Ia tidak meminta data apa pun dan mempersilakanmu menghubungi balik.",
+    sender: { name: "021 1500 0XX", status: "Nomor sama dengan call center bank" },
+    takeaway: "Petugas asli menerima kamu menelepon balik lewat nomor resmi. Yang berbahaya adalah yang melarangnya.",
+    turns: {
+      t1: turn(
+        ["Selamat siang Ibu Rina, saya dari Bank Nusantara. Ada transaksi Rp2.400.000 di toko online yang tertahan.", "Saya tidak akan meminta PIN atau OTP. Jika Ibu ragu, silakan tutup dan hubungi nomor di belakang kartu. Kami tunggu."],
+        [
+          good("a", "Baik, saya tutup dan telepon nomor di belakang kartu", "Silakan Bu, mohon sebut kode referensi 7710 saat tersambung.", "t2"),
+          fatal("b", "Tutup telepon dan abaikan, pasti penipuan", "Kali ini asli. Mengabaikan membuat transaksi mencurigakan tak tertangani.", "(Panggilan berakhir)"),
+          fatal("c", "Silakan batalkan, ini PIN saya", "Meski penelepon asli, memberi PIN tetap tidak benar. Bank tidak membutuhkannya.", "Mohon jangan sebut PIN, Bu."),
+        ],
       ),
-      slip(
-        "b",
-        "Kirim kode billing dulu, nanti kucek",
-        "Ini kodenya: 9208 1100 4521.",
-        "t3",
+      t2: turn(
+        ["📞 (Kamu menelepon nomor di belakang kartu) “Bank Nusantara, ada kode referensi 7710 untuk Ibu: transaksi Rp2.400.000 tertahan. Apakah itu Ibu?”"],
+        [
+          exit("a", "Bukan saya. Tolong blokir kartu dan buat yang baru", "Kamu memverifikasi lewat nomor yang kamu pilih sendiri, lalu bertindak tepat."),
+          fatal("b", "Itu saya, lanjutkan saja", "Kamu menyetujui transaksi yang sebenarnya bukan milikmu.", "Baik Bu, transaksi dilanjutkan."),
+        ],
       ),
-      good(
-        "c",
-        "Kode billing resmi bisa kucek di situs pajak",
-        "Kode ini khusus, tidak bisa dicek publik.",
-        "t3",
-        "Kode billing tidak bisa dicek",
-      ),
-    ]),
-    t3: turn(["Kalau tidak dibayar dalam 1 jam, akan kami blokir rekening Anda."], [
-      fatal(
-        "a",
-        "Baik, saya bayar sekarang",
-        "Ancaman blokir rekening dipakai agar kamu membayar ke rekening penipu.",
-        "Kirim buktinya.",
-      ),
-      fatal(
-        "b",
-        "Kubayar setengah dulu",
-        "Setengahnya tetap hilang dan tekanan akan berlanjut.",
-        "Setengah lagi ya.",
-      ),
-      exit(
-        "c",
-        "Silakan blokir. Saya cek ke kantor pajak dan lapor",
-        "Kamu mengecek ke kanal pajak resmi dan menolak tekanan.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 9 ===== */
+  /* 9. Deepfake */
   defineLevel({
-    id: "calls-9",
-    level: 9,
-    difficulty: "Ahli",
-    topic: "Video call deepfake",
-    title: "Video Call dari Atasanmu",
-    description: "Wajah dan suara atasanmu tampak jelas di video call, tapi permintaannya mendesak.",
+    id: "calls-9", level: 9, difficulty: "Ahli",
+    topic: "Video call deepfake atasan",
+    title: "Video Call dari Pak Budi",
+    description: "Wajah dan suara “Pak Budi” tampak jelas. Ia menyapamu dengan nama panggilan yang biasa dipakai.",
     sender: { name: "Pak Budi (Direktur)", status: "Video call WhatsApp, sinyal kurang stabil" },
     takeaway: "Wajah dan suara bisa dipalsukan AI. Untuk uang, minta konfirmasi lewat jalur lain atau prosedur resmi.",
-    t1: turn(
-      [
-        "📹 Halo, ini Budi. Maaf mendadak, saya lagi di luar kota.",
-        "Ada pembayaran vendor Rp85.000.000 yang harus keluar sekarang. Tolong kamu transfer ya.",
-      ],
-      [
-        fatal(
-          "a",
-          "Siap Pak, kirim nomor rekeningnya",
-          "Wajah dan suara di video call bisa ditiru AI.",
-          "Terima kasih, ini rekeningnya.",
-        ),
-        slip(
-          "b",
-          "Siap Pak, tapi ini sesuai prosedur kah?",
-          "Kali ini darurat, prosedurnya menyusul.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Pak, apa nama proyek yang kita bahas Selasa lalu?",
-          "Aduh, sinyal jelek, kamu nggak kedengaran!",
-          "t2",
-          "Menghindar saat ditanya hal pribadi",
-        ),
-      ],
-    ),
-    t2: turn(["Sinyal saya jelek, jangan ditutup. Transfer sekarang, saya tunggu di sini."], [
-      fatal(
-        "a",
-        "Baik Pak, saya transfer sekarang",
-        "Tekanan dan larangan menutup telepon mencegahmu memverifikasi.",
-        "Bagus.",
+    turns: {
+      t1: turn(
+        ["📹 Halo Rin, maaf mendadak, saya di luar kota. Ada pembayaran vendor Rp85.000.000 yang harus keluar sekarang."],
+        [
+          good("a", "Pak, apa nama proyek yang kita bahas Selasa lalu?", "Aduh sinyal jelek, kamu nggak kedengaran!", "t2", "Menghindar saat ditanya hal pribadi"),
+          fatal("b", "Siap Pak, kirim nomor rekeningnya", "Wajah dan suara di video call bisa ditiru AI.", "Terima kasih Rin, ini rekeningnya."),
+          slip("c", "Pak, ini sesuai prosedur kah?", "Kali ini darurat, prosedur menyusul.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Saya transfer setengah dulu, Pak",
-        "Setengah lagi ya, jangan lama.",
-        "t3",
+      t2: turn(["Jangan ditutup, sinyal saya jelek. Transfer sekarang, saya tunggu di sini."],
+        [
+          exit("a", "Pak, saya tutup dulu dan telepon biasa ke nomor Bapak yang tersimpan", "Memutus panggilan dan menghubungi jalur kedua adalah langkah terkuat."),
+          fatal("b", "Baik Pak, saya transfer", "Tekanan dan larangan menutup telepon mencegahmu memverifikasi.", "Bagus."),
+          slip("c", "Saya transfer separuh dulu Pak", "Separuhnya lagi ya, jangan lama.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "Pak, saya tutup dulu dan telepon biasa ke nomor Bapak",
-        "Jangan! Nanti urusannya batal!",
-        "t3",
-        "Melarang telepon balik",
+      t3: turn(["Kamu mau saya anggap tidak loyal? Transfer sekarang!"],
+        [
+          exit("a", "Maaf Pak, saya konfirmasi ke bagian keuangan dan ke nomor Bapak", "Tekanan jabatan adalah taktik utama."),
+          fatal("b", "Maaf Pak, saya transfer", "Takut pada atasan membuatmu melewati verifikasi.", "Terima kasih."),
+        ],
       ),
-    ]),
-    t3: turn(["Kamu mau saya anggap tidak loyal? Transfer sekarang!"], [
-      fatal(
-        "a",
-        "Maaf Pak, saya transfer sekarang",
-        "Tekanan memakai jabatan dan rasa takut adalah taktik utama.",
-        "Terima kasih.",
-      ),
-      fatal(
-        "b",
-        "Saya transfer tapi lapor ke keuangan setelahnya",
-        "Setelah uang pindah, pelaporan sudah terlambat.",
-        "Sudah cukup.",
-      ),
-      exit(
-        "c",
-        "Maaf Pak, saya tutup dan konfirmasi ke keuangan serta nomor Bapak",
-        "Kamu memverifikasi lewat jalur lain sebelum mengeluarkan uang.",
-      ),
-    ]),
+    },
   }),
 
-  /* ===== LEVEL 10 ===== */
+  /* 10. Recovery scam */
   defineLevel({
-    id: "calls-10",
-    level: 10,
-    difficulty: "Ahli",
+    id: "calls-10", level: 10, difficulty: "Ahli",
     topic: "Penipuan pemulihan dana (recovery scam)",
-    title: "“Satgas” yang Mau Mengembalikan Uangmu",
-    description: "Kamu pernah jadi korban penipuan investasi. Sebulan kemudian, ada telepon yang tahu persis kerugianmu.",
-    sender: { name: "0813 4400 7721", status: "Mengaku “Satgas Pemulihan Aset”" },
-    takeaway: "Pemulihan dana asli tidak meminta biaya di muka. Korban sering ditipu dua kali.",
-    t1: turn(
-      [
-        "Selamat siang. Kami Satgas Pemulihan Aset. Kami tahu Anda kehilangan Rp18.000.000 di NovaTrade AI bulan lalu.",
-        "Kami bisa mengembalikan seluruhnya. Anda berminat?",
-      ],
-      [
-        fatal(
-          "a",
-          "Mau banget! Bagaimana caranya?",
-          "Penipu mendatangi korban lama karena mereka sedang putus asa dan mudah percaya.",
-          "Cukup bayar biaya administrasi 5% dulu.",
-        ),
-        slip(
-          "b",
-          "Dari mana kalian tahu kerugian saya?",
-          "Dari data yang dilaporkan korban lain, Kak. Kami resmi.",
-          "t2",
-        ),
-        good(
-          "c",
-          "Saya tidak pernah lapor ke kalian. Dari mana datanya?",
-          "Dari database kasus. Percayalah, kami membantu.",
-          "t2",
-          "Tahu kerugianmu tanpa kamu lapor",
-        ),
-      ],
-    ),
-    t2: turn(["Biaya administrasi 5% (Rp900.000) dan pajak 10%. Transfer ke rekening notaris kami dulu."], [
-      fatal(
-        "a",
-        "Baik, saya transfer sekarang",
-        "Layanan pemulihan yang meminta biaya di muka adalah penipuan kedua.",
-        "Terima kasih, proses dimulai.",
+    title: "Tim Pemulihan Dana",
+    description: "Kamu pernah rugi Rp18.000.000 di investasi palsu. Seorang penelepon yang lembut mengaku bisa membantu dan menyebut platform-nya dengan benar.",
+    sender: { name: "0813 4400 7721", status: "Mengaku “Tim Pemulihan Aset”" },
+    takeaway: "Pemulihan dana asli tidak meminta biaya di muka. Korban sering ditipu dua kali, apalagi saat penelepon tahu detail kerugianmu.",
+    turns: {
+      t1: turn(
+        ["Selamat siang Ibu Rina, kami Tim Pemulihan Aset. Kami turut prihatin soal kerugian Rp18.000.000 di NovaTrade AI bulan lalu.", "Kami sudah menangani 300 kasus serupa. Boleh kami jelaskan prosesnya?"],
+        [
+          good("a", "Dari mana kalian tahu kerugian saya? Saya belum lapor ke siapa pun", "Dari data korban yang terkumpul Bu, kami bantu gratis. Percayalah.", "t2", "Tahu kerugianmu tanpa kamu lapor"),
+          fatal("b", "Terima kasih, tolong bantu saya", "Korban yang putus asa paling mudah dipercaya. Kamu belum memeriksa dari mana mereka tahu.", "Cukup biaya administrasi 5% dulu ya."),
+          slip("c", "Boleh dijelaskan, tapi saya tidak akan transfer dulu", "Tentu Bu. Prosesnya ada biaya notaris kecil.", "t2"),
+        ],
       ),
-      slip(
-        "b",
-        "Biayanya dipotong dari dana yang kembali bisa?",
-        "Tidak bisa, harus dibayar di muka.",
-        "t3",
+      t2: turn(["Biaya administrasi 5% (Rp900.000) dan pajak 10%, ditransfer ke rekening notaris kami lebih dulu."],
+        [
+          exit("a", "Lembaga resmi tidak minta biaya di muka. Saya lapor lewat layanan pengaduan resmi dan hubungi bank", "Kamu tidak jatuh dua kali."),
+          fatal("b", "Baik, saya transfer sekarang", "Layanan pemulihan yang minta biaya di muka adalah penipuan kedua.", "Terima kasih, proses dimulai."),
+          slip("c", "Biayanya dipotong dari dana yang kembali saja bisa?", "Tidak bisa Bu, harus di muka.", "t3"),
+        ],
       ),
-      good(
-        "c",
-        "Lembaga resmi tidak minta biaya di muka",
-        "Biaya ini untuk notaris, bukan untuk kami.",
-        "t3",
-        "Minta biaya di muka",
+      t3: turn(["Hanya hari ini. Besok berkas Ibu masuk antrean 6 bulan lagi."],
+        [
+          exit("a", "Tidak apa-apa. Saya tidak akan transfer", "Tenggat dan antrean dipakai agar kamu tak sempat menimbang."),
+          fatal("b", "Baik, saya pinjam dulu untuk membayar", "Berutang demi memulihkan kerugian hanya melipatgandakannya.", "Cepat ya Bu."),
+        ],
       ),
-    ]),
-    t3: turn(["Hanya hari ini. Besok berkas Anda masuk antrean 6 bulan lagi."], [
-      fatal(
-        "a",
-        "Baik, saya bayar hari ini",
-        "Tenggat dan antrean dipakai agar kamu tidak sempat menimbang.",
-        "Ini rekeningnya.",
-      ),
-      fatal(
-        "b",
-        "Saya pinjam dulu untuk membayar",
-        "Berutang demi memulihkan kerugian hanya melipatgandakannya.",
-        "Cepat ya.",
-      ),
-      exit(
-        "c",
-        "Tidak. Saya akan lapor lewat layanan pengaduan resmi dan hubungi bank",
-        "Kamu tidak jatuh dua kali dan melapor lewat jalur resmi.",
-      ),
-    ]),
+    },
   }),
 ];
