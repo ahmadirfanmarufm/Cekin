@@ -32,6 +32,17 @@ CEKIN adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal ter
   <sub>Klik thumbnail di atas atau <a href="https://www.youtube.com/watch?v=e4QNCRjAx44">buka video di YouTube</a></sub>
 </p>
 
+### AKUN DEMO
+
+Kunjungi aplikasi di **[ayocekin.vercel.app](https://ayocekin.vercel.app)** dan masuk dengan akun demo berikut:
+
+| Field    | Value        |
+|----------|--------------|
+| Username | `admincekin`       |
+| Password | `ProgrammerAkhirZamannn`  |
+
+> Akun demo hanya untuk percobaan. Data yang dimasukkan bisa dihapus sewaktu-waktu.
+
 ## Fitur Utama
 
 | Area | Fitur |
