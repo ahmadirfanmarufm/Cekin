@@ -16,7 +16,9 @@
 
 CEKIN adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal terhadap potensi ancaman digital. Pengguna dapat menganalisis konten dari beberapa sumber, mempelajari pola-pola penipuan melalui simulasi interaktif, serta berdiskusi dan berbagi bukti di komunitas.
 
-![Cekin](./public/logo_cekin.webp)
+<p align="center">
+  <img src="./public/logo_cekin.webp" alt="Cekin" width="360"/>
+</p>
 
 > Hasil analisis CEKIN bersifat informatif dan edukatif. Gunakan penilaian manusia serta sumber resmi sebelum mengambil keputusan finansial, keamanan, atau hukum.
 
