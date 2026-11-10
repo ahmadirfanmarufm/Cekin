@@ -24,12 +24,61 @@ Cekin adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal ter
 
 | Area | Fitur |
 | --- | --- |
-| **Analisis ancaman** | Pemeriksaan URL, email, nomor telepon, gambar, percakapan/chat, dan peluang investasi. |
-| **Insight berbasis AI** | Analisis terstruktur dengan rekomendasi dan indikator risiko yang mudah dipahami. |
-| **Learning Protection** | Simulasi interaktif untuk mengenali phishing, spam call, aplikasi scam, judi online, manipulasi psikologis, dan membangun kepercayaan digital. |
+| **Cek ancaman** | Pemeriksaan URL, email, nomor telepon, gambar, percakapan/chat, dan peluang investasi. Disertai insight dari AI yang memberikan skor risiko dalam skala 0-100 |
+| **Learning & Protection** | Simulasi interaktif untuk mengenali phishing, spam call, aplikasi scam, judi online, manipulasi psikologis, dan membangun kepercayaan digital. |
 | **Komunitas** | Membuat posting, komentar bertingkat, reaksi, media pendukung, laporan, moderasi, serta riwayat perubahan. |
-| **Akun dan progres** | Registrasi/login, sesi pengguna, XP, progres simulasi, dan badge pembelajaran. |
+| **Akun dan Progress** | Registrasi/login, sesi pengguna, XP, progres simulasi, dan badge pembelajaran. |
 | **Emergency Center** | Akses cepat ke panduan dan tindakan awal saat menghadapi insiden digital. |
+
+### 1. Cek Ancaman
+Fitur inti untuk memeriksa apakah sesuatu yang diterima pengguna berpotensi penipuan. Pengguna memasukkan data yang ingin dicek, lalu sistem memberikan skor risiko dalam skala 0-100.
+
+| Jenis Pengecekan | Deskripsi |
+|---|---|
+| Pesan / Chat | Memeriksa isi pesan (SMS, WhatsApp, dll.) yang mencurigakan |
+| URL | Memeriksa apakah sebuah tautan berpotensi phishing atau situs berbahaya |
+| Nomor Telepon | Memeriksa apakah nomor berpotensi merupakan nomor penipu |
+| Kebocoran Email | Memeriksa apakah alamat email pernah terlibat dalam kebocoran data |
+| Investasi | Memeriksa apakah tawaran investasi memiliki ciri-ciri investasi bodong |
+
+### 2. Learning & Protection
+
+Fitur edukasi agar pengguna paham cara melindungi diri dari penipuan melalui enam simulasi interaktif. Setiap simulasi memiliki tingkat kesulitan dan estimasi durasi yang berbeda.
+
+| No | Simulasi | Tingkat | Durasi | Deskripsi |
+|---|---|---|---|---|
+| 01 | Penipuan Chat | Pemula | 4 menit | Menghadapi lowongan, top-up, dan investasi palsu |
+| 02 | Aplikasi Sus | Menengah | 3 menit | Memeriksa aplikasi, sumber unduhan, dan izinnya |
+| 03 | Phishing | Menengah | 4 menit | Menyelidiki email palsu sebelum tautan menjebak |
+| 04 | Penipuan Telepon | Menengah | 3 menit | Menerima telepon fiktif dan memilih respons yang tepat |
+| 05 | Judol | Penting | 5 menit | Mengenali promosi, near-miss, dan loss chasing |
+| 06 | Jebakan Logika | Pemula | 4 menit | Mengenali pola pikir yang dimanfaatkan pelaku |
+
+#### Badge
+
+Pengguna dapat mengumpulkan badge sebagai penanda progres belajar. Badge awalnya terkunci dan terbuka setelah pengguna menyelesaikan simulasi yang bersangkutan. Total ada 6 badge:
+
+| Badge | Simulasi |
+|---|---|
+| Si Kebal Tipu | Penipuan Chat |
+| Detektif Aplikasi | Aplikasi Sus |
+| Pemburu Phishing | Phishing |
+| King Gocek Telepon | Penipuan Telepon |
+| Pejuang Anti Judol | Judol |
+| Mikir Kids | Jebakan Logika |
+
+### 3. Komunitas
+
+Ruang bagi pengguna untuk saling berbagi pengalaman dan informasi seputar penipuan, sehingga pengguna lain bisa lebih waspada terhadap modus yang sedang beredar.
+
+### 4. Akun dan Progress: menyimpan akun pengguna beserta progres simulasi dan badge yang sudah diperoleh
+
+### 5. Emergency Center
+
+Panduan penanganan bagi pengguna yang sudah terlanjur terkena penipuan. Pengguna memilih kondisi yang sedang dialami pada daftar "Apa yang sedang terjadi?", lalu sistem menampilkan **Panduan Langkah Aman** yang berisi:
+
+- Langkah-langkah yang perlu dilakukan, disusun berurutan
+- Sumber bantuan, misalnya pelaporan ke platform tempat penipuan terjadi
 
 ## Tech Stack
 
