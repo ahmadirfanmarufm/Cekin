@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { generateStructuredContent } from "@/lib/gemini";
+import {
+  collectIdentityEvidence,
+  verifyDomainIdentity,
+  type DomainIdentity,
+} from "@/lib/cekin/url-verification";
 
 const urlAnalysisSchema = {
   type: "object",
@@ -41,7 +46,8 @@ const SHORTENER_DOMAINS = new Set([
   "t.cn", "okt.to", "ity.im", "sh.st", "po.st"
 ]);
 
-const SUSPICIOUS_TLDS = new Set([
+
+const RISKY_TLDS = new Set([
   "xyz", "top", "work", "click", "buzz", "cfd", "monster", "sbs",
   "rest", "cam", "fit", "icu", "gq", "ml", "cf", "ga", "tk",
   "loan", "win", "bid", "men", "date", "download", "stream", "review", "trade", "party",
@@ -56,28 +62,28 @@ const SUSPICIOUS_TLDS = new Set([
 ]);
 
 const SENSITIVE_BRANDS = [
-  // Bank
+
   "bca", "bri", "mandiri", "bankmandiri", "bni", "cimb", "bsi", "btn", "permata", "danamon", "ocbc",
   "maybank", "panin", "btpn", "jago", "seabank", "allobank", "jenius", "livin", "brimo",
   "klikbca", "mybca", "bjb",
-  // E-wallet & fintech
+
   "dana", "ovo", "gopay", "linkaja", "shopeepay", "isaku", "doku", "flip", "kredivo",
   "akulaku", "spaylater", "gopaylater", "indodana", "atome",
-  // E-commerce, transportasi, travel
+
   "shopee", "tokopedia", "lazada", "blibli", "bukalapak", "tiktokshop", "olx", "zalora",
   "traveloka", "tiketcom", "pegipegi", "agoda", "grab", "gojek", "maxim",
-  // Ekspedisi
+
   "jne", "jnt", "sicepat", "anteraja", "posindonesia", "ninjaxpress", "idexpress",
   "tiki", "dhl", "fedex",
-  // Telekomunikasi
+
   "telkomsel", "indosat", "axis", "smartfren", "indihome",
-  // Media sosial & pesan
+
   "whatsapp", "telegram", "facebook", "instagram", "tiktok", "twitter", "youtube",
-  // Pemerintah & layanan publik
+
   "pajak", "djp", "coretax", "bpjs", "polri", "kominfo", "komdigi", "kemnaker",
   "dukcapil", "imigrasi", "samsat", "beacukai", "ojk", "prakerja", "pln", "pertamina",
   "mypertamina", "kemensos", "bansos",
-  // Layanan global, kripto, game
+
   "google", "apple", "netflix", "microsoft", "amazon", "paypal", "spotify", "vidio",
   "dropbox", "icloud", "gmail", "binance", "indodax", "pintu", "coinbase", "metamask",
   "garena", "freefire", "mobilelegends", "roblox"
@@ -111,6 +117,21 @@ interface RawSignal {
   rawFact: string;
   suggestedPoints: number;
 }
+
+
+function safeNormalizeUrl(value: string): string | null {
+  try {
+    const u = new URL(value);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const path = u.pathname.replace(/\/+$/, "");
+    return `${u.protocol}//${host}${path}${u.search}`;
+  } catch {
+    return null;
+  }
+}
+
+
+const MIN_SIGNAL_POINTS = 15;
 
 async function fetchSucuriScan(targetUrl: string) {
   try {
@@ -159,7 +180,10 @@ async function fetchPageMetadata(targetUrl: string): Promise<string> {
   }
 }
 
-function analyzeUrlStructure(urlObj: URL): RawSignal[] {
+function analyzeUrlStructure(
+  urlObj: URL,
+  identity: DomainIdentity | null,
+): RawSignal[] {
   const signals: RawSignal[] = [];
   const hostname = urlObj.hostname.toLowerCase();
   const path = urlObj.pathname;
@@ -184,17 +208,6 @@ function analyzeUrlStructure(urlObj: URL): RawSignal[] {
     });
   }
 
-  const hostParts = hostname.split(".");
-  const tld = hostParts[hostParts.length - 1];
-  if (SUSPICIOUS_TLDS.has(tld)) {
-    signals.push({
-      id: "suspicious-tld",
-      label: `Domain dengan TLD Berisiko (.${tld})`,
-      rawFact: `Menggunakan akhiran domain (.${tld}) yang kerap dipakai situs phising sekali pakai.`,
-      suggestedPoints: 25,
-    });
-  }
-
   if (fullUrl.includes("@")) {
     signals.push({
       id: "credential-spoofing-at",
@@ -214,6 +227,25 @@ function analyzeUrlStructure(urlObj: URL): RawSignal[] {
     });
   }
 
+
+  const hostParts = hostname.split(".");
+  const tld = hostParts[hostParts.length - 1];
+  const riskyTld = RISKY_TLDS.has(tld);
+
+  if (identity?.verdict === "suspicious" && identity.evidence.registration?.notRegistered) {
+    signals.push({
+      id: "unregistered-domain",
+      label: "Domain Tidak Terdaftar",
+      rawFact: `Nama domain '${hostname}' tidak ditemukan di registry resmi sehingga tidak dimiliki oleh siapa pun.`,
+      suggestedPoints: 30,
+    });
+    return signals;
+  }
+
+  if (identity?.verdict === "verified") {
+    return signals;
+  }
+
   for (const brand of SENSITIVE_BRANDS) {
     if (hostname.includes(brand)) {
       const isOfficial = new RegExp(`(^|\\.)${brand}\\.(co\\.id|com|id)$`, "i").test(hostname);
@@ -221,11 +253,25 @@ function analyzeUrlStructure(urlObj: URL): RawSignal[] {
         signals.push({
           id: `brand-spoofing-${brand}`,
           label: `Pencatutan Nama Brand (${brand.toUpperCase()})`,
-          rawFact: `Nama '${brand}' muncul dalam host '${hostname}', namun bukan domain resmi entitas tersebut.`,
-          suggestedPoints: 30,
+          rawFact: riskyTld
+            ? `Nama '${brand}' muncul dalam host '${hostname}' yang bukan domain resmi, dan memakai akhiran berisiko (.${tld}).`
+            : `Nama '${brand}' muncul dalam host '${hostname}', namun bukan domain resmi entitas tersebut.`,
+          suggestedPoints: riskyTld ? 40 : 30,
         });
         break;
       }
+    }
+  }
+
+  if (riskyTld && signals.length > 0) {
+    const accompanied = signals.some((s) => s.id !== "insecure-http");
+    if (accompanied) {
+      signals.push({
+        id: "risky-tld-context",
+        label: `Akhiran Domain Berisiko (.${tld})`,
+        rawFact: `Akhiran (.${tld}) kerap dipakai situs phising sekali pakai, dan muncul bersamaan dengan indikator risiko lain.`,
+        suggestedPoints: 15,
+      });
     }
   }
 
@@ -237,7 +283,7 @@ function analyzeDomainPattern(urlObj: URL): RawSignal[] {
   const hostname = urlObj.hostname.toLowerCase();
 
   const domainGamblingPattern = /(toto|slot|bet|casino|poker|togel|maxwin|gacor|dewi|hoki|808|777|888)/i;
-  
+
   if (domainGamblingPattern.test(hostname)) {
     signals.push({
       id: "gambling-domain-keyword",
@@ -252,17 +298,29 @@ function analyzeDomainPattern(urlObj: URL): RawSignal[] {
 
 function analyzeGamblingContent(urlObj: URL, metadata: string): RawSignal[] {
   const signals: RawSignal[] = [];
-  const targetText = `${urlObj.hostname} ${urlObj.pathname} ${urlObj.search} ${metadata}`.toLowerCase();
 
-  const detectedKeywords = GAMBLING_KEYWORDS.filter(keyword => targetText.includes(keyword));
+  const urlTarget = `${urlObj.hostname} ${urlObj.pathname}`.toLowerCase();
+  const urlHits = GAMBLING_KEYWORDS.filter((k) => urlTarget.includes(k));
 
-  if (detectedKeywords.length > 0) {
-    const points = Math.min(50, 30 + detectedKeywords.length * 5);
+  const metaTarget = metadata.toLowerCase();
+  const metaHits = GAMBLING_KEYWORDS.filter((k) => metaTarget.includes(k));
+
+  if (urlHits.length > 0) {
     signals.push({
       id: "gambling-seo-poisoning",
       label: "Indikasi Konten Judi Online / SEO Spam",
-      rawFact: `Terdeteksi kata kunci perjudian: [${detectedKeywords.slice(0, 10).join(", ")}] pada domain, URL, atau metadata halaman.`,
-      suggestedPoints: points,
+      rawFact: `Kata kunci perjudian [${urlHits.slice(0, 10).join(", ")}] muncul langsung di nama domain atau jalur URL, bukan sekadar di badan halaman.`,
+      suggestedPoints: Math.min(50, 35 + urlHits.length * 5),
+    });
+    return signals;
+  }
+
+  if (metaHits.length >= 2) {
+    signals.push({
+      id: "gambling-seo-poisoning",
+      label: "Indikasi Konten Judi Online / SEO Spam",
+      rawFact: `Judul atau heading halaman memuat beberapa kata kunci perjudian: [${metaHits.slice(0, 10).join(", ")}].`,
+      suggestedPoints: Math.min(50, 30 + metaHits.length * 5),
     });
   }
 
@@ -289,18 +347,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Format tautan / URL tidak valid" }, { status: 400 });
     }
 
+    const normalizedInput = parsedUrl.href;
+
+    const [sucuriData, pageMetadata, identity] = await Promise.all([
+      fetchSucuriScan(normalizedInput),
+      fetchPageMetadata(normalizedInput),
+      collectIdentityEvidence(parsedUrl.hostname).then((evidence) => {
+        try {
+          return verifyDomainIdentity(evidence);
+        } catch {
+          return null;
+        }
+      }),
+    ]);
+
     const collectedSignals: RawSignal[] = [];
 
-    const heuristicSignals = analyzeUrlStructure(parsedUrl);
+    const heuristicSignals = analyzeUrlStructure(parsedUrl, identity);
     collectedSignals.push(...heuristicSignals);
 
     const domainSignals = analyzeDomainPattern(parsedUrl);
     collectedSignals.push(...domainSignals);
 
-    const [sucuriData, pageMetadata] = await Promise.all([
-      fetchSucuriScan(rawInput),
-      fetchPageMetadata(rawInput),
-    ]);
 
     const gamblingSignals = analyzeGamblingContent(parsedUrl, pageMetadata);
     collectedSignals.push(...gamblingSignals);
@@ -308,15 +376,33 @@ export async function POST(req: Request) {
     let sucuriSummary = "";
 
     if (sucuriData) {
-      const finalUrl = sucuriData.site?.final_url || rawInput;
-      const isShortener = SHORTENER_DOMAINS.has(parsedUrl.hostname.toLowerCase().replace(/^www\./, ""));
-      
-      if (finalUrl !== rawInput || isShortener) {
+      const finalUrl = sucuriData.site?.final_url || normalizedInput;
+      const isShortener = SHORTENER_DOMAINS.has(
+        parsedUrl.hostname.toLowerCase().replace(/^www\./, ""),
+      );
+
+      const redirectHops: Array<{ url?: string }> = Array.isArray(
+        sucuriData.site?.redirects_to,
+      )
+        ? sucuriData.site.redirects_to
+        : [];
+
+      const normalizedFinal = safeNormalizeUrl(finalUrl);
+      const hasRealRedirect =
+        redirectHops.length > 0 ||
+        (normalizedFinal !== null && normalizedFinal !== normalizedInput);
+
+      if (hasRealRedirect || isShortener) {
+        const hopsText =
+          redirectHops.length > 0
+            ? redirectHops.map((h) => h.url).filter(Boolean).join(" → ")
+            : finalUrl;
+
         collectedSignals.push({
           id: "url-redirection",
-          label: "Pengalihan / URL Shortener",
-          rawFact: `Tautan awal '${rawInput}' diarahkan menuju URL akhir: '${finalUrl}'.`,
-          suggestedPoints: 5,
+          label: isShortener ? "Tautan Diperpendek (Shortener)" : "Pengalihan Tautan",
+          rawFact: `Tautan diarahkan melalui: ${hopsText}. Tujuan akhirnya adalah '${finalUrl}'.`,
+          suggestedPoints: isShortener && redirectHops.length === 0 ? 10 : 5,
         });
       }
 
@@ -348,19 +434,69 @@ export async function POST(req: Request) {
       `;
     }
 
-    if (collectedSignals.length === 0) {
+    const MUST_SURVIVE = new Set([
+      "security-blacklist-hit",
+      "raw-ip-host",
+      "credential-spoofing-at",
+      "dangerous-file-download",
+      "unregistered-domain",
+      "gambling-seo-poisoning",
+      "gambling-domain-keyword",
+    ]);
+
+    const strongSignals = collectedSignals.filter(
+      (s) => MUST_SURVIVE.has(s.id) || s.suggestedPoints >= MIN_SIGNAL_POINTS,
+    );
+
+    const verificationNote =
+      identity?.verdict === "verified"
+        ? `\n      CATATAN PENTING - IDENTITAS DOMAIN TERVERIFIKASI:
+      Domain ini terbukti dikelola entitas resmi berdasarkan bukti independen:
+      ${identity.reasons.map((r) => `- ${r}`).join("\n      ")}
+      Karena itu, sinyal yang berkaitan dengan pencatutan nama brand, umur domain,
+      atau akhiran domain sudah otomatis dikesampingkan. Jangan mengarang temuan
+      dari sinyal tersebut. Hanya laporkan sinyal yang masih tersisa di daftar.`
+        : identity?.verdict === "suspicious"
+          ? `\n      CATATAN - IDENTITAS DOMAIN TIDAK TERBUKTI:
+      ${identity.reasons.map((r) => `- ${r}`).join("\n      ")}
+      Belum ada bukti bahwa domain ini milik entitas resmi. Sampaikan hal ini
+      sebagai indikator tambahan, dengan bahasa yang tidak menuduh secara pasti.`
+          : "";
+
+    if (strongSignals.length === 0) {
+      const cleanNote = identity
+        ? `Pemeriksaan domain: ${identity.reasons.join(" ")}`
+        : "";
+
       return NextResponse.json({
         score: 0,
         level: "Rendah",
-        findings: [],
+        findings:
+          identity?.verdict === "verified"
+            ? [
+                {
+                  id: "domain-verified",
+                  label: "Domain Resmi Terverifikasi",
+                  why: cleanNote,
+                  tactic:
+                    "Tidak ada taktik penipuan yang terdeteksi pada struktur tautan ini.",
+                  recommendation:
+                    "Tetap pastikan halaman yang terbuka sesuai layanan yang kamu tuju, dan jangan pernah membagikan OTP atau PIN kepada siapa pun.",
+                  points: 0,
+                },
+              ]
+            : [],
         category: "URL / Link",
       });
     }
 
+    collectedSignals.length = 0;
+    collectedSignals.push(...strongSignals);
+
     const prompt = `
       Anda adalah analis keamanan siber handal.
-      Kami melakukan pemindaian terhadap URL: "${rawInput}".
-      
+      Kami melakukan pemindaian terhadap URL: "${normalizedInput}".
+
       Informasi Metadata Halaman Target:
       ${pageMetadata || "Metadata tidak berhasil diambil"}
 
@@ -369,9 +505,13 @@ export async function POST(req: Request) {
 
       Sinyal Bahaya / Anomali yang Terdeteksi:
       ${JSON.stringify(collectedSignals, null, 2)}
+      ${verificationNote}
 
       Tugas Anda:
       Terjemahkan temuan-temuan di atas ke format JSON yang ramah, jelas, dan edukatif bagi masyarakat awam di Indonesia.
+      PENTING: hanya boleh membuat finding dari sinyal yang ada di daftar di atas.
+      Jangan menambah temuan baru yang tidak punya sinyal pendukung. Jumlah finding
+      tidak boleh melebihi jumlah sinyal.
       Jika terdapat temuan 'gambling-seo-poisoning' atau 'gambling-domain-keyword', jelaskan bahaya situs judi online, penipuan saldo/data pribadi, serta risiko finansial secara eksplisit.
       Pastikan setiap finding memiliki:
       - 'id': ID unik temuan
@@ -397,13 +537,36 @@ export async function POST(req: Request) {
       temperature: 0.2,
     });
 
-    const findings = rawResult.findings || [];
+    const allowedById = new Map(collectedSignals.map((s) => [s.id, s.suggestedPoints]));
+    const seen = new Set<string>();
+
+    const findings = (rawResult.findings || [])
+      .filter((f) => allowedById.has(f.id) && !seen.has(f.id) && seen.add(f.id))
+      .map((f) => ({
+        ...f,
+        points: Math.min(
+          Math.max(0, Math.round(f.points) || 0),
+          allowedById.get(f.id)!,
+        ),
+      }));
+
     const rawScore = findings.reduce((sum, item) => sum + item.points, 0);
     const score = Math.min(100, rawScore);
-    const level = score >= 60 ? "Kritis" : score >= 40 ? "Tinggi" : score >= 18 ? "Sedang" : "Rendah";
+
+    const cappedScore =
+      identity?.verdict === "verified" ? Math.min(score, 15) : score;
+
+    const level =
+      cappedScore >= 60
+        ? "Kritis"
+        : cappedScore >= 40
+          ? "Tinggi"
+          : cappedScore >= 18
+            ? "Sedang"
+            : "Rendah";
 
     return NextResponse.json({
-      score,
+      score: cappedScore,
       level,
       findings,
       category: "URL / Link",
