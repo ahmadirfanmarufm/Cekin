@@ -39,30 +39,34 @@ const samples: Record<AnalysisCategory, string> = {
   "Pesan / Chat":
     "Tim keamanan: akun kamu akan diblokir. Kirim OTP sekarang juga untuk verifikasi.",
   "URL / Link": "https://hadiah-bank-verify.xyz/login",
-  "Nomor Telepon": "+62 812-0000-991",
+  "Nomor Telepon": "812 3456 7890",
   "Cek Kebocoran Email": "test@test.com",
   Investasi:
     "Platform X menjamin profit 10% seminggu tanpa risiko, deposit hari ini minimal 1 juta.",
-  "Informasi Lainnya": "",
+  "Informasi Lainnya":
+    "Selamat! Nomor kamu terpilih memenangkan hadiah mobil. Pihak bank akan segera memproses, transfer terlebih dahulu biaya admin Rp500.000. Jangan beri tahu siapa pun. Klik bit.ly/hadiah-resmi",
 };
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_TEXT_LENGTH = 4000;
 
 type Stage = "form" | "checking" | "result";
 
-function isFileInput(value: string | File): value is File {
-  return typeof value === "object" && value !== null;
-}
-
 export function ThreatCheck() {
   const [category, setCategory] = useState<AnalysisCategory>("Pesan / Chat");
-  const [input, setInput] = useState<string | File>("");
+  const [input, setInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("form");
   const [check, setCheck] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [activeTip, setActiveTip] = useState(0);
+  const [callingCode, setCallingCode] = useState("+62");
+  const COUNTRY_CODES = [
+    { code: "+62", label: "ID +62" },
+    { code: "+1", label: "US +1" },
+  ];
 
   const tipsAndFacts = [
     {
@@ -113,20 +117,23 @@ export function ThreatCheck() {
         let requestOptions: RequestInit = {};
 
         if (category === "Informasi Lainnya") {
-          if (!isFileInput(input)) {
-            throw new Error("File gambar belum dipilih.");
-          }
+          apiUrl = "/api/analyze/other";
 
-          apiUrl = "/api/analyze/image";
           const formData = new FormData();
-          formData.append("file", input);
+          if (input.trim()) formData.append("text", input.trim());
+          if (file) formData.append("file", file);
 
           requestOptions = {
             method: "POST",
             body: formData,
           };
         } else {
-          let bodyData = { text: input };
+          const bodyData = {
+            text:
+              category === "Nomor Telepon"
+                ? buildPhone(callingCode, input)
+                : input,
+          };
 
           if (category === "Cek Kebocoran Email") {
             apiUrl = "/api/analyze/email";
@@ -177,7 +184,7 @@ export function ThreatCheck() {
     fetchAnalysis();
 
     return () => window.clearInterval(animationTimer);
-  }, [stage, input, category]);
+  }, [stage, input, category, file]);
 
   useEffect(() => {
     if (stage !== "checking") return;
@@ -196,20 +203,21 @@ export function ThreatCheck() {
     });
   }, [stage]);
 
+  function buildPhone(code: string, local: string) {
+    const value = local.trim();
+
+    if (value.startsWith("+")) return value;
+
+    const digits = value.replace(/\D/g, "").replace(/^0+/, "");
+    return `${code}${digits}`;
+  }
+
   function submit() {
     if (category === "Informasi Lainnya") {
-      if (!isFileInput(input)) {
-        setError("Silakan pilih file gambar terlebih dahulu.");
-        return;
-      }
+      const value = input.trim();
 
-      if (!input.type.startsWith("image/")) {
-        setError("Hanya file gambar (JPG, PNG, WEBP) yang didukung.");
-        return;
-      }
-
-      if (input.size > MAX_FILE_SIZE) {
-        setError("Ukuran file maksimal 5 MB.");
+      if (!file && value.length < 10) {
+        setError("Tulis informasi minimal 10 karakter atau tambahkan gambar.");
         return;
       }
 
@@ -219,7 +227,7 @@ export function ThreatCheck() {
       return;
     }
 
-    const value = typeof input === "string" ? input.trim() : "";
+    const value = input.trim();
 
     if (value.length < 5) {
       setError("Masukkan informasi yang cukup untuk dianalisis.");
@@ -231,12 +239,12 @@ export function ThreatCheck() {
       return;
     }
 
-    if (
-      category === "Nomor Telepon" &&
-      !/^(\+62|62|0)[\d\s-]{8,15}$/.test(value)
-    ) {
-      setError("Gunakan format nomor Indonesia yang valid.");
-      return;
+    if (category === "Nomor Telepon") {
+      const digits = value.replace(/\D/g, "");
+      if (digits.length < 6 || digits.length > 15) {
+        setError("Masukkan nomor telepon yang valid (tanpa kode negara).");
+        return;
+      }
     }
 
     setError("");
@@ -247,6 +255,7 @@ export function ThreatCheck() {
   function reset() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    setFile(null);
     setInput("");
     setResult(null);
     setError("");
@@ -257,6 +266,7 @@ export function ThreatCheck() {
   function handleCategoryChange(id: AnalysisCategory) {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    setFile(null);
     setCategory(id);
     setInput("");
     setError("");
@@ -265,8 +275,8 @@ export function ThreatCheck() {
   function handleFileChange(file: File | undefined) {
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setError("Hanya file gambar (JPG, PNG, WEBP) yang didukung.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Hanya gambar JPG, PNG, atau WEBP yang didukung.");
       return;
     }
 
@@ -277,7 +287,7 @@ export function ThreatCheck() {
 
     if (previewUrl) URL.revokeObjectURL(previewUrl);
 
-    setInput(file);
+    setFile(file);
     setPreviewUrl(URL.createObjectURL(file));
     setError("");
   }
@@ -285,8 +295,7 @@ export function ThreatCheck() {
   function clearFile() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
-    setInput("");
-    setError("");
+    setFile(null);
   }
 
   function placeholderForCategory(category: AnalysisCategory) {
@@ -296,13 +305,13 @@ export function ThreatCheck() {
       case "URL / Link":
         return "https://alamat-link.test";
       case "Nomor Telepon":
-        return "+62 812 3456 7890";
+        return "812 3456 7890";
       case "Cek Kebocoran Email":
         return "johndoe@example.com";
       case "Investasi":
         return "Masukkan nama platform, nama aplikasi, atau deskripsi tawaran investasi (contoh: Janji profit 10% seminggu, bot trading X, dsb.";
       case "Informasi Lainnya":
-        return undefined;
+        return "Tuliskan klaim, berita, atau konteks gambar yang ingin diperiksa...";
     }
   }
 
@@ -447,7 +456,11 @@ export function ThreatCheck() {
       <RiskResult
         result={result}
         reset={reset}
-        input={isFileInput(input) ? input.name : input}
+        input={
+          category === "Nomor Telepon"
+            ? buildPhone(callingCode, input)
+            : [input, file?.name].filter(Boolean).join("\n")
+        }
       />
     );
   }
@@ -529,111 +542,165 @@ export function ThreatCheck() {
             <div>
               <h2 className="text-base font-bold text-[#17233b]">
                 {category === "Informasi Lainnya"
-                  ? "Upload gambar"
+                  ? "Masukkan teks atau gambar"
                   : "Masukkan informasi"}
               </h2>
               <p className="mt-1 text-xs leading-5 text-[#667085]">
                 {category === "Informasi Lainnya"
-                  ? "Unggah tangkapan layar atau gambar yang ingin diperiksa."
+                  ? "Tuliskan informasinya, unggah gambar, atau gunakan keduanya."
                   : "Tempel atau tuliskan informasi yang ingin diperiksa."}
               </p>
             </div>
           </div>
 
-          {category === "Informasi Lainnya" ? (
-            <div>
-              <label
-                htmlFor="file-upload"
-                className="flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#c7d4e5] bg-[#f7f9fc] px-4 py-3 text-sm text-[#667085] transition hover:border-[#2457a6] hover:bg-[#eaf1fc] focus-within:border-[#2457a6] focus-within:ring-4 focus-within:ring-[#2457a6]/10"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2457a6] text-white">
-                  <Upload size={17} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#17233b]">
-                  {isFileInput(input) ? input.name : "Pilih file gambar..."}
-                </span>
-                <span className="rounded-lg bg-[#2457a6] px-3 py-1.5 text-[11px] font-bold text-white">
-                  Browse
-                </span>
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(event) =>
-                    handleFileChange(event.target.files?.[0])
-                  }
-                />
-              </label>
+          <>
+            {category === "Nomor Telepon" ? (
+              <div className="flex gap-2">
+                <select
+                  value={callingCode}
+                  onChange={(event) => setCallingCode(event.target.value)}
+                  aria-label="Kode negara"
+                  className="min-h-14 shrink-0 rounded-xl border border-[#e6eaf0] bg-white px-3 text-sm font-semibold text-[#17233b] outline-none transition focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
 
-              {previewUrl && (
-                <div className="relative mt-3 overflow-hidden rounded-xl border border-[#e6eaf0] bg-white">
-                  <img
-                    src={previewUrl}
-                    alt="Preview gambar"
-                    className="max-h-72 w-full object-contain"
-                  />
-                  <button
-                    type="button"
-                    onClick={clearFile}
-                    aria-label="Hapus gambar"
-                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white transition hover:bg-black/80"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-              )}
-
-              <p className="mt-2 text-[10px] leading-5 text-[#98a2b3]">
-                Format: JPG, PNG, WEBP. Maksimal 5 MB.
-              </p>
-            </div>
-          ) : (
-            <>
-              {category === "URL / Link" ||
-              category === "Nomor Telepon" ||
-              category === "Cek Kebocoran Email" ? (
                 <input
-                  type="text"
-                  value={typeof input === "string" ? input : ""}
+                  type="tel"
+                  inputMode="tel"
+                  value={input}
                   onChange={(event) => {
                     setInput(event.target.value);
                     setError("");
                   }}
                   placeholder={
-                    placeholderForCategory(category) ||
-                    "Masukkan informasi di sini..."
+                    callingCode === "+62" ? "812 3456 7890" : "415 555 0132"
                   }
-                  aria-label={`Masukkan ${category}`}
+                  aria-label="Nomor telepon"
                   className="min-h-14 w-full rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
                 />
-              ) : (
+              </div>
+            ) : category === "URL / Link" ||
+              category === "Cek Kebocoran Email" ? (
+              <input
+                type="text"
+                value={input}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  setError("");
+                }}
+                placeholder={
+                  placeholderForCategory(category) ||
+                  "Masukkan informasi di sini..."
+                }
+                aria-label={`Masukkan ${category}`}
+                className="min-h-14 w-full rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+              />
+            ) : (
+              <>
+                {category === "Informasi Lainnya" && (
+                  <label
+                    htmlFor="other-info-text"
+                    className="mb-2 block text-[11px] font-bold text-[#667085]"
+                  >
+                    Teks informasi
+                    {file ? " (opsional karena gambar sudah dipilih)" : ""}
+                  </label>
+                )}
                 <textarea
-                  value={typeof input === "string" ? input : ""}
+                  id={
+                    category === "Informasi Lainnya"
+                      ? "other-info-text"
+                      : undefined
+                  }
+                  value={input}
                   onChange={(event) => {
                     setInput(event.target.value);
                     setError("");
                   }}
                   placeholder={placeholderForCategory(category)}
                   aria-label={`Masukkan ${category}`}
+                  maxLength={
+                    category === "Informasi Lainnya"
+                      ? MAX_TEXT_LENGTH
+                      : undefined
+                  }
                   rows={6}
                   className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
                 />
-              )}
+              </>
+            )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setInput(samples[category]);
-                  setError("");
-                }}
-                className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#eaf1fc] px-3 py-2 text-[11px] font-bold text-[#2457a6] transition hover:bg-[#dce9fb]"
-              >
-                <RefreshCw size={14} />
-                Gunakan contoh
-              </button>
-            </>
-          )}
+            <button
+              type="button"
+              onClick={() => {
+                setInput(samples[category]);
+                setError("");
+              }}
+              className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#eaf1fc] px-3 py-2 text-[11px] font-bold text-[#2457a6] transition hover:bg-[#dce9fb]"
+            >
+              <RefreshCw size={14} />
+              Gunakan contoh
+            </button>
+
+            {category === "Informasi Lainnya" && (
+              <div className="mt-5">
+                <span className="text-[11px] font-bold text-[#667085]">
+                  Gambar (opsional, bisa digabung dengan teks)
+                </span>
+
+                <label
+                  htmlFor="file-upload"
+                  className="mt-2 flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#c7d4e5] bg-[#f7f9fc] px-4 py-3 text-sm text-[#667085] transition hover:border-[#2457a6] hover:bg-[#eaf1fc] focus-within:border-[#2457a6] focus-within:ring-4 focus-within:ring-[#2457a6]/10"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2457a6] text-white">
+                    <Upload size={17} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#17233b]">
+                    {file ? file.name : "Pilih gambar untuk dianalisis..."}
+                  </span>
+                  <span className="rounded-lg bg-[#2457a6] px-3 py-1.5 text-[11px] font-bold text-white">
+                    Browse
+                  </span>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(event) =>
+                      handleFileChange(event.target.files?.[0])
+                    }
+                  />
+                </label>
+
+                {previewUrl && (
+                  <div className="relative mt-3 overflow-hidden rounded-xl border border-[#e6eaf0] bg-white">
+                    <img
+                      src={previewUrl}
+                      alt="Preview gambar"
+                      className="max-h-72 w-full object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearFile}
+                      aria-label="Hapus gambar"
+                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white transition hover:bg-black/80"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                )}
+
+                <p className="mt-2 text-[10px] leading-5 text-[#98a2b3]">
+                  Format: JPG, PNG, WEBP. Maksimal 5 MB.
+                </p>
+              </div>
+            )}
+          </>
 
           {error && (
             <div
@@ -663,7 +730,8 @@ export function ThreatCheck() {
           </button>
 
           <p className="mt-3 text-center text-[10px] leading-5 text-[#98a2b3]">
-            Data dianalisis secara otomatis menggunakan AI & pemindai heuristik. Hasil merupakan pemeriksaan awal berbasis indikator risiko.
+            Data dianalisis secara otomatis menggunakan AI & pemindai heuristik.
+            Hasil merupakan pemeriksaan awal berbasis indikator risiko.
           </p>
         </div>
       </div>
