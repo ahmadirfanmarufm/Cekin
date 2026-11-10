@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -25,6 +25,12 @@ import {
   type AnalysisCategory,
   type AnalysisResult,
 } from "@/lib/cekin/analysis";
+import {
+  getCountries,
+  getCountryCallingCode,
+  parsePhoneNumberFromString,
+  type CountryCode,
+} from "libphonenumber-js";
 
 const categories = [
   { id: "Pesan / Chat", icon: MessageSquare },
@@ -49,6 +55,24 @@ const samples: Record<AnalysisCategory, string> = {
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 4000;
+const REGION_NAMES = new Intl.DisplayNames(["id"], { type: "region" });
+const COUNTRY_CODES = getCountries()
+  .map((country) => {
+    const code = `+${getCountryCallingCode(country)}`;
+    const name = REGION_NAMES.of(country) ?? country;
+
+    return {
+      country,
+      code,
+      name,
+      label: `${code} - ${name}`,
+    };
+  })
+  .sort((a, b) => {
+    if (a.country === "ID") return -1;
+    if (b.country === "ID") return 1;
+    return a.name.localeCompare(b.name, "id");
+  });
 
 type Stage = "form" | "checking" | "result";
 
@@ -62,11 +86,23 @@ export function ThreatCheck() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [activeTip, setActiveTip] = useState(0);
-  const [callingCode, setCallingCode] = useState("+62");
-  const COUNTRY_CODES = [
-    { code: "+62", label: "ID +62" },
-    { code: "+1", label: "US +1" },
-  ];
+  const [country, setCountry] = useState<CountryCode>("ID");
+  const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const countryMenuRef = useRef<HTMLDivElement>(null);
+
+  const selectedCountry = COUNTRY_CODES.find(
+    (item) => item.country === country,
+  );
+  const filteredCountries = COUNTRY_CODES.filter((item) => {
+    const query = countrySearch.trim().toLowerCase();
+    return (
+      !query ||
+      item.name.toLowerCase().includes(query) ||
+      item.country.toLowerCase().includes(query) ||
+      item.code.includes(query)
+    );
+  });
 
   const tipsAndFacts = [
     {
@@ -96,6 +132,23 @@ export function ThreatCheck() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    if (!isCountryMenuOpen) return;
+
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        countryMenuRef.current &&
+        !countryMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsCountryMenuOpen(false);
+        setCountrySearch("");
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isCountryMenuOpen]);
 
   useEffect(() => {
     if (stage !== "checking") return;
@@ -131,7 +184,7 @@ export function ThreatCheck() {
           const bodyData = {
             text:
               category === "Nomor Telepon"
-                ? buildPhone(callingCode, input)
+                ? buildPhone(country, input)
                 : input,
           };
 
@@ -203,21 +256,18 @@ export function ThreatCheck() {
     });
   }, [stage]);
 
-  function buildPhone(code: string, local: string) {
+  function buildPhone(selectedCountry: CountryCode, local: string) {
     const value = local.trim();
 
-    if (value.startsWith("+")) return value;
+    const phone = parsePhoneNumberFromString(value, selectedCountry);
 
-    const digits = value.replace(/\D/g, "").replace(/^0+/, "");
-    return `${code}${digits}`;
+    return phone?.number ?? value;
   }
 
   function submit() {
     if (category === "Informasi Lainnya") {
-      const value = input.trim();
-
-      if (!file && value.length < 10) {
-        setError("Tulis informasi minimal 10 karakter atau tambahkan gambar.");
+      if (!file) {
+        setError("Pilih gambar terlebih dahulu untuk dianalisis.");
         return;
       }
 
@@ -458,7 +508,7 @@ export function ThreatCheck() {
         reset={reset}
         input={
           category === "Nomor Telepon"
-            ? buildPhone(callingCode, input)
+            ? buildPhone(country, input)
             : [input, file?.name].filter(Boolean).join("\n")
         }
       />
@@ -542,32 +592,163 @@ export function ThreatCheck() {
             <div>
               <h2 className="text-base font-bold text-[#17233b]">
                 {category === "Informasi Lainnya"
-                  ? "Masukkan teks atau gambar"
+                  ? "Pilih gambar dan tambahkan informasi"
                   : "Masukkan informasi"}
               </h2>
               <p className="mt-1 text-xs leading-5 text-[#667085]">
                 {category === "Informasi Lainnya"
-                  ? "Tuliskan informasinya, unggah gambar, atau gunakan keduanya."
+                  ? "Pilih gambar yang wajib diperiksa. Informasi tambahan bersifat opsional."
                   : "Tempel atau tuliskan informasi yang ingin diperiksa."}
               </p>
             </div>
           </div>
 
           <>
-            {category === "Nomor Telepon" ? (
+            {category === "Informasi Lainnya" ? (
+              <>
+                <div>
+                  <span className="text-[11px] font-bold text-[#667085]">
+                    Gambar <span className="text-red-600">(wajib)</span>
+                  </span>
+
+                  <label
+                    htmlFor="file-upload"
+                    className="mt-2 flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#c7d4e5] bg-[#f7f9fc] px-4 py-3 text-sm text-[#667085] transition hover:border-[#2457a6] hover:bg-[#eaf1fc] focus-within:border-[#2457a6] focus-within:ring-4 focus-within:ring-[#2457a6]/10"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2457a6] text-white">
+                      <Upload size={17} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#17233b]">
+                      {file ? file.name : "Pilih gambar untuk dianalisis..."}
+                    </span>
+                    <span className="rounded-lg bg-[#2457a6] px-3 py-1.5 text-[11px] font-bold text-white">
+                      Browse
+                    </span>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) =>
+                        handleFileChange(event.target.files?.[0])
+                      }
+                    />
+                  </label>
+
+                  {previewUrl && (
+                    <div className="relative mt-3 overflow-hidden rounded-xl border border-[#e6eaf0] bg-white">
+                      <img
+                        src={previewUrl}
+                        alt="Preview gambar"
+                        className="max-h-72 w-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={clearFile}
+                        aria-label="Hapus gambar"
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white transition hover:bg-black/80"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  )}
+
+                  <p className="mt-2 text-[10px] leading-5 text-[#98a2b3]">
+                    Format: JPG, PNG, WEBP. Maksimal 5 MB.
+                  </p>
+                </div>
+
+                <div className="mt-5">
+                  <label
+                    htmlFor="other-info-text"
+                    className="mb-2 block text-[11px] font-bold text-[#667085]"
+                  >
+                    Informasi tambahan (opsional)
+                  </label>
+                  <textarea
+                    id="other-info-text"
+                    value={input}
+                    onChange={(event) => {
+                      setInput(event.target.value);
+                      setError("");
+                    }}
+                    placeholder="Tambahkan konteks atau informasi yang berkaitan dengan gambar..."
+                    aria-label="Informasi tambahan (opsional)"
+                    maxLength={MAX_TEXT_LENGTH}
+                    rows={6}
+                    className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+                  />
+                </div>
+              </>
+            ) : category === "Nomor Telepon" ? (
               <div className="flex gap-2">
-                <select
-                  value={callingCode}
-                  onChange={(event) => setCallingCode(event.target.value)}
-                  aria-label="Kode negara"
-                  className="min-h-14 shrink-0 rounded-xl border border-[#e6eaf0] bg-white px-3 text-sm font-semibold text-[#17233b] outline-none transition focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
-                >
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                <div ref={countryMenuRef} className="relative shrink-0">
+                  <button
+                    type="button"
+                    aria-label="Pilih kode negara"
+                    aria-expanded={isCountryMenuOpen}
+                    onClick={() => setIsCountryMenuOpen((open) => !open)}
+                    className="flex min-h-14 min-w-24 items-center justify-center gap-1 rounded-xl border border-[#e6eaf0] bg-white px-3 text-sm font-semibold text-[#17233b] outline-none transition hover:border-[#b9cbe5] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+                  >
+                    {selectedCountry?.code}
+                    <span
+                      className={`text-xs transition-transform ${
+                        isCountryMenuOpen ? "rotate-180" : ""
+                      }`}
+                    >
+                      ▾
+                    </span>
+                  </button>
+
+                  {isCountryMenuOpen && (
+                    <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-76 overflow-hidden rounded-lg border border-[#2457a6] bg-white shadow-xl">
+                      <div className="p-2">
+                        <input
+                          type="search"
+                          value={countrySearch}
+                          onChange={(event) =>
+                            setCountrySearch(event.target.value)
+                          }
+                          placeholder="Ketik kode atau nama negara"
+                          aria-label="Cari kode atau nama negara"
+                          autoFocus
+                          className="h-12 w-full rounded-md border border-[#2457a6] bg-white px-4 text-sm text-[#17233b] outline-none placeholder:text-[#98a2b3] focus:ring-2 focus:ring-[#2457a6]/10"
+                        />
+                      </div>
+                      <div
+                        role="listbox"
+                        aria-label="Daftar kode negara"
+                        className="max-h-64 overflow-y-auto px-2 pb-2"
+                      >
+                        {filteredCountries.map((item) => (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={item.country === country}
+                            key={item.country}
+                            onClick={() => {
+                              setCountry(item.country);
+                              setIsCountryMenuOpen(false);
+                              setCountrySearch("");
+                            }}
+                            className={`block w-full rounded-md px-3 py-2.5 text-left text-sm transition hover:bg-[#f1f5f9] ${
+                              item.country === country
+                                ? "font-bold text-[#2d4f7b]"
+                                : "text-[#4b5563]"
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                        {filteredCountries.length === 0 && (
+                          <p className="px-3 py-3 text-sm text-[#98a2b3]">
+                            Negara tidak ditemukan.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <input
                   type="tel"
@@ -578,7 +759,7 @@ export function ThreatCheck() {
                     setError("");
                   }}
                   placeholder={
-                    callingCode === "+62" ? "812 3456 7890" : "415 555 0132"
+                    country === "ID" ? "812 3456 7890" : "Nomor telepon lokal"
                   }
                   aria-label="Nomor telepon"
                   className="min-h-14 w-full rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
@@ -601,38 +782,17 @@ export function ThreatCheck() {
                 className="min-h-14 w-full rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
               />
             ) : (
-              <>
-                {category === "Informasi Lainnya" && (
-                  <label
-                    htmlFor="other-info-text"
-                    className="mb-2 block text-[11px] font-bold text-[#667085]"
-                  >
-                    Teks informasi
-                    {file ? " (opsional karena gambar sudah dipilih)" : ""}
-                  </label>
-                )}
-                <textarea
-                  id={
-                    category === "Informasi Lainnya"
-                      ? "other-info-text"
-                      : undefined
-                  }
-                  value={input}
-                  onChange={(event) => {
-                    setInput(event.target.value);
-                    setError("");
-                  }}
-                  placeholder={placeholderForCategory(category)}
-                  aria-label={`Masukkan ${category}`}
-                  maxLength={
-                    category === "Informasi Lainnya"
-                      ? MAX_TEXT_LENGTH
-                      : undefined
-                  }
-                  rows={6}
-                  className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
-                />
-              </>
+              <textarea
+                value={input}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  setError("");
+                }}
+                placeholder={placeholderForCategory(category)}
+                aria-label={`Masukkan ${category}`}
+                rows={6}
+                className="min-h-36 w-full resize-y rounded-xl border border-[#e6eaf0] bg-white px-4 py-3 text-sm leading-7 text-[#17233b] outline-none transition placeholder:text-[#a0aaba] focus:border-[#2457a6] focus:ring-4 focus:ring-[#2457a6]/10"
+              />
             )}
 
             <button
@@ -647,59 +807,6 @@ export function ThreatCheck() {
               Gunakan contoh
             </button>
 
-            {category === "Informasi Lainnya" && (
-              <div className="mt-5">
-                <span className="text-[11px] font-bold text-[#667085]">
-                  Gambar (opsional, bisa digabung dengan teks)
-                </span>
-
-                <label
-                  htmlFor="file-upload"
-                  className="mt-2 flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#c7d4e5] bg-[#f7f9fc] px-4 py-3 text-sm text-[#667085] transition hover:border-[#2457a6] hover:bg-[#eaf1fc] focus-within:border-[#2457a6] focus-within:ring-4 focus-within:ring-[#2457a6]/10"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2457a6] text-white">
-                    <Upload size={17} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#17233b]">
-                    {file ? file.name : "Pilih gambar untuk dianalisis..."}
-                  </span>
-                  <span className="rounded-lg bg-[#2457a6] px-3 py-1.5 text-[11px] font-bold text-white">
-                    Browse
-                  </span>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    onChange={(event) =>
-                      handleFileChange(event.target.files?.[0])
-                    }
-                  />
-                </label>
-
-                {previewUrl && (
-                  <div className="relative mt-3 overflow-hidden rounded-xl border border-[#e6eaf0] bg-white">
-                    <img
-                      src={previewUrl}
-                      alt="Preview gambar"
-                      className="max-h-72 w-full object-contain"
-                    />
-                    <button
-                      type="button"
-                      onClick={clearFile}
-                      aria-label="Hapus gambar"
-                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white transition hover:bg-black/80"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                )}
-
-                <p className="mt-2 text-[10px] leading-5 text-[#98a2b3]">
-                  Format: JPG, PNG, WEBP. Maksimal 5 MB.
-                </p>
-              </div>
-            )}
           </>
 
           {error && (

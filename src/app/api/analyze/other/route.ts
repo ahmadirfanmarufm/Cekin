@@ -108,9 +108,9 @@ export async function POST(req: Request) {
     const entry = form.get("file");
     const file = entry instanceof File && entry.size > 0 ? entry : null;
 
-    if (!text && !file) {
+    if (!file) {
       return NextResponse.json(
-        { error: "Isi teks atau unggah gambar" },
+        { error: "Gambar wajib diunggah" },
         { status: 400 },
       );
     }

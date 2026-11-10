@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const phone = parsePhoneNumberFromString(text.trim(), "ID");
+    const phone = parsePhoneNumberFromString(text.trim());
     if (!phone || !phone.isValid()) {
       return NextResponse.json(
         { error: "Format nomor telepon tidak valid" },
