@@ -607,7 +607,8 @@ export const CommunityCenter = () => {
     );
 
     return (
-        <div className="mx-auto w-full max-w-6xl space-y-6 py-6 px-5 sm:px-8 md:px-10 xl:px-0">
+        <div className="bg-[#f7f9fc]">
+        <div className="mx-auto w-full max-w-6xl space-y-6  py-6 px-5 sm:px-8 md:px-10 xl:px-0">
             {/* Header */}
             <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
@@ -1557,6 +1558,7 @@ export const CommunityCenter = () => {
             onClose={() => setIsAuthModalOpen(false)}
             initialMode="login"
         />
-    </div>
+        </div>
+        </div>
   );
 }

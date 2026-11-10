@@ -25,29 +25,26 @@ const toneClasses: Record<Tone, string> = {
   purple: "bg-[#f1ecff] text-[#7355b5]",
 };
 
-const heroGradient =
-  "bg-[radial-gradient(circle_at_80%_10%,#eaf2ff_0%,#ffffff_40%)]";
-
 const heroContent = (
   <div
-    className={`${heroGradient} relative flex min-h-[480px] items-center overflow-hidden sm:min-h-[560px] lg:min-h-[600px]`}
+    className="relative flex min-h-[480px] items-center overflow-hidden sm:min-h-[560px] lg:min-h-[600px] bg-[#f7f9fc]"
   >
     <div className="pointer-events-none absolute inset-0">
       <div className="absolute -right-12 -top-20 size-48 rounded-full border border-[#2457a6]/10" />
       <div className="absolute -bottom-28 -left-12 size-56 rounded-full border border-[#2457a6]/10" />
     </div>
 
-    <div className="relative z-10 mx-auto w-full max-w-[1160px] px-5 py-20 text-center sm:px-8 sm:py-24 md:px-10">
+    <div className="relative z-10 w-full px-5 py-20 text-center sm:px-8 sm:py-24 md:px-10 lg:px-10 xl:px-0">
       <span className="inline-flex items-center gap-2 rounded-full bg-[#eaf1fc] px-3 py-2 text-[11px] font-extrabold tracking-wide text-[#2457a6]">
         <ShieldCheck size={14} /> Tentang Cekin
       </span>
 
-      <h1 className="mx-auto mt-6 max-w-[920px] text-[39px] font-extrabold leading-[1.12] tracking-[-1.8px] text-[#17233b] sm:text-5xl lg:text-[58px] lg:tracking-[-2.5px]">
+      <h1 className="mx-auto max-w-[920px] text-[39px] font-extrabold leading-[1.12] tracking-[-1.8px] text-[#17233b] sm:text-5xl lg:text-[58px] lg:tracking-[-2.5px]">
         Jangan langsung percaya kalau belum{" "}
         <span className="text-[#2457a6]">diCEKIN</span>
       </h1>
 
-      <p className="mx-auto mt-6 max-w-[700px] text-sm leading-8 text-[#667085] sm:text-base">
+      <p className="mx-auto max-w-[700px] text-sm leading-8 text-[#667085] sm:text-base">
         Cekin hadir sebagai benteng pertahanan pertama Anda dari modus
         penipuan online, phishing, dan ancaman siber melalui kecerdasan
         buatan dan simulasi interaktif.
@@ -409,8 +406,7 @@ const ctaContent = (
             </Link>
             <Link
               href="/learning-protection"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-[13px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-white/20"
-            >
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-[13px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-white/20">
 
               <FlaskConical size={17} className="text-white" />
               <span className="text-white">Belajar Melalui Simulasi</span>

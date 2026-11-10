@@ -300,7 +300,7 @@ export function ThreatCheck() {
       case "Cek Kebocoran Email":
         return "johndoe@example.com";
       case "Investasi":
-        return "Masukkan nama platform, nama aplikasi, atau deskripsi tawaran investasi (contoh: Janji profit 10% seminggu, bot trading X, dsb.";
+        return "Masukkan nama platform, nama aplikasi, atau deskripsi tawaran investasi (contoh: Janji profit 10% seminggu, bot trading X, dsb.).";
       case "Informasi Lainnya":
         return undefined;
     }

@@ -41,7 +41,6 @@ Cekin adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal ter
 - **Backend services:** Next.js Route Handlers dan Supabase Storage
 - **AI:** Google Gemini API untuk analisis terstruktur
 - **Validasi & utilitas:** Zod, libphonenumber-js, Cheerio
-- **Testing:** Vitest, Testing Library, dan Playwright
 - **Package manager:** pnpm 10
 
 ## Arsitektur dan Struktur Direktori
@@ -56,10 +55,18 @@ Cekin adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal ter
 │   │   └── api/              # Endpoint auth, analisis, komunitas, dan learning
 │   ├── components/           # Komponen UI dan layout yang reusable
 │   ├── features/             # Modul fitur berdasarkan domain bisnis
-│   │   ├── community/
-│   │   ├── home/
-│   │   └── learning-protection/
+│   │   ├── auth/             # Registrasi, login, dan sesi pengguna
+│   │   ├── community/        # Posting, komentar, reaksi, laporan, dan moderasi
+│   │   ├── emergency/        # Emergency Center dan panduan tindakan awal
+│   │   ├── home/             # Halaman utama dan navigasi fitur
+│   │   ├── learning-protection/  # Simulasi interaktif dan materi edukasi
+│   │   └── threat-check/     # Alur analisis ancaman dan form input pengguna
 │   ├── lib/                  # Integrasi database, auth, AI, Supabase, dan utilitas
+│   │   ├── auth/             # Hashing password, sesi, dan proteksi request
+│   │   ├── cekin/            # Engine analisis: aturan dan data indikator ancaman
+│   │   ├── db/               # Koneksi dan schema Drizzle
+│   │   ├── learning-protection/  # XP, badge, dialog, dan state progres
+│   │   └── supabase/         # Supabase admin client (server-only)
 │   └── types/                # Type definitions lintas fitur
 ├── .env.example              # Template environment variables
 ├── drizzle.config.ts         # Konfigurasi Drizzle Kit
@@ -82,7 +89,7 @@ Cekin adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal ter
 - Node.js versi LTS (disarankan Node.js 20 atau lebih baru)
 - pnpm `10.16.1` atau kompatibel
 - PostgreSQL yang dapat diakses aplikasi
-- Project Supabase untuk storage komunitas
+- Project Supabase dengan Storage bucket untuk media komunitas
 - API key Google Gemini untuk fitur analisis AI
 
 ### Instalasi
@@ -104,13 +111,19 @@ cp .env.example .env
 | Variable | Kegunaan |
 | --- | --- |
 | `DATABASE_URL` | Connection string PostgreSQL untuk Drizzle dan aplikasi. |
-| `SUPABASE_URL` | URL Supabase untuk operasi server-side. |
+| `SUPABASE_URL` | URL Supabase untuk operasi server-side (termasuk Supabase Storage). |
 | `SUPABASE_SECRET_KEY` | Secret key Supabase; hanya untuk server dan jangan diekspos ke client. |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL Supabase yang aman digunakan di client. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key Supabase untuk client. |
 | `KLIPY_API_KEY` | API key Klipy untuk fitur GIF komunitas. |
 | `GEMINI_API_KEY` | API key Google Gemini untuk analisis AI. |
 | `GEMINI_MODEL` | Opsional; override model Gemini default yang digunakan aplikasi. |
+
+> Seluruh akses Supabase bersifat server-side melalui `src/lib/supabase/admin.ts`. Tidak ada Supabase client yang berjalan di browser, sehingga tidak diperlukan environment variable ber-prefix `NEXT_PUBLIC_`.
+
+### Supabase Storage
+
+Media komunitas (gambar pada posting dan komentar) disimpan di Supabase Storage, bukan di filesystem aplikasi. Sebelum upload dapat berfungsi, buat bucket bernama `cekin-community-evidence` pada project Supabase. Nama bucket didefinisikan sebagai konstanta `COMMUNITY_BUCKET` di `src/lib/supabase/admin.ts`, jadi sesuaikan di sana bila ingin memakai nama lain.
+
+Jika bucket belum tersedia, endpoint komunitas akan mengembalikan error saat menerima upload media.
 
 ### Database
 
@@ -144,6 +157,8 @@ pnpm lint
 pnpm test
 pnpm build
 ```
+
+`pnpm test` menjalankan unit test berbasis Vitest. Saat ini cakupannya masih terbatas pada hook komunitas, jadi tambahkan test baru untuk perilaku yang Anda ubah.
 
 ## Build dan Deployment
 
@@ -185,7 +200,27 @@ Hindari memasukkan secret, data pengguna, hasil build, atau perubahan migration 
 
 ## License
 
-Lisensi proyek belum ditetapkan dalam repository ini. Sampai file `LICENSE` tersedia, perlakukan source code sebagai **all rights reserved** dan minta persetujuan maintainer sebelum menggunakan atau mendistribusikannya.
+MIT License
+
+Copyright (c) 2026 ProgrammerAkhirZaman
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ---
 
