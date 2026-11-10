@@ -35,13 +35,13 @@ const heroContent = (
     </div>
 
     <div className="relative z-10 w-full px-5 py-20 text-center sm:px-8 sm:py-24 md:px-10 lg:px-10 xl:px-0">
-      <span className="inline-flex items-center gap-2 rounded-full bg-[#eaf1fc] px-3 py-2 text-[11px] font-extrabold tracking-wide text-[#2457a6]">
+      <span className="inline-flex items-center gap-2 mb-6 rounded-full bg-[#eaf1fc] px-3 py-2 text-[11px] font-extrabold tracking-wide text-[#2457a6]">
         <ShieldCheck size={14} /> Tentang Cekin
       </span>
 
-      <h1 className="mx-auto max-w-[920px] text-[39px] font-extrabold leading-[1.12] tracking-[-1.8px] text-[#17233b] sm:text-5xl lg:text-[58px] lg:tracking-[-2.5px]">
-        Jangan langsung percaya kalau belum{" "}
-        <span className="text-[#2457a6]">diCEKIN</span>
+      <h1 className="mx-auto max-w-[920px] text-[39px] mb-6 font-extrabold leading-[1.32] tracking-[-1.8px] text-[#17233b] sm:text-5xl lg:text-[58px] lg:tracking-[-2.5px]">
+        Jangan asal percaya kalau belum{" "}
+        di <span className="text-[#2457a6]">CEKIN</span>
       </h1>
 
       <p className="mx-auto max-w-[700px] text-sm leading-8 text-[#667085] sm:text-base">
@@ -381,8 +381,8 @@ const principlesContent = (
 
 const ctaContent = (
   <section className="bg-white">
-    <div className="mx-auto w-full max-w-[1160px] px-5 py-16 sm:px-8 sm:py-20 md:px-10 xl:px-0">
-      <div className="relative overflow-hidden rounded-[24px] bg-[linear-gradient(135deg,#183d78_0%,#2457a6_58%,#26a269_100%)] px-6 py-12 text-center sm:px-10 sm:py-14">
+    <div className="mx-auto w-full max-w-290 px-5 py-16 sm:px-8 sm:py-20 md:px-10 xl:px-0">
+      <div className="relative overflow-hidden rounded-3xl bg-(--brand) px-6 py-12 text-center sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -right-12 -top-20 size-48 rounded-full border-2 border-white/10" />
         <div className="pointer-events-none absolute -bottom-28 -left-12 size-60 rounded-full border-2 border-white/10" />
 
@@ -392,7 +392,7 @@ const ctaContent = (
           <h2 className="mt-4 text-2xl font-extrabold text-white sm:text-3xl">
             Siap Melindungi Diri dari Penipuan Digital?
           </h2>
-          <p className="mx-auto mt-3 max-w-[560px] text-sm leading-7 text-white/75">
+          <p className="mx-auto mt-3 max-w-140 text-sm leading-7 text-white/75">
             Mulai dari satu pemeriksaan atau latih kepekaan Anda melalui
             simulasi interaktif.
           </p>
