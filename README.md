@@ -71,7 +71,9 @@ Pengguna dapat mengumpulkan badge sebagai penanda progres belajar. Badge awalnya
 
 Ruang bagi pengguna untuk saling berbagi pengalaman dan informasi seputar penipuan, sehingga pengguna lain bisa lebih waspada terhadap modus yang sedang beredar.
 
-### 4. Akun dan Progress: menyimpan akun pengguna beserta progres simulasi dan badge yang sudah diperoleh
+### 4. Akun dan Progress
+
+Menyimpan akun pengguna beserta progres simulasi dan badge yang sudah diperoleh
 
 ### 5. Emergency Center
 
