@@ -49,7 +49,7 @@ Pengguna dapat mengumpulkan badge sebagai penanda progres belajar. Badge awalnya
 
 Ruang bagi pengguna untuk saling berbagi pengalaman dan informasi seputar penipuan, sehingga pengguna lain bisa lebih waspada terhadap modus yang sedang beredar.
 
-### Profil**: menyimpan akun pengguna beserta progres simulasi dan badge yang sudah diperoleh
+### Profil: menyimpan akun pengguna beserta progres simulasi dan badge yang sudah diperoleh
 
 ### Pusat Bantuan
 
