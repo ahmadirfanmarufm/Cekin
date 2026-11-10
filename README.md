@@ -11,6 +11,14 @@ Cekin memiliki tiga fitur utama yang saling melengkapi: mendeteksi ancaman, meng
 ### 1. Cek Ancaman
 Fitur inti untuk memeriksa apakah sesuatu yang diterima pengguna berpotensi penipuan. Pengguna memasukkan data yang ingin dicek, lalu sistem memberikan hasil penilaian risikonya.
 
+| Jenis Pengecekan | Deskripsi |
+|---|---|
+| Pesan / Chat | Memeriksa isi pesan (SMS, WhatsApp, dll.) yang mencurigakan |
+| URL | Memeriksa apakah sebuah tautan berpotensi phishing atau situs berbahaya |
+| Nomor Telepon | Memeriksa apakah nomor berpotensi merupakan nomor penipu |
+| Kebocoran Email | Memeriksa apakah alamat email pernah terlibat dalam kebocoran data |
+| Investasi | Memeriksa apakah tawaran investasi memiliki ciri-ciri investasi bodong |
+
 ### 2. Learning & Protection
 
 Fitur edukasi agar pengguna paham cara melindungi diri dari penipuan melalui enam simulasi interaktif. Setiap simulasi memiliki tingkat kesulitan dan estimasi durasi yang berbeda.
@@ -27,17 +35,6 @@ Fitur edukasi agar pengguna paham cara melindungi diri dari penipuan melalui ena
 ### 3. Komunitas
 
 Ruang bagi pengguna untuk saling berbagi pengalaman dan informasi seputar penipuan, sehingga pengguna lain bisa lebih waspada terhadap modus yang sedang beredar.
-
-
-| Jenis Pengecekan | Deskripsi |
-|---|---|
-| Pesan / Chat | Memeriksa isi pesan (SMS, WhatsApp, dll.) yang mencurigakan |
-| URL | Memeriksa apakah sebuah tautan berpotensi phishing atau situs berbahaya |
-| Nomor Telepon | Memeriksa apakah nomor pernah terindikasi sebagai nomor penipu |
-| Kebocoran Email | Memeriksa apakah alamat email pernah terlibat dalam kebocoran data |
-| Investasi | Memeriksa apakah tawaran investasi memiliki ciri-ciri investasi bodong |
-
-
 
 ## Getting Started
 
