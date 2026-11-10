@@ -2,14 +2,14 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## CEKIN - Jangan Asal Percaya!
 
-Cekin adalah website untuk membantu masyarakat mengenali dan menghindari penipuan digital.
+Cekin adalah web app untuk membantu masyarakat mengenali dan menghindari penipuan digital.
 
 ## Fungsionalitas Sistem
 
-Cekin memiliki tiga fitur utama yang saling melengkapi: mendeteksi ancaman, mengedukasi pengguna, dan membangun kewaspadaan bersama lewat komunitas.
+Cekin memiliki tiga fungsionalitas utama yang saling melengkapi: mendeteksi ancaman, mengedukasi pengguna, dan membangun kewaspadaan bersama lewat komunitas.
 
 ### 1. Cek Ancaman
-Fitur inti untuk memeriksa apakah sesuatu yang diterima pengguna berpotensi penipuan. Pengguna memasukkan data yang ingin dicek, lalu sistem memberikan hasil penilaian risikonya.
+Fitur inti untuk memeriksa apakah sesuatu yang diterima pengguna berpotensi penipuan. Pengguna memasukkan data yang ingin dicek, lalu sistem memberikan skor risiko dalam skala 0-100.
 
 | Jenis Pengecekan | Deskripsi |
 |---|---|
@@ -32,9 +32,41 @@ Fitur edukasi agar pengguna paham cara melindungi diri dari penipuan melalui ena
 | 05 | Judol | Penting | 5 menit | Mengenali promosi, near-miss, dan loss chasing |
 | 06 | Jebakan Logika | Pemula | 4 menit | Mengenali pola pikir yang dimanfaatkan pelaku |
 
+#### Badge
+
+Pengguna dapat mengumpulkan badge sebagai penanda progres belajar. Badge awalnya terkunci dan terbuka setelah pengguna menyelesaikan simulasi yang bersangkutan. Total ada 6 badge:
+
+| Badge | Simulasi |
+|---|---|
+| Si Kebal Tipu | Penipuan Chat |
+| Detektif Aplikasi | Aplikasi Sus |
+| Pemburu Phishing | Phishing |
+| King Gocek Telepon | Penipuan Telepon |
+| Pejuang Anti Judol | Judol |
+| Mikir Kids | Jebakan Logika |
+
 ### 3. Komunitas
 
 Ruang bagi pengguna untuk saling berbagi pengalaman dan informasi seputar penipuan, sehingga pengguna lain bisa lebih waspada terhadap modus yang sedang beredar.
+
+### Profil**: menyimpan akun pengguna beserta progres simulasi dan badge yang sudah diperoleh
+
+### Pusat Bantuan
+
+Panduan penanganan bagi pengguna yang sudah terlanjur terkena penipuan. Pengguna memilih kondisi yang sedang dialami pada daftar "Apa yang sedang terjadi?", lalu sistem menampilkan **Panduan Langkah Aman** yang berisi:
+
+- Langkah-langkah yang perlu dilakukan, disusun berurutan
+- Sumber bantuan, misalnya pelaporan ke platform tempat penipuan terjadi
+
+## Catatan Penting
+
+> [!WARNING]
+> Cekin adalah alat bantu pengecekan awal dan edukasi, bukan jaminan keamanan mutlak.
+
+- **Hasil pengecekan tidak 100% akurat.** Skor risiko pada Cek Ancaman hanyalah perkiraan. Skor rendah tidak berarti pesan, tautan, nomor, atau tawaran tersebut pasti aman, dan skor tinggi tidak berarti pasti penipuan. Tetap gunakan kewaspadaan dan pertimbangan sendiri.
+- **Panduan Pusat Bantuan tidak menjamin pemulihan.** Mengikuti panduan tidak menjamin dana atau akun yang sudah terdampak dapat dipulihkan.
+- **Gunakan kanal resmi.** Untuk penanganan kasus yang sebenarnya, hubungi pihak resmi seperti bank, penyedia layanan, platform terkait, atau pihak berwenang, dan hindari pihak yang menjanjikan pemulihan dengan biaya di muka.
+- **Simulasi bersifat edukasi.** Skenario pada Learning & Protection adalah contoh untuk latihan dan tidak mencakup seluruh modus penipuan yang ada.
 
 ## Getting Started
 
