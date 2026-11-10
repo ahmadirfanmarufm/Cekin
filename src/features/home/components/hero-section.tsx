@@ -6,7 +6,7 @@ import { HeroVisual } from "./hero-visual";
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-x-clip bg-[radial-gradient(circle_at_85%_35%,#eaf2ff_0%,transparent_34%),linear-gradient(180deg,#fbfdff_0%,#ffffff_100%)]">
+    <section className="relative overflow-x-clip bg-[radial-gradient(circle_at_85%_35%,#eaf2ff_0%,transparent_34%),linear-gradient(180deg,#fbfdff_0%,#ffffff_100%)] px-5 sm:px-8 lg:px-10">
       <div className="mx-auto grid min-h-[580px] w-full max-w-[1160px] grid-cols-1 items-center gap-8 px-4 py-14 sm:px-6 sm:py-16 lg:min-h-[620px] lg:grid-cols-[1.05fr_0.95fr] lg:gap-11 lg:px-0 lg:py-[75px]">
 
         {/* Hero Content */}
@@ -29,7 +29,7 @@ export function HeroSection() {
 
           <div className="mt-7 flex flex-col flex-wrap justify-center gap-3 sm:flex-row lg:justify-start">
             <Link
-              href="/cek-ancaman"
+              href="/threat-check"
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#2457a6] px-5 py-3 text-[13px] font-bold !text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#183d78] hover:shadow-lg hover:shadow-[#2457a6]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2457a6]"
             >
               <Search size={18} />

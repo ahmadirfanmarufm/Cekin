@@ -30,7 +30,7 @@ export default function NotFound() {
             </Link>
 
             <Link
-              href="/cek-ancaman"
+              href="/threat-check"
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#cdd9eb] bg-white px-5 py-3 text-[13px] font-bold text-[#2457a6] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#b9cbe5] hover:bg-[#eaf1fc] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2457a6]"
             >
               <Search size={17} />

@@ -28,10 +28,10 @@ type AuthUser = {
 
 const navigation = [
   { label: "Beranda", href: "/" },
-  { label: "Cek Ancaman", href: "/cek-ancaman" },
+  { label: "Cek Ancaman", href: "/threat-check" },
   { label: "Learning & Protection", href: "/learning-protection" },
   { label: "Komunitas", href: "/community" },
-  { label: "Tentang Kami", href: "/tentang-kami" },
+  { label: "Tentang Kami", href: "/about-us" },
 ];
 
 export function SiteHeader() {
@@ -175,8 +175,8 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-xl px-5 sm:px-8 md:px-10 xl:px-0">
+        <div className="mx-auto flex h-20 max-w-6xl items-center justify-between">
 
           {/* Logo */}
           <Link
@@ -209,7 +209,7 @@ export function SiteHeader() {
 
           {/* Desktop Navigation */}
           <nav
-            className="hidden items-center gap-7 lg:flex"
+            className="hidden min-w-0 flex-1 items-center justify-center gap-5 lg:flex"
             aria-label="Navigasi utama"
           >
             {navigation.map((item) => {
@@ -268,19 +268,16 @@ export function SiteHeader() {
                   onClick={() => setIsUserMenuOpen((prev) => !prev)}
                   aria-expanded={isUserMenuOpen}
                   aria-haspopup="menu"
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 transition-all hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-0 transition-all hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700">
                     <UserRound size={19} />
                   </span>
 
                   <span className="flex max-w-28 flex-col items-start">
-                    <strong className="max-w-full truncate text-sm font-bold text-slate-800">
+                    <strong className="max-w-full truncate text-sm leading-none font-bold text-slate-800">
                       {user.username}
                     </strong>
-                    <small className="text-[11px] text-slate-500">
-                      Akun CEKIN
-                    </small>
                   </span>
 
                   <ChevronDown
@@ -349,8 +346,8 @@ export function SiteHeader() {
             )}
 
             <Link
-              href="/cek-ancaman"
-              className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold !text-white shadow-md shadow-blue-600/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              href="/threat-check"
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold !text-white shadow-md shadow-blue-600/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               Mulai Cek
             </Link>
@@ -481,7 +478,7 @@ export function SiteHeader() {
                 </button>
 
                 <Link
-                  href="/cek-ancaman"
+                  href="/threat-check"
                   onClick={() => setIsOpen(false)}
                   className="flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold !text-white shadow-md shadow-blue-600/20 transition-colors hover:bg-blue-700"
                 >

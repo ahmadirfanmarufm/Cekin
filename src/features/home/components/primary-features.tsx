@@ -4,7 +4,7 @@ import { Search, Brain, ArrowRight } from "lucide-react";
 
 export function PrimaryFeatures() {
   return (
-    <section className="mx-auto w-full max-w-[1160px] px-4 py-16 sm:px-6 sm:py-20 lg:px-0">
+    <section className="mx-auto w-full max-w-[1160px] py-16 sm:py-20 px-5 sm:px-8 md:px-10 xl:px-0">
       <div className="mx-auto mb-9 max-w-[650px] text-center">
         <span className="inline-flex items-center rounded-full bg-[#eaf1fc] px-3 py-2 text-[11px] font-extrabold tracking-wide text-[#2457a6]">
           Apa yang kamu butuhkan?
@@ -21,7 +21,7 @@ export function PrimaryFeatures() {
 
       <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
         <Link
-          href="/cek-ancaman"
+          href="/threat-check"
           className="group relative flex min-h-[260px] flex-col items-start overflow-hidden rounded-[20px] border border-[#e6eaf0] bg-gradient-to-br from-[#f3f7ff] to-white p-6 transition-all duration-200 hover:-translate-y-1 hover:border-[#c4d6f1] hover:shadow-[0_18px_45px_rgba(20,35,60,0.08)] sm:min-h-[290px] sm:p-7"
         >
           <span className="mb-6 grid size-[58px] place-items-center rounded-[17px] bg-[#eaf1fc] text-[#2457a6]">

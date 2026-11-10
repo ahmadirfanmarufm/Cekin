@@ -488,7 +488,7 @@ export function TrustLabChat({ simulation }: Props) {
 
   return (
     <main className="container py-8 pb-16 md:py-12">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto">
         <Link
           href="/learning-protection"
           className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] transition hover:text-[var(--brand)]"
