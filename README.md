@@ -1,4 +1,4 @@
-# Cekin
+# CEKIN
 
 <p align="center">
   <strong>Platform edukasi dan analisis ancaman digital untuk membantu pengguna mengenali penipuan dengan lebih percaya diri.</strong>
@@ -14,11 +14,11 @@
 
 ## Overview
 
-Cekin adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal terhadap potensi ancaman digital. Pengguna dapat menganalisis konten dari beberapa sumber, mempelajari pola-pola penipuan melalui simulasi interaktif, serta berdiskusi dan berbagi bukti di komunitas.
+CEKIN adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal terhadap potensi ancaman digital. Pengguna dapat menganalisis konten dari beberapa sumber, mempelajari pola-pola penipuan melalui simulasi interaktif, serta berdiskusi dan berbagi bukti di komunitas.
 
 ![Cekin](./public/logo_cekin.webp)
 
-> Hasil analisis Cekin bersifat informatif dan edukatif. Gunakan penilaian manusia serta sumber resmi sebelum mengambil keputusan finansial, keamanan, atau hukum.
+> Hasil analisis CEKIN bersifat informatif dan edukatif. Gunakan penilaian manusia serta sumber resmi sebelum mengambil keputusan finansial, keamanan, atau hukum.
 
 ## Fitur Utama
 
@@ -79,6 +79,16 @@ Panduan penanganan bagi pengguna yang sudah terlanjur terkena penipuan. Pengguna
 
 - Langkah-langkah yang perlu dilakukan, disusun berurutan
 - Sumber bantuan, misalnya pelaporan ke platform tempat penipuan terjadi
+
+## Catatan Penting
+
+> [!WARNING]
+> CEKIN adalah alat bantu pengecekan awal dan edukasi, bukan jaminan keamanan mutlak.
+
+- **Hasil pengecekan tidak 100% akurat.** Skor risiko pada Cek Ancaman hanyalah perkiraan. Skor rendah tidak berarti pesan, tautan, nomor, atau tawaran tersebut pasti aman, dan skor tinggi tidak berarti pasti penipuan. Tetap gunakan kewaspadaan dan pertimbangan sendiri.
+- **Panduan Pusat Bantuan tidak menjamin pemulihan.** Mengikuti panduan tidak menjamin dana atau akun yang sudah terdampak dapat dipulihkan.
+- **Gunakan kanal dan hubungi pihak resmi.** Untuk penanganan kasus yang sebenarnya, hubungi pihak resmi seperti bank, penyedia layanan, platform terkait, atau pihak berwenang, dan hindari pihak yang menjanjikan pemulihan dengan latar belakang yang tidak jelas dan meminta biaya di muka.
+- **Simulasi bersifat edukasi.** Skenario pada Learning & Protection adalah contoh untuk latihan dan tidak mencakup seluruh modus penipuan yang ada.
 
 ## Tech Stack
 
