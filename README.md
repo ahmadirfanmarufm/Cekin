@@ -2,11 +2,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## CEKIN - Jangan Asal Percaya!
 
-Cekin adalah web app untuk membantu masyarakat mengenali dan menghindari penipuan digital.
+CEKIN adalah web app untuk membantu masyarakat mengenali dan menghindari penipuan digital.
 
 ## Fungsionalitas Sistem
 
-Cekin memiliki tiga fungsionalitas utama yang saling melengkapi: mendeteksi ancaman, mengedukasi pengguna, dan membangun kewaspadaan bersama lewat komunitas.
+CEKIN memiliki tiga fungsionalitas utama yang saling melengkapi: mendeteksi ancaman, mengedukasi pengguna, dan membangun kewaspadaan bersama lewat komunitas.
 
 ### 1. Cek Ancaman
 Fitur inti untuk memeriksa apakah sesuatu yang diterima pengguna berpotensi penipuan. Pengguna memasukkan data yang ingin dicek, lalu sistem memberikan skor risiko dalam skala 0-100.
@@ -61,11 +61,11 @@ Panduan penanganan bagi pengguna yang sudah terlanjur terkena penipuan. Pengguna
 ## Catatan Penting
 
 > [!WARNING]
-> Cekin adalah alat bantu pengecekan awal dan edukasi, bukan jaminan keamanan mutlak.
+> CEKIN adalah alat bantu pengecekan awal dan edukasi, bukan jaminan keamanan mutlak.
 
 - **Hasil pengecekan tidak 100% akurat.** Skor risiko pada Cek Ancaman hanyalah perkiraan. Skor rendah tidak berarti pesan, tautan, nomor, atau tawaran tersebut pasti aman, dan skor tinggi tidak berarti pasti penipuan. Tetap gunakan kewaspadaan dan pertimbangan sendiri.
 - **Panduan Pusat Bantuan tidak menjamin pemulihan.** Mengikuti panduan tidak menjamin dana atau akun yang sudah terdampak dapat dipulihkan.
-- **Gunakan kanal resmi.** Untuk penanganan kasus yang sebenarnya, hubungi pihak resmi seperti bank, penyedia layanan, platform terkait, atau pihak berwenang, dan hindari pihak yang menjanjikan pemulihan dengan biaya di muka.
+- **Gunakan kanal dan hubungi pihak resmi.** Untuk penanganan kasus yang sebenarnya, hubungi pihak resmi seperti bank, penyedia layanan, platform terkait, atau pihak berwenang, dan hindari pihak yang menjanjikan pemulihan dengan latar belakang yang tidak jelas dan meminta biaya di muka.
 - **Simulasi bersifat edukasi.** Skenario pada Learning & Protection adalah contoh untuk latihan dan tidak mencakup seluruh modus penipuan yang ada.
 
 ## Getting Started
