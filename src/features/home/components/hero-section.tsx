@@ -19,7 +19,7 @@ export function HeroSection() {
           <h1 className="mt-6 text-[39px] font-extrabold leading-[1.13] tracking-[-1.8px] text-[#17233b] sm:text-5xl lg:text-[58px] lg:tracking-[-2.5px]">
             Jangan asal percaya.
             <br />
-            sebelum di<em className="not-italic text-[#2457a6]"> Cekin</em>.
+            Sebelum di<em className="not-italic text-[#2457a6]"> CEKIN</em>.
           </h1>
 
           <p className="mx-auto mt-5 max-w-[500px] text-sm leading-8 text-[#667085] sm:text-base lg:mx-0">

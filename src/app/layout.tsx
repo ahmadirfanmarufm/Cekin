@@ -8,7 +8,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "CEKIN - Jangan langsung percaya sebelum dicekin",
+    default: "CEKIN - Jangan asal percaya sebelum dicekin",
     template: "%s | CEKIN",
   },
   description: "CEKIN adalah platform edukasi keamanan digital untuk membantu mengenali penipuan online, memeriksa informasi mencurigakan, dan membangun kebiasaan berpikir kritis di dunia digital.",
