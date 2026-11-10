@@ -57,7 +57,7 @@ const SUSPICIOUS_TLDS = new Set([
 
 const SENSITIVE_BRANDS = [
   // Bank
-  "bca", "bri", "mandiri", "bni", "cimb", "bsi", "btn", "permata", "danamon", "ocbc",
+  "bca", "bri", "mandiri", "bankmandiri", "bni", "cimb", "bsi", "btn", "permata", "danamon", "ocbc",
   "maybank", "panin", "btpn", "jago", "seabank", "allobank", "jenius", "livin", "brimo",
   "klikbca", "mybca", "bjb",
   // E-wallet & fintech
