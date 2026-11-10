@@ -22,6 +22,16 @@ CEKIN adalah aplikasi web untuk membantu pengguna melakukan pemeriksaan awal ter
 
 > Hasil analisis CEKIN bersifat informatif dan edukatif. Gunakan penilaian manusia serta sumber resmi sebelum mengambil keputusan finansial, keamanan, atau hukum.
 
+## DEMO
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=e4QNCRjAx44">
+    <img src="https://img.youtube.com/vi/e4QNCRjAx44/maxresdefault.jpg" alt="Demo CEKIN" width="480"/>
+  </a>
+  <br/>
+  <sub>Klik thumbnail di atas atau <a href="https://www.youtube.com/watch?v=e4QNCRjAx44">buka video di YouTube</a></sub>
+</p>
+
 ## Fitur Utama
 
 | Area | Fitur |
