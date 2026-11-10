@@ -1,5 +1,44 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## CEKIN - Jangan Asal Percaya!
+
+Cekin adalah website untuk membantu masyarakat mengenali dan menghindari penipuan digital.
+
+## Fungsionalitas Sistem
+
+Cekin memiliki tiga fitur utama yang saling melengkapi: mendeteksi ancaman, mengedukasi pengguna, dan membangun kewaspadaan bersama lewat komunitas.
+
+### 1. Cek Ancaman
+Fitur inti untuk memeriksa apakah sesuatu yang diterima pengguna berpotensi penipuan. Pengguna memasukkan data yang ingin dicek, lalu sistem memberikan hasil penilaian risikonya.
+
+### 2. Learning & Protection
+
+Fitur edukasi agar pengguna paham cara melindungi diri dari penipuan melalui enam simulasi interaktif. Setiap simulasi memiliki tingkat kesulitan dan estimasi durasi yang berbeda.
+
+| No | Simulasi | Tingkat | Durasi | Deskripsi |
+|---|---|---|---|---|
+| 01 | Penipuan Chat | Pemula | 4 menit | Menghadapi lowongan, top-up, dan investasi palsu |
+| 02 | Aplikasi Sus | Menengah | 3 menit | Memeriksa aplikasi, sumber unduhan, dan izinnya |
+| 03 | Phishing | Menengah | 4 menit | Menyelidiki email palsu sebelum tautan menjebak |
+| 04 | Penipuan Telepon | Menengah | 3 menit | Menerima telepon fiktif dan memilih respons yang tepat |
+| 05 | Judol | Penting | 5 menit | Mengenali promosi, near-miss, dan loss chasing |
+| 06 | Jebakan Logika | Pemula | 4 menit | Mengenali pola pikir yang dimanfaatkan pelaku |
+
+### 3. Komunitas
+
+Ruang bagi pengguna untuk saling berbagi pengalaman dan informasi seputar penipuan, sehingga pengguna lain bisa lebih waspada terhadap modus yang sedang beredar.
+
+
+| Jenis Pengecekan | Deskripsi |
+|---|---|
+| Pesan / Chat | Memeriksa isi pesan (SMS, WhatsApp, dll.) yang mencurigakan |
+| URL | Memeriksa apakah sebuah tautan berpotensi phishing atau situs berbahaya |
+| Nomor Telepon | Memeriksa apakah nomor pernah terindikasi sebagai nomor penipu |
+| Kebocoran Email | Memeriksa apakah alamat email pernah terlibat dalam kebocoran data |
+| Investasi | Memeriksa apakah tawaran investasi memiliki ciri-ciri investasi bodong |
+
+
+
 ## Getting Started
 
 First, run the development server:
